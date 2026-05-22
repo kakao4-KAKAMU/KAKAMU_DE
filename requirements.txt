@@ -1,0 +1,30 @@
+# --- Core runtime ---
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+pydantic>=2.7.0
+pydantic-settings>=2.4.0
+python-dotenv>=1.0.1
+
+# --- LLM stack ---
+vllm>=0.6.0
+openai>=1.40.0                  # vLLM OpenAI-compatible client
+langchain>=0.3.0
+langchain-core>=0.3.0
+langchain-openai>=0.2.0
+langchain-neo4j>=0.2.0
+langgraph>=0.2.0
+langgraph-checkpoint-postgres>=2.0.0
+
+# --- Storage ---
+neo4j>=5.20.0                   # Neo4j Python driver
+psycopg[binary]>=3.1.0          # PostgreSQL chat history
+sqlalchemy>=2.0.0
+alembic>=1.13.0
+
+# --- Embeddings / NLP ---
+sentence-transformers>=3.0.0
+tiktoken>=0.7.0
+
+# --- Observability ---
+structlog>=24.1.0
+prometheus-client>=0.20.0
