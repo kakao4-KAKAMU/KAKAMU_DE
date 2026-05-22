@@ -1,0 +1,209 @@
+# 시스템 아키텍처
+
+> Knowledge-graph 기반 영화/피드 추천 + LLM Chat 서비스의 전체 아키텍처.
+> 모든 다이어그램은 Mermaid 로 작성한다.
+
+---
+
+## 1. High-Level Component View
+
+```mermaid
+flowchart LR
+    subgraph Client["Client"]
+        WebApp["Web / Mobile App"]
+    end
+
+    subgraph API["FastAPI Gateway"]
+        ChatAPI["/chat (LangGraph)"]
+        FeedAPI["/feed/recommend"]
+        IngestAPI["/ingest"]
+    end
+
+    subgraph LLM["LLM Layer (vLLM)"]
+        VLLM["vLLM Server\n(KV-cache + PagedAttention\n+ Prefix Caching)"]
+        Embed["Embedding Model\n(BGE-M3 등)"]
+    end
+
+    subgraph Graph["Knowledge Layer"]
+        Neo4j[("Neo4j 5.x\n(Graph + Vector + Fulltext)")]
+    end
+
+    subgraph State["State Layer"]
+        Postgres[("PostgreSQL\n- chat_session\n- chat_message\n- LangGraph checkpoint")]
+    end
+
+    subgraph ETL["Ontology ETL"]
+        Movie["Movie Plot\nExtractor"]
+        FeedX["Feed Extractor"]
+        CmtX["Comment Extractor"]
+        Loader["Neo4j Loader"]
+    end
+
+    WebApp -->|REST/WebSocket| ChatAPI
+    WebApp --> FeedAPI
+    WebApp --> IngestAPI
+
+    ChatAPI --> VLLM
+    ChatAPI --> Neo4j
+    ChatAPI --> Postgres
+
+    FeedAPI --> Neo4j
+    FeedAPI --> Embed
+
+    IngestAPI --> Movie
+    IngestAPI --> FeedX
+    IngestAPI --> CmtX
+    Movie --> VLLM
+    FeedX --> VLLM
+    CmtX --> VLLM
+    Movie --> Embed
+    FeedX --> Embed
+    CmtX --> Embed
+    Movie --> Loader
+    FeedX --> Loader
+    CmtX --> Loader
+    Loader --> Neo4j
+```
+
+---
+
+## 2. 온톨로지 ETL 파이프라인 (비정형 → 지식그래프)
+
+```mermaid
+flowchart TB
+    subgraph Source["Raw Source"]
+        S1["영화 메타 + 줄거리(plot)"]
+        S2["피드 본문(content)"]
+        S3["댓글 본문(content)"]
+    end
+
+    subgraph Prompt["Ontology Mapping Prompt"]
+        P1["build_movie_plot_messages"]
+        P2["build_feed_messages"]
+        P3["build_comment_messages"]
+    end
+
+    subgraph Model["LLM (vLLM)"]
+        L1["Ontology Mapper\n(JSON guided decoding)"]
+    end
+
+    subgraph Schema["Pydantic 스키마 검증"]
+        V1["MoviePlotOntology"]
+        V2["FeedOntology"]
+        V3["CommentOntology"]
+    end
+
+    subgraph Embed["Embedding"]
+        E1["plot_summary → vec"]
+        E2["feed.summary → vec"]
+        E3["comment.summary → vec"]
+    end
+
+    subgraph Load["Neo4j Upsert"]
+        U1["MERGE (:Movie)+Rels"]
+        U2["MERGE (:Feed)+Rels"]
+        U3["MERGE (:Comment)+Rels"]
+    end
+
+    S1 --> P1 --> L1
+    S2 --> P2 --> L1
+    S3 --> P3 --> L1
+
+    L1 --> V1 --> E1 --> U1
+    L1 --> V2 --> E2 --> U2
+    L1 --> V3 --> E3 --> U3
+
+    U1 --> Neo4j[("Neo4j")]
+    U2 --> Neo4j
+    U3 --> Neo4j
+```
+
+---
+
+## 3. 사용자 Chat 흐름 (LangGraph)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as User
+    participant API as FastAPI /chat
+    participant LG as LangGraph
+    participant PG as PostgreSQL\n(chat_message)
+    participant VL as vLLM\n(prefix-cache)
+    participant NEO as Neo4j
+    participant EMB as Embedding
+
+    U->>API: query "감성적인 한국 영화 추천해줘"
+    API->>PG: append(user message)
+    API->>LG: invoke(state{user_id, query})
+
+    LG->>EMB: embed(query)
+    LG->>VL: build_user_intent_messages\n(system prompt = "Cypher Planner")
+    Note over VL: 동일 system prefix 는\nKV-block 단위로 재사용
+    VL-->>LG: {cypher, params}
+
+    LG->>NEO: HYBRID_MOVIE_RECOMMEND\n(vector + keyword + user pref)
+    NEO-->>LG: top-K movies
+
+    LG->>VL: 응답 생성 messages\n(user_id 라벨 포함)
+    VL-->>LG: assistant text
+
+    LG->>PG: append(assistant message,\nontology_ref={movie_ids,score})
+    LG-->>API: response
+    API-->>U: stream response
+```
+
+---
+
+## 4. vLLM KV-Cache 재사용 전략
+
+```mermaid
+flowchart LR
+    subgraph Prefix["고정 Prefix (호출 간 동일)"]
+        SP["System Prompt\n(ONTOLOGY_SYSTEM_PROMPT)"]
+        UP["User Persona Prefix\n(user_id 기반 안정 prefix)"]
+    end
+
+    subgraph Variable["가변 Suffix"]
+        Q["Per-call Query\n(영화메타/피드/댓글/대화)"]
+    end
+
+    SP -- block 0~N --> KV["KV Cache\n(PagedAttention blocks)"]
+    UP -- block N+1 --> KV
+    Q  -- 가변 영역 --> KV
+
+    KV -- 동일 prefix 재사용 --> Reuse["같은 user/system 의 다음 호출\n→ block reuse → TTFT 감소"]
+```
+
+> **운영 가이드**
+> - vLLM 실행 시 `--enable-prefix-caching --enable-chunked-prefill` 옵션 필수.
+> - 시스템 프롬프트(`ONTOLOGY_SYSTEM_PROMPT`) 는 **불변 상수**로 유지.
+> - 사용자별 가변 정보(피드/영화 메타)는 user role 메시지의 **뒤쪽**에 배치.
+> - `user_id` 를 OpenAI 호환 `user` 필드로 전달해 서버 사이드 로깅/라우팅을 잡는다.
+
+---
+
+## 5. 추천 알고리즘 (Hybrid: Semantic × Keyword × Graph)
+
+```mermaid
+flowchart TB
+    Q["사용자 질의 / 사용자 컨텍스트"]
+    Q --> E["Query Embedding\n(BGE-M3)"]
+    Q --> KW["Keyword/Theme/Mood 추출\n(LLM or 룰 기반)"]
+
+    E --> V["Vector Search\n(movie_plot_vec)"]
+    KW --> KS["Keyword Match\n(:MENTIONS via Keyword)"]
+    KW --> TM["Theme/Mood Match"]
+
+    subgraph UserPref["사용자 선호도"]
+        P1[":PREFERS"]
+        P2[":INTERACTED\n(view/like/skip)"]
+    end
+
+    V --> S["가중합 스코어\n0.55·vec\n+ 0.15·kw\n+ 0.10·theme\n+ 0.05·mood\n+ 0.15·user_pref"]
+    KS --> S
+    TM --> S
+    UserPref --> S
+
+    S --> R["Top-K Movies\n(추천 / 채팅 근거)"]
+```
