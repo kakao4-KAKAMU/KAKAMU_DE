@@ -1,35 +1,54 @@
-"""골든셋 샘플 JSONL 생성 (초기 30건)."""
+"""Build data/goldenset_sample.jsonl with 30 dummy evaluation rows."""
 
 from __future__ import annotations
 
 import json
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-OUT = ROOT / "data" / "goldenset_sample.jsonl"
+THEMES = [
+    ["action", "revenge"],
+    ["romance", "melodrama"],
+    ["horror", "supernatural"],
+    ["sci_fi", "dystopia"],
+    ["comedy", "buddy"],
+]
+SENTIMENTS = ["positive", "neutral", "negative", "very_positive", "very_negative"]
+TEXTS = [
+    "A retired detective returns for one last case in the rain-soaked city.",
+    "Two strangers meet on a train and swap stories about lost love.",
+    "Something watches from the attic while the family sleeps.",
+    "Humanity's last colony ship drifts toward a dying star.",
+    "Friends plan a disastrous heist at their high school reunion.",
+]
 
 
-def main() -> None:
-    OUT.parent.mkdir(parents=True, exist_ok=True)
+def build_rows(count: int = 30) -> list[dict]:
     rows = []
-    for i in range(30):
+    for i in range(count):
         rows.append(
             {
-                "source_id": f"movie-{i:03d}",
-                "source_type": "movie",
-                "raw_text": f"영화 줄거리 샘플 {i}",
-                "ontology": {
-                    "summary": f"요약 {i}",
-                    "themes": ["성장"],
-                    "sentiment": "neutral",
+                "id": f"golden_{i + 1:03d}",
+                "text": TEXTS[i % len(TEXTS)] + f" (sample {i + 1})",
+                "expected": {
+                    "themes": THEMES[i % len(THEMES)],
+                    "sentiment": SENTIMENTS[i % len(SENTIMENTS)],
+                    "keywords": ["movie", "plot", f"tag_{i % 5}"],
                 },
-                "keywords": ["성장", "가족"],
             }
         )
-    with OUT.open("w", encoding="utf-8") as f:
+    return rows
+
+
+def main() -> Path:
+    root = Path(__file__).resolve().parents[1]
+    out = root / "data" / "goldenset_sample.jsonl"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    rows = build_rows(30)
+    with out.open("w", encoding="utf-8") as fh:
         for row in rows:
-            f.write(json.dumps(row, ensure_ascii=False) + "\n")
-    print(f"Wrote {len(rows)} rows to {OUT}")
+            fh.write(json.dumps(row, ensure_ascii=False) + "\n")
+    print(f"Wrote {len(rows)} rows to {out}")
+    return out
 
 
 if __name__ == "__main__":

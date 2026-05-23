@@ -9,7 +9,7 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -118,9 +118,18 @@ class BanditSettings(BaseSettings):
 class EvalSettings(BaseSettings):
     """LLM judge / drift 알람."""
 
-    daily_sample_size: int = Field(default=100, validation_alias="JUDGE_DAILY_SAMPLE_SIZE")
-    drift_kl_threshold: float = Field(default=0.15, validation_alias="DRIFT_KL_THRESHOLD")
-    slack_webhook_url: str = Field(default="", validation_alias="EVAL_SLACK_WEBHOOK_URL")
+    daily_sample_size: int = Field(
+        default=100,
+        validation_alias=AliasChoices("JUDGE_DAILY_SAMPLE_SIZE", "daily_sample_size"),
+    )
+    drift_kl_threshold: float = Field(
+        default=0.15,
+        validation_alias=AliasChoices("DRIFT_KL_THRESHOLD", "drift_kl_threshold"),
+    )
+    slack_webhook_url: str = Field(
+        default="",
+        validation_alias=AliasChoices("EVAL_SLACK_WEBHOOK_URL", "slack_webhook_url"),
+    )
 
     model_config = SettingsConfigDict(extra="ignore")
 
