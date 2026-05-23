@@ -309,6 +309,40 @@ RETURN m.movie_id      AS movie_id,
        score
 """
 
+HYBRID_MOVIE_RECOMMEND_WEIGHTED: Final[str] = """
+CALL db.index.vector.queryNodes('movie_plot_vec', $vec_top_k, $query_embedding)
+YIELD node AS m, score AS vec_score
+
+OPTIONAL MATCH (m)-[:MENTIONS]->(k:Keyword)
+WHERE k.normalized IN $query_keywords
+WITH m, vec_score, count(DISTINCT k) AS kw_hits
+
+OPTIONAL MATCH (m)-[:HAS_THEME]->(t:Theme)
+WHERE t.name IN $query_themes
+WITH m, vec_score, kw_hits, count(DISTINCT t) AS theme_hits
+
+OPTIONAL MATCH (m)-[:HAS_MOOD]->(md:Mood)
+WHERE md.name IN $query_moods
+WITH m, vec_score, kw_hits, theme_hits, count(DISTINCT md) AS mood_hits
+
+OPTIONAL MATCH (u:User {user_id: $user_id})-[p:PREFERS]->(x)
+WHERE x:Genre OR x:Theme OR x:Keyword
+OPTIONAL MATCH (m)-[:HAS_GENRE|HAS_THEME|MENTIONS]->(x)
+WITH m, vec_score, kw_hits, theme_hits, mood_hits,
+     coalesce(sum(p.weight), 0.0) AS user_pref_score
+
+WITH m,
+     ($w_vec * vec_score)
+   + ($w_kw * (1.0 - exp(-toFloat(kw_hits))))
+   + ($w_theme * (1.0 - exp(-toFloat(theme_hits))))
+   + ($w_mood * (1.0 - exp(-toFloat(mood_hits))))
+   + ($w_user * tanh(user_pref_score)) AS score
+ORDER BY score DESC
+LIMIT $top_k
+
+RETURN m.movie_id AS movie_id, m.title AS title, m.plot_summary AS plot_summary, score
+"""
+
 
 __all__ = [
     "NODE_CONSTRAINTS",
@@ -323,4 +357,5 @@ __all__ = [
     "UPSERT_FEED_WITH_ONTOLOGY",
     "UPSERT_COMMENT_WITH_ONTOLOGY",
     "HYBRID_MOVIE_RECOMMEND",
+    "HYBRID_MOVIE_RECOMMEND_WEIGHTED",
 ]

@@ -350,46 +350,25 @@ def build_comment_messages(
 
 USER_INTENT_TO_CYPHER_SYSTEM_PROMPT: Final[str] = dedent(
     """
-    너는 사용자의 자연어 추천 요청을, 미리 정의된 Neo4j 온톨로지 위에서
-    실행 가능한 Cypher 쿼리로 변환하는 "Recommendation Cypher Planner" 다.
+    너는 사용자의 자연어 추천 요청을, 미리 등록된 Cypher 템플릿 중 하나를 선택하고
+  파라미터만 채우는 "Recommendation Template Planner" 다.
+  raw Cypher 를 직접 작성하지 마라.
 
-    [그래프 스키마 요약]
-    Nodes:
-      (:Movie {movie_id, title, producing_year, country, plot_summary, plot_embedding})
-      (:Genre {name})
-      (:Theme {name})
-      (:Mood {name})
-      (:Keyword {normalized, kind})
-      (:Person {person_id, name})
-      (:User {user_id, nickname})
-      (:Feed {feed_id, summary, sentiment_score, contains_spoiler})
-      (:Comment {comment_id, summary, sentiment_score})
-      (:Category {name})
-      (:Emotion {tag})
-
-    Relationships:
-      (:Movie)-[:HAS_GENRE]->(:Genre)
-      (:Movie)-[:HAS_THEME]->(:Theme)
-      (:Movie)-[:HAS_MOOD]->(:Mood)
-      (:Movie)-[:MENTIONS {weight}]->(:Keyword)
-      (:Movie)-[:HAS_PERSON {job}]->(:Person)
-      (:Feed)-[:ABOUT_MOVIE]->(:Movie)
-      (:Feed)-[:WRITTEN_BY]->(:User)
-      (:Feed)-[:HAS_CATEGORY]->(:Category)
-      (:Feed)-[:HAS_EMOTION {score}]->(:Emotion)
-      (:Feed)-[:MENTIONS {weight}]->(:Keyword)
-      (:Comment)-[:ON_FEED]->(:Feed)
-      (:Comment)-[:WRITTEN_BY]->(:User)
-      (:User)-[:INTERACTED {action, weight, ts}]->(:Movie|:Feed)
-      (:User)-[:PREFERS {weight}]->(:Genre|:Theme|:Keyword)
+    [등록된 template_id]
+    - hybrid_recommend: 영화 하이브리드 추천 (기본)
+    - feed_about_movie: 특정 영화 관련 피드
+    - similar_movie_by_theme: 테마 유사 영화
+    - recent_feeds_positive: 긍정 피드 최신순
+    - user_preference_summary: 사용자 선호 요약
 
     [출력 규칙]
-    - 출력은 단일 JSON: {"cypher": "...", "params": {...}, "reasoning": "..."}
-    - 파라미터는 반드시 $param 형태로 사용. 문자열 리터럴 금지.
-    - 의미/키워드 하이브리드 검색은 다음 패턴을 권장한다:
-        // 1) 벡터로 후보 movie 선정
-        // 2) keyword/theme/mood 기반 보강
-        // 3) user preference 반영
+    - 출력은 단일 JSON:
+      {"template_id": "...", "params": {...}, "reasoning": "..."}
+    - params 의 키는 템플릿이 요구하는 이름만 사용.
+    - hybrid_recommend 기본 params 예:
+      user_id, query_embedding (float[]), query_keywords, query_themes,
+      query_moods, top_k, vec_top_k, w_vec, w_kw, w_theme, w_mood, w_user
+    - 모르는 값은 빈 리스트/기본 가중치로 채운다.
     """
 ).strip()
 
@@ -409,7 +388,8 @@ def build_user_intent_messages(
         - top_k   : {top_k}
         - query   : "{user_query.strip()}"
 
-        위 요청을 처리하는 단일 Cypher 쿼리를 JSON 으로 반환하라.
+        위 요청에 맞는 template_id 와 params 를 JSON 으로 반환하라.
+        영화 추천이면 hybrid_recommend 를 우선 선택하라.
         """
     ).strip()
 
