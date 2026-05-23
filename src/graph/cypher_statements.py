@@ -73,6 +73,26 @@ FULLTEXT_INDEXES: Final[List[str]] = [
 ]
 
 
+def vector_index_statements_for_version(
+    version: str, embedding_dim: int, *, label: str = "Movie", base_prop: str = "plot_embedding"
+) -> List[str]:
+    """버전별 vector index (예: plot_embedding_v1)."""
+    prop = f"{base_prop}_v{version.replace('.', '_')}"
+    index_name = f"movie_plot_vec_{version.replace('.', '_')}"
+    return [
+        f"""
+        CREATE VECTOR INDEX {index_name} IF NOT EXISTS
+        FOR (m:{label}) ON (m.{prop})
+        OPTIONS {{
+            indexConfig: {{
+                `vector.dimensions`: {embedding_dim},
+                `vector.similarity_function`: 'cosine'
+            }}
+        }}
+        """
+    ]
+
+
 def vector_index_statements(embedding_dim: int) -> List[str]:
     """semantic 검색용 Native Vector Index.
 
@@ -358,4 +378,5 @@ __all__ = [
     "UPSERT_COMMENT_WITH_ONTOLOGY",
     "HYBRID_MOVIE_RECOMMEND",
     "HYBRID_MOVIE_RECOMMEND_WEIGHTED",
+    "vector_index_statements_for_version",
 ]
