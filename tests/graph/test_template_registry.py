@@ -54,3 +54,4 @@ def test_validate_params_ok() -> None:
         },
     )
     assert params["top_k"] == 10
+    assert params["query_embedding"] == [0.1, 0.2]
