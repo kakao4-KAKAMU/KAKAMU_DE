@@ -70,7 +70,7 @@ def main() -> int:
         print("Planned steps (not executed):")
         print(f"  1. REGISTER shadow version {args.target_version!r} on :EmbeddingVersionMeta")
         print(f"  2. DUAL-WRITE embeddings to {target_prop} (+ active property)")
-        print(f"  3. CREATE VECTOR INDEX movie_plot_vec_v{args.target_version}")
+        print(f"  3. CREATE VECTOR INDEX movie_plot_vec_{args.target_version}")
         print(f"  4. EVALUATE Recall@K (shadow vs active)")
         print(f"  5. PROMOTE shadow → active when threshold met")
         print()
