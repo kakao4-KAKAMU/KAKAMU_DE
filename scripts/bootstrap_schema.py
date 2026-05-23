@@ -26,24 +26,24 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def _run_sql_files(settings) -> None:
-  pg = settings.postgres
-  sql_files = [
-    ROOT / "src" / "persistence" / "outbox_schema.sql",
-    ROOT / "src" / "persistence" / "eval_schema.sql",
-    ROOT / "src" / "recommend" / "bandit_schema.sql",
-  ]
-  with psycopg.connect(
-    host=pg.host,
-    port=pg.port,
-    dbname=pg.database,
-    user=pg.user,
-    password=pg.password,
-  ) as conn:
-    with conn.cursor() as cur:
-      for path in sql_files:
-        if path.exists():
-          cur.execute(path.read_text(encoding="utf-8"))
-    conn.commit()
+    pg = settings.postgres
+    sql_files = [
+        ROOT / "src" / "persistence" / "outbox_schema.sql",
+        ROOT / "src" / "persistence" / "eval_schema.sql",
+        ROOT / "src" / "recommend" / "bandit_schema.sql",
+    ]
+    with psycopg.connect(
+        host=pg.host,
+        port=pg.port,
+        dbname=pg.database,
+        user=pg.user,
+        password=pg.password,
+    ) as conn:
+        with conn.cursor() as cur:
+            for path in sql_files:
+                if path.exists():
+                    cur.execute(path.read_text(encoding="utf-8"))
+        conn.commit()
 
 
 def main() -> None:

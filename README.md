@@ -183,9 +183,21 @@ score = 0.55 · vector_similarity
 
 ---
 
-## 7. 다음 단계 (Roadmap)
+## 7. 6-Step 자동화 (구현 완료)
 
-- [ ] LangGraph `StateGraph` 로 추천 워크플로우 구성 (`src/api/` 라우터 포함)
-- [ ] 임베딩 모듈 추상화 (`src/embedding/`) 및 캐시 적용
-- [ ] LangGraph `PostgresSaver` 로 LangGraph 체크포인트 영속화 통합
-- [ ] 평가 데이터셋 + Recall@K / NDCG 지표 자동화
+| Step | 모듈 | 문서 |
+|------|------|------|
+| Cypher Template | `src/graph/template_*` | [docs/cypher_templates.md](docs/cypher_templates.md) |
+| Versioned Embedding | `src/embedding/version_*` | [docs/versioned_embedding.md](docs/versioned_embedding.md) |
+| Auto Vocabulary | `src/vocab/*` | [docs/auto_vocab.md](docs/auto_vocab.md) |
+| Outbox Ingest | `src/ingest/*` | [docs/outbox_ingest.md](docs/outbox_ingest.md) |
+| Bandit Weights | `src/recommend/*` | [docs/bandit_weights.md](docs/bandit_weights.md) |
+| LLM Judge | `src/eval/*` | [docs/llm_judge.md](docs/llm_judge.md) |
+
+통합 smoke: [docs/smoke_test.md](docs/smoke_test.md)
+
+## 8. 다음 단계 (Roadmap)
+
+- [ ] LangGraph `StateGraph` + FastAPI `/chat` (동시 10명 세션)
+- [ ] Neo4j MCP 연동 (`GraphRAG/index.ipynb`)
+- [ ] LangGraph `PostgresSaver` 체크포인트
