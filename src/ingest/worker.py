@@ -12,6 +12,7 @@ import psycopg
 
 from src.config.settings import PostgresSettings, get_settings
 from src.ingest.dispatcher import IngestDispatcher
+from src.ingest.outbox_writer import OutboxWriter
 
 logger = logging.getLogger(__name__)
 
@@ -24,9 +25,12 @@ class IngestWorker:
         self,
         dispatcher: IngestDispatcher,
         settings: Optional[PostgresSettings] = None,
+        *,
+        outbox_writer: Optional[OutboxWriter] = None,
     ) -> None:
         self._dispatcher = dispatcher
         self._settings = settings or get_settings().postgres
+        self._outbox = outbox_writer or OutboxWriter(self._settings)
 
     def _connect(self) -> psycopg.Connection:
         return psycopg.connect(
@@ -52,7 +56,7 @@ class IngestWorker:
                 SET status = 'processing', updated_at = NOW()
                 FROM cte
                 WHERE o.id = cte.id
-                RETURNING o.id, o.aggregate_type, o.aggregate_id, o.payload,
+                RETURNING o.id, o.aggregate_type, o.aggregate_id, o.op, o.payload,
                           o.prompt_version, o.model_name, o.attempts
                 """,
                 (BATCH_SIZE,),
@@ -64,10 +68,11 @@ class IngestWorker:
                     "id": r[0],
                     "aggregate_type": r[1],
                     "aggregate_id": r[2],
-                    "payload": r[3] if isinstance(r[3], dict) else json.loads(r[3]),
-                    "prompt_version": r[4],
-                    "model_name": r[5],
-                    "attempts": r[6],
+                    "op": r[3],
+                    "payload": r[4] if isinstance(r[4], dict) else json.loads(r[4]),
+                    "prompt_version": r[5],
+                    "model_name": r[6],
+                    "attempts": r[7],
                 }
                 for r in rows
             ]
@@ -101,9 +106,12 @@ class IngestWorker:
                         error,
                     ),
                 )
-                cur.execute("UPDATE ingest_outbox SET status='dlq', last_error=%s WHERE id=%s", (error, row["id"]))
+                cur.execute(
+                    "UPDATE ingest_outbox SET status='dlq', last_error=%s WHERE id=%s",
+                    (error, row["id"]),
+                )
             else:
-                delay = 2 ** attempts
+                delay = 2**attempts
                 next_at = datetime.now(timezone.utc) + timedelta(seconds=delay)
                 cur.execute(
                     """
@@ -116,10 +124,35 @@ class IngestWorker:
                 )
             conn.commit()
 
+    def needs_reprocess(self, row: dict[str, Any]) -> bool:
+        """payload 또는 row 의 prompt_version 이 현재 설정과 다르면 재적재."""
+        current = get_settings().ontology.prompt_version
+        payload = row["payload"]
+        payload_pv = payload.get("prompt_version")
+        if payload_pv is not None and payload_pv != current:
+            return True
+        return row["prompt_version"] != current
+
+    def reenqueue(self, row: dict[str, Any]) -> int:
+        new_id = self._outbox.enqueue(
+            aggregate_type=row["aggregate_type"],
+            aggregate_id=row["aggregate_id"],
+            op=row.get("op", "upsert"),
+            payload=row["payload"],
+        )
+        logger.info(
+            "Re-enqueued outbox id=%s -> new_id=%s (prompt_version=%s)",
+            row["id"],
+            new_id,
+            get_settings().ontology.prompt_version,
+        )
+        return new_id
+
     def process_row(self, row: dict[str, Any]) -> None:
-        app = get_settings()
-        if row["prompt_version"] != app.ontology.prompt_version:
-            logger.info("Reprocess due to prompt_version mismatch id=%s", row["id"])
+        if self.needs_reprocess(row):
+            self.reenqueue(row)
+            self.ack(row["id"])
+            return
         self._dispatcher.dispatch(row["aggregate_type"], row["payload"])
         self.ack(row["id"])
 

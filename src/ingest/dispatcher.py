@@ -1,4 +1,4 @@
-"""aggregate_type → 처리 핸들러."""
+"""aggregate_type → 처리 핸들러 (extract + load)."""
 
 from __future__ import annotations
 
@@ -8,6 +8,24 @@ from typing import Any, Callable, Mapping
 logger = logging.getLogger(__name__)
 
 Handler = Callable[[Mapping[str, Any]], None]
+
+
+def mock_extract(aggregate_type: str, payload: Mapping[str, Any]) -> dict[str, Any]:
+    """테스트/스텁용 온톨로지 추출."""
+    return {"aggregate_type": aggregate_type, "source": dict(payload)}
+
+
+def mock_load(aggregate_type: str, extracted: Mapping[str, Any]) -> None:
+    """테스트/스텁용 Neo4j 적재."""
+    logger.debug("mock_load %s keys=%s", aggregate_type, list(extracted.keys()))
+
+
+def mock_extract_load_handler(aggregate_type: str) -> Handler:
+    def _handler(payload: Mapping[str, Any]) -> None:
+        extracted = mock_extract(aggregate_type, payload)
+        mock_load(aggregate_type, extracted)
+
+    return _handler
 
 
 class IngestDispatcher:
@@ -25,15 +43,18 @@ class IngestDispatcher:
 
 
 def default_dispatcher() -> IngestDispatcher:
-    """테스트/스텁용 기본 디스패처."""
-
-    def _noop(_: Mapping[str, Any]) -> None:
-        logger.debug("noop ingest handler")
-
+    """movie / feed / comment → mock extract+load."""
     d = IngestDispatcher()
     for t in ("movie", "feed", "comment"):
-        d.register(t, _noop)
+        d.register(t, mock_extract_load_handler(t))
     return d
 
 
-__all__ = ["IngestDispatcher", "default_dispatcher"]
+__all__ = [
+    "Handler",
+    "IngestDispatcher",
+    "default_dispatcher",
+    "mock_extract",
+    "mock_load",
+    "mock_extract_load_handler",
+]
