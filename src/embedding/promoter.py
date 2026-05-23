@@ -1,33 +1,47 @@
-"""Shadow → Active 승격 정책."""
+"""Promote shadow embedding version to active when evaluation thresholds are met."""
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+from typing import Optional
+
 from src.embedding.shadow_evaluator import ShadowEvalResult
-from src.embedding.version_registry import VersionRegistry
+from src.embedding.version_registry import EmbeddingVersion, EmbeddingVersionRegistry
 
 
-class EmbeddingPromoter:
-    def __init__(
-        self,
-        registry: VersionRegistry,
-        *,
-        min_improvement: float = 0.02,
-        min_sample_size: int = 50,
-    ) -> None:
-        self._registry = registry
-        self._min_improvement = min_improvement
-        self._min_sample_size = min_sample_size
+@dataclass(frozen=True)
+class PromotionThresholds:
+    """Minimum improvement and absolute shadow quality for promotion."""
 
-    def should_promote(self, result: ShadowEvalResult) -> bool:
-        if result.sample_size < self._min_sample_size:
-            return False
-        return result.improvement >= self._min_improvement
-
-    def promote_if_ready(self, result: ShadowEvalResult, shadow_name: str) -> bool:
-        if not self.should_promote(result):
-            return False
-        self._registry.promote_shadow_to_active(shadow_name)
-        return True
+    min_recall_delta: float = 0.01
+    min_shadow_recall: float = 0.0
 
 
-__all__ = ["EmbeddingPromoter"]
+def should_promote(
+    result: ShadowEvalResult,
+    thresholds: PromotionThresholds | None = None,
+) -> bool:
+    cfg = thresholds or PromotionThresholds()
+    return (
+        result.shadow.recall_at_k >= cfg.min_shadow_recall
+        and result.recall_delta >= cfg.min_recall_delta
+    )
+
+
+def promote_shadow_if_ready(
+    result: ShadowEvalResult,
+    registry: EmbeddingVersionRegistry,
+    *,
+    thresholds: PromotionThresholds | None = None,
+) -> Optional[EmbeddingVersion]:
+    """Promote shadow → active in Neo4j when metrics pass thresholds."""
+    if not should_promote(result, thresholds):
+        return None
+    return registry.promote_shadow_to_active()
+
+
+__all__ = [
+    "PromotionThresholds",
+    "promote_shadow_if_ready",
+    "should_promote",
+]

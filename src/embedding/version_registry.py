@@ -1,102 +1,192 @@
-"""임베딩 버전 메타 (Neo4j + in-memory cache)."""
+"""Neo4j-backed embedding version registry (:EmbeddingVersionMeta)."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum
-from typing import Optional
+from datetime import datetime
+from typing import Literal, Optional, Protocol
 
+from src.config.settings import EmbeddingSettings, get_settings
 from src.graph.client import Neo4jClient
 
+VersionRole = Literal["active", "shadow", "retired"]
 
-class VersionStatus(str, Enum):
-    ACTIVE = "active"
-    SHADOW = "shadow"
-    DEPRECATED = "deprecated"
+
+def plot_embedding_property(version: str) -> str:
+    """Versioned Movie plot embedding property name."""
+    return f"plot_embedding_v{version}"
 
 
 @dataclass(frozen=True)
 class EmbeddingVersion:
-    name: str
-    model: str
+    """Registered embedding schema version."""
+
+    version: str
     dimension: int
-    status: VersionStatus
+    role: VersionRole
+    model_name: str
+    property_key: str
+    created_at: Optional[datetime] = None
+
+    @classmethod
+    def from_record(cls, record: dict) -> "EmbeddingVersion":
+        created = record.get("created_at")
+        if created is not None and not isinstance(created, datetime):
+            created = None
+        return cls(
+            version=str(record["version"]),
+            dimension=int(record["dimension"]),
+            role=record["role"],
+            model_name=str(record.get("model_name") or ""),
+            property_key=str(record.get("property_key") or plot_embedding_property(str(record["version"]))),
+            created_at=created,
+        )
 
 
-MERGE_VERSION = """
-MERGE (v:EmbeddingVersionMeta {name: $name})
-SET v.model = $model,
-    v.dimension = $dimension,
-    v.status = $status,
-    v.updated_at = datetime()
-"""
+class VersionStore(Protocol):
+    def execute_read(self, cypher: str, params: Optional[dict] = None) -> list[dict]: ...
 
-GET_BY_STATUS = """
-MATCH (v:EmbeddingVersionMeta {status: $status})
-RETURN v.name AS name, v.model AS model, v.dimension AS dimension, v.status AS status
+    def execute_write(self, cypher: str, params: Optional[dict] = None) -> list[dict]: ...
+
+
+_FETCH_BY_ROLE = """
+MATCH (m:EmbeddingVersionMeta {role: $role})
+RETURN m.version AS version,
+       m.dimension AS dimension,
+       m.role AS role,
+       m.model_name AS model_name,
+       m.property_key AS property_key,
+       m.created_at AS created_at
+ORDER BY m.created_at DESC
 LIMIT 1
 """
 
+_REGISTER_VERSION = """
+MERGE (m:EmbeddingVersionMeta {version: $version})
+SET m.dimension = $dimension,
+    m.role = $role,
+    m.model_name = $model_name,
+    m.property_key = $property_key,
+    m.updated_at = datetime(),
+    m.created_at = coalesce(m.created_at, datetime())
+RETURN m.version AS version,
+       m.dimension AS dimension,
+       m.role AS role,
+       m.model_name AS model_name,
+       m.property_key AS property_key,
+       m.created_at AS created_at
+"""
 
-class VersionRegistry:
-    def __init__(self, neo4j: Neo4jClient) -> None:
-        self._neo4j = neo4j
+_PROMOTE_SHADOW = """
+MATCH (shadow:EmbeddingVersionMeta {role: 'shadow'})
+MATCH (active:EmbeddingVersionMeta {role: 'active'})
+SET active.role = 'retired',
+    shadow.role = 'active'
+RETURN shadow.version AS version,
+       shadow.dimension AS dimension,
+       shadow.role AS role,
+       shadow.model_name AS model_name,
+       shadow.property_key AS property_key,
+       shadow.created_at AS created_at
+"""
 
-    def register_version(self, version: EmbeddingVersion) -> None:
-        self._neo4j.execute_write(
-            MERGE_VERSION,
-            {
-                "name": version.name,
-                "model": version.model,
-                "dimension": version.dimension,
-                "status": version.status.value,
-            },
-        )
+
+class EmbeddingVersionRegistry:
+    """CRUD for :EmbeddingVersionMeta nodes."""
+
+    def __init__(
+        self,
+        store: VersionStore,
+        *,
+        settings: Optional[EmbeddingSettings] = None,
+    ) -> None:
+        self._store = store
+        self._settings = settings or get_settings().embedding
 
     def get_active_version(self) -> Optional[EmbeddingVersion]:
-        rows = self._neo4j.execute_read(GET_BY_STATUS, {"status": VersionStatus.ACTIVE.value})
-        if not rows:
-            return None
-        row = rows[0]
-        return EmbeddingVersion(
-            name=row["name"],
-            model=row["model"],
-            dimension=int(row["dimension"]),
-            status=VersionStatus(row["status"]),
-        )
+        rows = self._store.execute_read(_FETCH_BY_ROLE, {"role": "active"})
+        return EmbeddingVersion.from_record(rows[0]) if rows else None
 
     def get_shadow_version(self) -> Optional[EmbeddingVersion]:
-        rows = self._neo4j.execute_read(GET_BY_STATUS, {"status": VersionStatus.SHADOW.value})
+        rows = self._store.execute_read(_FETCH_BY_ROLE, {"role": "shadow"})
+        return EmbeddingVersion.from_record(rows[0]) if rows else None
+
+    def register_version(
+        self,
+        version: str,
+        *,
+        role: VersionRole,
+        dimension: Optional[int] = None,
+        model_name: Optional[str] = None,
+    ) -> EmbeddingVersion:
+        dim = dimension if dimension is not None else self._settings.dimension
+        model = model_name if model_name is not None else self._settings.model_name
+        prop = plot_embedding_property(version)
+        rows = self._store.execute_write(
+            _REGISTER_VERSION,
+            {
+                "version": version,
+                "dimension": dim,
+                "role": role,
+                "model_name": model,
+                "property_key": prop,
+            },
+        )
         if not rows:
-            return None
-        row = rows[0]
-        return EmbeddingVersion(
-            name=row["name"],
-            model=row["model"],
-            dimension=int(row["dimension"]),
-            status=VersionStatus(row["status"]),
-        )
+            raise RuntimeError(f"Failed to register embedding version {version!r}")
+        return EmbeddingVersion.from_record(rows[0])
 
-    def promote_shadow_to_active(self, shadow_name: str) -> None:
-        self._neo4j.execute_write(
-            """
-            MATCH (old:EmbeddingVersionMeta {status: 'active'})
-            SET old.status = 'deprecated'
-            WITH 1 AS _
-            MATCH (shadow:EmbeddingVersionMeta {name: $name})
-            SET shadow.status = 'active', shadow.updated_at = datetime()
-            """,
-            {"name": shadow_name},
-        )
+    def promote_shadow_to_active(self) -> Optional[EmbeddingVersion]:
+        rows = self._store.execute_write(_PROMOTE_SHADOW)
+        return EmbeddingVersion.from_record(rows[0]) if rows else None
+
+    def write_targets(self) -> list[EmbeddingVersion]:
+        """Active and optional shadow versions for dual-write."""
+        targets: list[EmbeddingVersion] = []
+        active = self.get_active_version()
+        if active:
+            targets.append(active)
+        shadow = self.get_shadow_version()
+        if shadow:
+            targets.append(shadow)
+        return targets
 
 
-def property_name_for_version(version_name: str, base: str = "plot_embedding") -> str:
-    return f"{base}_v{version_name.replace('.', '_')}"
+def get_active_version(
+    client: Optional[VersionStore] = None,
+    *,
+    settings: Optional[EmbeddingSettings] = None,
+) -> Optional[EmbeddingVersion]:
+    """Module helper: return the active embedding version."""
+    store = client or Neo4jClient()
+    return EmbeddingVersionRegistry(store, settings=settings).get_active_version()
+
+
+def register_version(
+    version: str,
+    *,
+    role: VersionRole,
+    client: Optional[VersionStore] = None,
+    dimension: Optional[int] = None,
+    model_name: Optional[str] = None,
+    settings: Optional[EmbeddingSettings] = None,
+) -> EmbeddingVersion:
+    """Module helper: register a version in Neo4j."""
+    store = client or Neo4jClient()
+    return EmbeddingVersionRegistry(store, settings=settings).register_version(
+        version,
+        role=role,
+        dimension=dimension,
+        model_name=model_name,
+    )
 
 
 __all__ = [
     "EmbeddingVersion",
-    "VersionStatus",
-    "VersionRegistry",
-    "property_name_for_version",
+    "EmbeddingVersionRegistry",
+    "VersionRole",
+    "VersionStore",
+    "get_active_version",
+    "plot_embedding_property",
+    "register_version",
 ]
