@@ -5,9 +5,9 @@ pydantic>=2.7.0
 pydantic-settings>=2.4.0
 python-dotenv>=1.0.1
 
-# --- LLM stack ---
+# --- LLM stack (local vLLM only; OpenAI SDK talks to vLLM OpenAI-compatible API) ---
 vllm>=0.6.0
-openai>=1.40.0                  # vLLM OpenAI-compatible client
+openai>=1.40.0
 langchain>=0.3.0
 langchain-core>=0.3.0
 langchain-openai>=0.2.0

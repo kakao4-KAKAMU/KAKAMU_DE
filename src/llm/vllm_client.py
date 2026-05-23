@@ -29,7 +29,7 @@ from typing import Any, Optional
 
 from openai import OpenAI
 
-from src.config.settings import VLLMSettings, get_settings
+from src.config.settings import VLLMGenSettings, get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -37,8 +37,8 @@ logger = logging.getLogger(__name__)
 class VLLMChatClient:
     """OpenAI 호환 vLLM 서버용 chat 클라이언트."""
 
-    def __init__(self, settings: Optional[VLLMSettings] = None) -> None:
-        self._settings = settings or get_settings().vllm
+    def __init__(self, settings: Optional[VLLMGenSettings] = None) -> None:
+        self._settings = settings or get_settings().vllm_gen
         self._client = OpenAI(
             base_url=self._settings.base_url,
             api_key=self._settings.api_key,
