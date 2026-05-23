@@ -23,13 +23,19 @@ from src.ontology.schema import (
     FeedOntology,
     MoviePlotOntology,
 )
+from src.vocab.pipeline import VocabPipeline
 
 logger = logging.getLogger(__name__)
 
 
 class OntologyLoader:
-    def __init__(self, neo4j: Neo4jClient) -> None:
+    def __init__(
+        self,
+        neo4j: Neo4jClient,
+        vocab_pipeline: VocabPipeline | None = None,
+    ) -> None:
         self._neo4j = neo4j
+        self._vocab = vocab_pipeline
 
     # ------------------------------------------------------------------
     # Movie
@@ -46,6 +52,14 @@ class OntologyLoader:
         ontology: MoviePlotOntology,
         plot_embedding: Sequence[float],
     ) -> None:
+        themes = ontology.themes
+        moods = ontology.moods
+        keywords = ontology.keywords
+        if self._vocab:
+            themes = self._vocab.resolve_themes(themes)
+            moods = self._vocab.resolve_moods(moods)
+            keywords = self._vocab.resolve_keywords(keywords)
+
         params = {
             "movie_id": movie_id,
             "title": title,
@@ -55,9 +69,9 @@ class OntologyLoader:
             "plot_summary": ontology.summary,
             "plot_embedding": list(plot_embedding),
             "genres": list(genres),
-            "themes": ontology.themes,
-            "moods": ontology.moods,
-            "keywords": [k.model_dump() for k in ontology.keywords],
+            "themes": themes,
+            "moods": moods,
+            "keywords": [k.model_dump() for k in keywords],
         }
         self._neo4j.execute_write(UPSERT_MOVIE_WITH_ONTOLOGY, params)
         logger.info("Upserted movie %s (themes=%d, keywords=%d)",
