@@ -70,16 +70,12 @@ docker run --rm -p 7474:7474 -p 7687:7687 \
   neo4j:5
 ```
 
-### 3-2. vLLM 실행 (prefix cache + chunked prefill)
+### 3-2. vLLM 실행 (T4 16GB: gen + embed 동시)
 
 ```bash
-python -m vllm.entrypoints.openai.api_server \
-  --model Qwen/Qwen2.5-7B-Instruct \
-  --port 8000 \
-  --enable-prefix-caching \
-  --enable-chunked-prefill \
-  --gpu-memory-utilization 0.9 \
-  --block-size 16
+./scripts/start_vllm.sh
+# Generation: Qwen2.5-7B-Instruct-AWQ @ :8000 (gpu 65%)
+# Embedding:  BAAI/bge-m3 @ :8001 (gpu 20%)
 ```
 
 ### 3-3. 의존성 / 스키마
