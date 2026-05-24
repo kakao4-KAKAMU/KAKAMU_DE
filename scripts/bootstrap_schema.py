@@ -16,29 +16,22 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-import psycopg
-
+from src.chat.checkpoint import setup_checkpoint_tables
 from src.config.settings import get_settings
 from src.graph.client import Neo4jClient
 from src.persistence.chat_history import ChatHistoryStore
+from src.persistence.db import get_connection
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def _run_sql_files(settings) -> None:
-    pg = settings.postgres
     sql_files = [
         ROOT / "src" / "persistence" / "outbox_schema.sql",
         ROOT / "src" / "persistence" / "eval_schema.sql",
         ROOT / "src" / "recommend" / "bandit_schema.sql",
     ]
-    with psycopg.connect(
-        host=pg.host,
-        port=pg.port,
-        dbname=pg.database,
-        user=pg.user,
-        password=pg.password,
-    ) as conn:
+    with get_connection(settings.postgres) as conn:
         with conn.cursor() as cur:
             for path in sql_files:
                 if path.exists():
@@ -62,6 +55,9 @@ def main() -> None:
     chat = ChatHistoryStore(settings.postgres)
     chat.init_schema()
     _run_sql_files(settings)
+
+    # 3) LangGraph PostgresSaver checkpoint 테이블
+    setup_checkpoint_tables(settings.postgres)
 
     logging.getLogger(__name__).info("All schemas initialized.")
 
