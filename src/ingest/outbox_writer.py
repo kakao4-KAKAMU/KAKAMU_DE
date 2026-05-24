@@ -6,9 +6,8 @@ import hashlib
 import json
 from typing import Any, Mapping, Optional
 
-import psycopg
-
 from src.config.settings import PostgresSettings, get_settings
+from src.persistence.db import get_connection
 
 
 def content_hash(payload: Mapping[str, Any]) -> str:
@@ -19,15 +18,6 @@ def content_hash(payload: Mapping[str, Any]) -> str:
 class OutboxWriter:
     def __init__(self, settings: Optional[PostgresSettings] = None) -> None:
         self._settings = settings or get_settings().postgres
-
-    def _connect(self) -> psycopg.Connection:
-        return psycopg.connect(
-            host=self._settings.host,
-            port=self._settings.port,
-            dbname=self._settings.database,
-            user=self._settings.user,
-            password=self._settings.password,
-        )
 
     def enqueue(
         self,
@@ -43,7 +33,7 @@ class OutboxWriter:
         pv = prompt_version or app.ontology.prompt_version
         mn = model_name or app.ontology.model_name
         ch = content_hash(payload)
-        with self._connect() as conn, conn.cursor() as cur:
+        with get_connection(self._settings) as conn, conn.cursor() as cur:
             cur.execute(
                 """
                 INSERT INTO ingest_outbox

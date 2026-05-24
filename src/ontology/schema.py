@@ -17,11 +17,15 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import List, Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator
+
+
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc)
 
 
 # ---------------------------------------------------------------------------
@@ -123,7 +127,7 @@ class OntologyResult(BaseModel):
     """모든 온톨로지 출력의 공통 베이스."""
 
     schema_version: Literal["1.0"] = "1.0"
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=_utcnow)
     source_id: str = Field(..., description="원본 문서의 고유 ID (movie_id/feed_id/comment_id)")
     language: str = Field(default="ko", description="원문 언어 (ISO 639-1).")
 

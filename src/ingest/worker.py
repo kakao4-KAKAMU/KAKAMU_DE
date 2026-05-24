@@ -5,14 +5,16 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
-from typing import Any, Optional
+from typing import Any, Iterator, Optional
 
 import psycopg
 
 from src.config.settings import PostgresSettings, get_settings
 from src.ingest.dispatcher import IngestDispatcher
 from src.ingest.outbox_writer import OutboxWriter
+from src.persistence.db import get_connection
 
 logger = logging.getLogger(__name__)
 
@@ -32,14 +34,15 @@ class IngestWorker:
         self._settings = settings or get_settings().postgres
         self._outbox = outbox_writer or OutboxWriter(self._settings)
 
-    def _connect(self) -> psycopg.Connection:
-        return psycopg.connect(
-            host=self._settings.host,
-            port=self._settings.port,
-            dbname=self._settings.database,
-            user=self._settings.user,
-            password=self._settings.password,
-        )
+    @contextmanager
+    def _connect(self) -> Iterator[psycopg.Connection]:
+        """공유 풀에서 connection 을 빌려오는 context manager.
+
+        테스트는 ``patch.object(worker, "_connect")`` 로 mock 한다.
+        """
+
+        with get_connection(self._settings) as conn:
+            yield conn
 
     def claim_batch(self) -> list[dict[str, Any]]:
         with self._connect() as conn, conn.cursor() as cur:

@@ -7,9 +7,8 @@ from datetime import date
 from pathlib import Path
 from typing import Any, Optional
 
-import psycopg
-
 from src.config.settings import PostgresSettings, get_settings
+from src.persistence.db import get_connection
 
 _SCHEMA_PATH = Path(__file__).with_name("eval_schema.sql")
 
@@ -18,18 +17,9 @@ class EvalScoreStore:
     def __init__(self, settings: Optional[PostgresSettings] = None) -> None:
         self._settings = settings or get_settings().postgres
 
-    def _connect(self) -> psycopg.Connection:
-        return psycopg.connect(
-            host=self._settings.host,
-            port=self._settings.port,
-            dbname=self._settings.database,
-            user=self._settings.user,
-            password=self._settings.password,
-        )
-
     def init_schema(self) -> None:
         ddl = _SCHEMA_PATH.read_text(encoding="utf-8")
-        with self._connect() as conn, conn.cursor() as cur:
+        with get_connection(self._settings) as conn, conn.cursor() as cur:
             cur.execute(ddl)
             conn.commit()
 
@@ -50,7 +40,7 @@ class EvalScoreStore:
         failed: bool = False,
         keywords: list[str] | None = None,
     ) -> int:
-        with self._connect() as conn, conn.cursor() as cur:
+        with get_connection(self._settings) as conn, conn.cursor() as cur:
             cur.execute(
                 """
                 INSERT INTO eval_score (
@@ -87,7 +77,7 @@ class EvalScoreStore:
         run_date: date | None = None,
         limit: int = 500,
     ) -> list[dict[str, Any]]:
-        with self._connect() as conn, conn.cursor() as cur:
+        with get_connection(self._settings) as conn, conn.cursor() as cur:
             if run_date:
                 cur.execute(
                     """

@@ -4,29 +4,44 @@ version = "0.1.0"
 description = "Knowledge-graph based movie/feed recommendation system (Neo4j + LangGraph + LangChain + FastAPI)"
 requires-python = ">=3.11"
 dependencies = [
+    # --- Core runtime ---
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.30.0",
+    "sse-starlette>=2.1.0",
     "pydantic>=2.7.0",
     "pydantic-settings>=2.4.0",
     "python-dotenv>=1.0.1",
 
+    # --- LLM stack (vLLM via OpenAI-compatible API) ---
+    "openai>=1.40.0",
     "langchain>=0.3.0",
     "langchain-core>=0.3.0",
     "langchain-community>=0.3.0",
-    "langchain-neo4j>=0.4.0",
-    "langchain-ollama>=0.2.0",
     "langchain-openai>=0.2.0",
+    "langchain-neo4j>=0.4.0",
     "langgraph>=0.2.0",
+    "langgraph-checkpoint-postgres>=2.0.0",
 
+    # --- Storage ---
     "neo4j>=5.24.0",
-
     "psycopg[binary]>=3.2.0",
+    "psycopg-pool>=3.2.0",
+
+    # --- Embeddings / NLP ---
+    "sentence-transformers>=3.0.0",
+    "tiktoken>=0.7.0",
+
+    # --- Resilience / observability ---
     "httpx>=0.27.0",
     "tenacity>=8.5.0",
     "structlog>=24.4.0",
+    "prometheus-client>=0.20.0",
 ]
 
 [project.optional-dependencies]
+vllm = [
+    "vllm>=0.6.0",
+]
 dev = [
     "pytest>=8.3.0",
     "pytest-asyncio>=0.24.0",
@@ -44,3 +59,6 @@ ignore = ["E501"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+markers = [
+    "integration: requires live Neo4j/PostgreSQL/vLLM (skipped by default)",
+]

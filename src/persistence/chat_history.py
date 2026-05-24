@@ -6,18 +6,16 @@ LangGraph 의 `PostgresSaver` 와 호환되는 chat history 스토어.
 ---------
 - SRP : 채팅 메시지의 영속화만 책임.
 - DIP : 상위 LangGraph 그래프는 본 인터페이스(저장/조회) 에만 의존한다.
+- 공유 풀(`src/persistence/db.py`) 을 사용해 매 호출 connect 비용을 제거한다.
 """
 
 from __future__ import annotations
 
 import json
-from datetime import datetime
 from typing import Any, List, Optional
 
-import psycopg
-
 from src.config.settings import PostgresSettings, get_settings
-
+from src.persistence.db import get_connection
 
 DDL = """
 CREATE TABLE IF NOT EXISTS chat_session (
@@ -55,24 +53,13 @@ class ChatHistoryStore:
     def __init__(self, settings: Optional[PostgresSettings] = None) -> None:
         self._settings = settings or get_settings().postgres
 
-    # ------------------------------------------------------------------
-    def _connect(self) -> psycopg.Connection:
-        return psycopg.connect(
-            host=self._settings.host,
-            port=self._settings.port,
-            dbname=self._settings.database,
-            user=self._settings.user,
-            password=self._settings.password,
-        )
-
     def init_schema(self) -> None:
-        with self._connect() as conn, conn.cursor() as cur:
+        with get_connection(self._settings) as conn, conn.cursor() as cur:
             cur.execute(DDL)
             conn.commit()
 
-    # ------------------------------------------------------------------
     def open_session(self, *, session_id: str, user_id: str, metadata: dict | None = None) -> None:
-        with self._connect() as conn, conn.cursor() as cur:
+        with get_connection(self._settings) as conn, conn.cursor() as cur:
             cur.execute(
                 """
                 INSERT INTO chat_session (session_id, user_id, metadata)
@@ -96,7 +83,7 @@ class ChatHistoryStore:
         tokens_out: Optional[int] = None,
         ontology_ref: Optional[dict[str, Any]] = None,
     ) -> int:
-        with self._connect() as conn, conn.cursor() as cur:
+        with get_connection(self._settings) as conn, conn.cursor() as cur:
             cur.execute(
                 """
                 INSERT INTO chat_message
@@ -125,7 +112,7 @@ class ChatHistoryStore:
             return int(msg_id)
 
     def recent(self, *, session_id: str, limit: int = 50) -> List[dict]:
-        with self._connect() as conn, conn.cursor() as cur:
+        with get_connection(self._settings) as conn, conn.cursor() as cur:
             cur.execute(
                 """
                 SELECT id, role, content, created_at
