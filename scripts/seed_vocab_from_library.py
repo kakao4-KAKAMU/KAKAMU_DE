@@ -20,17 +20,17 @@ def main() -> None:
     norm = VocabularyNormalizer.from_library_md(LIBRARY)
     settings = get_settings()
     with Neo4jClient(settings.neo4j) as neo:
-        for g in norm._genres.values():  # noqa: SLF001
+        for g in norm.genres():
             neo.execute_write("MERGE (g:Genre {name: $name})", {"name": g})
-        for t in norm._themes.values():  # noqa: SLF001
+        for t in norm.themes():
             neo.execute_write("MERGE (t:Theme {name: $name})", {"name": t})
-        for m in norm._moods.values():  # noqa: SLF001
+        for m in norm.moods():
             neo.execute_write("MERGE (m:Mood {name: $name})", {"name": m})
     logger.info(
         "Seeded genres=%d themes=%d moods=%d",
-        len(norm._genres),
-        len(norm._themes),
-        len(norm._moods),
+        len(list(norm.genres())),
+        len(list(norm.themes())),
+        len(list(norm.moods())),
     )
 
 

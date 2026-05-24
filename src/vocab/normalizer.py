@@ -1,11 +1,17 @@
-"""폐쇄형 vocabulary 정규화."""
+"""폐쇄형 vocabulary 정규화.
+
+SOLID
+-----
+- SRP : 표제어 매핑 lookup만 담당. 외부에서는 ``normalize_*`` 와 public iterator 만 사용.
+- OCP : ``from_library_md`` 등 alternative loader 를 추가해 확장한다.
+"""
 
 from __future__ import annotations
 
 import json
 import re
 from pathlib import Path
-from typing import Optional
+from typing import Iterable, Optional
 
 _JSON_BLOCK = re.compile(r"```json\s*(\{.*?\})\s*```", re.DOTALL)
 
@@ -16,6 +22,9 @@ class VocabularyNormalizer:
         self._moods = {m.lower(): m for m in moods}
         self._genres = {g.lower(): g for g in genres}
 
+    # ------------------------------------------------------------------
+    # Lookup
+    # ------------------------------------------------------------------
     def normalize_theme(self, term: str) -> Optional[str]:
         return self._themes.get(term.strip().lower())
 
@@ -25,6 +34,21 @@ class VocabularyNormalizer:
     def normalize_genre(self, term: str) -> Optional[str]:
         return self._genres.get(term.strip().lower())
 
+    # ------------------------------------------------------------------
+    # Public iterators (캡슐화 유지)
+    # ------------------------------------------------------------------
+    def themes(self) -> Iterable[str]:
+        return tuple(self._themes.values())
+
+    def moods(self) -> Iterable[str]:
+        return tuple(self._moods.values())
+
+    def genres(self) -> Iterable[str]:
+        return tuple(self._genres.values())
+
+    # ------------------------------------------------------------------
+    # Loader
+    # ------------------------------------------------------------------
     @classmethod
     def from_library_md(cls, path: Path) -> "VocabularyNormalizer":
         text = path.read_text(encoding="utf-8")
