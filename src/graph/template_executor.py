@@ -47,6 +47,7 @@ class TemplateExecutor:
                 "w_theme": 0.10,
                 "w_mood": 0.05,
                 "w_user": 0.15,
+                "max_toxicity": params.get("max_toxicity", 0.7),
             }
             return self.execute(DEFAULT_TEMPLATE_ID, fallback_params, fallback=False)
 

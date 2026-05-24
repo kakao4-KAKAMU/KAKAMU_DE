@@ -7,7 +7,8 @@ from src.graph.template_registry import CypherTemplate, TemplateRegistry
 
 FEED_ABOUT_MOVIE = """
 MATCH (f:Feed)-[:ABOUT_MOVIE]->(m:Movie {movie_id: $movie_id})
-WHERE f.contains_spoiler = false
+WHERE ($include_spoiler = true OR f.contains_spoiler = false)
+  AND coalesce(f.toxicity_score, 0.0) <= $max_toxicity
 RETURN f.feed_id AS feed_id, f.summary AS summary, f.sentiment_score AS sentiment_score
 ORDER BY f.created_at DESC
 LIMIT $top_k
@@ -17,6 +18,7 @@ SIMILAR_MOVIE_BY_THEME = """
 MATCH (m:Movie {movie_id: $movie_id})-[:HAS_THEME]->(t:Theme)
 MATCH (other:Movie)-[:HAS_THEME]->(t)
 WHERE other.movie_id <> $movie_id
+  AND coalesce(other.toxicity_score, 0.0) <= $max_toxicity
 RETURN other.movie_id AS movie_id, other.title AS title, count(DISTINCT t) AS theme_overlap
 ORDER BY theme_overlap DESC
 LIMIT $top_k
@@ -24,7 +26,9 @@ LIMIT $top_k
 
 RECENT_FEEDS_POSITIVE = """
 MATCH (f:Feed)
-WHERE f.sentiment_score >= $min_sentiment AND f.contains_spoiler = false
+WHERE f.sentiment_score >= $min_sentiment
+  AND ($include_spoiler = true OR f.contains_spoiler = false)
+  AND coalesce(f.toxicity_score, 0.0) <= $max_toxicity
 RETURN f.feed_id AS feed_id, f.summary AS summary, f.sentiment_score AS sentiment_score
 ORDER BY f.created_at DESC
 LIMIT $top_k
@@ -58,6 +62,7 @@ def build_default_registry() -> TemplateRegistry:
                 "w_theme": "float",
                 "w_mood": "float",
                 "w_user": "float",
+                "max_toxicity": "float",
             },
             max_limit=100,
             description="Hybrid semantic+keyword+preference movie recommendation",
@@ -67,7 +72,12 @@ def build_default_registry() -> TemplateRegistry:
         CypherTemplate(
             id="feed_about_movie",
             cypher=FEED_ABOUT_MOVIE,
-            params_schema={"movie_id": "string", "top_k": "int"},
+            params_schema={
+                "movie_id": "string",
+                "top_k": "int",
+                "include_spoiler": "bool",
+                "max_toxicity": "float",
+            },
             max_limit=50,
         )
     )
@@ -75,7 +85,11 @@ def build_default_registry() -> TemplateRegistry:
         CypherTemplate(
             id="similar_movie_by_theme",
             cypher=SIMILAR_MOVIE_BY_THEME,
-            params_schema={"movie_id": "string", "top_k": "int"},
+            params_schema={
+                "movie_id": "string",
+                "top_k": "int",
+                "max_toxicity": "float",
+            },
             max_limit=50,
         )
     )
@@ -83,7 +97,12 @@ def build_default_registry() -> TemplateRegistry:
         CypherTemplate(
             id="recent_feeds_positive",
             cypher=RECENT_FEEDS_POSITIVE,
-            params_schema={"min_sentiment": "float", "top_k": "int"},
+            params_schema={
+                "min_sentiment": "float",
+                "top_k": "int",
+                "include_spoiler": "bool",
+                "max_toxicity": "float",
+            },
             max_limit=50,
         )
     )

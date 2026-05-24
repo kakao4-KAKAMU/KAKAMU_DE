@@ -36,7 +36,12 @@ def test_execute_intent() -> None:
     executor.execute_intent(
         {
             "template_id": "feed_about_movie",
-            "params": {"movie_id": "m1", "top_k": 3},
+            "params": {
+                "movie_id": "m1",
+                "top_k": 3,
+                "include_spoiler": False,
+                "max_toxicity": 0.7,
+            },
         }
     )
     neo4j.execute_read.assert_called_once()

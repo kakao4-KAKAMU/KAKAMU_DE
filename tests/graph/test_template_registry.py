@@ -51,7 +51,9 @@ def test_validate_params_ok() -> None:
             "w_theme": 0.1,
             "w_mood": 0.05,
             "w_user": 0.15,
+            "max_toxicity": 0.7,
         },
     )
     assert params["top_k"] == 10
     assert params["query_embedding"] == [0.1, 0.2]
+    assert params["max_toxicity"] == 0.7

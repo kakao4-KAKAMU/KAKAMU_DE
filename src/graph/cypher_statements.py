@@ -14,7 +14,7 @@
 
 from __future__ import annotations
 
-from typing import Final, List
+from typing import Final, List, Sequence
 
 # ---------------------------------------------------------------------------
 # 1. Node uniqueness constraints (Neo4j 5.x 문법)
@@ -165,7 +165,9 @@ ON CREATE SET e.created_at = datetime()
 # 5. Upsert (MERGE) statements - 온톨로지 적재용
 # ---------------------------------------------------------------------------
 
-# 영화 본체 + 줄거리 온톨로지 적재
+# 영화 본체 + 줄거리 온톨로지 적재 (legacy: 단일 plot_embedding 컬럼).
+# 신규 ingest 경로는 ``build_upsert_movie_with_ontology(embedding_props=...)``
+# 로 active+shadow 컬럼을 동시에 SET 한다.
 UPSERT_MOVIE_WITH_ONTOLOGY: Final[str] = """
 MERGE (m:Movie {movie_id: $movie_id})
 SET m.title          = $title,
@@ -198,6 +200,61 @@ UNWIND $moods AS mdname
 WITH m
 UNWIND $keywords AS kw
   MERGE (k:Keyword {normalized: kw.normalized})
+    ON CREATE SET k.kind = kw.kind, k.term = kw.term
+  MERGE (m)-[r:MENTIONS]->(k)
+    SET r.weight = kw.weight
+"""
+
+
+def build_upsert_movie_with_ontology(
+    embedding_properties: Sequence[str] | None = None,
+) -> str:
+    """버전화된 plot_embedding 속성을 동시에 SET 하는 UPSERT Cypher 를 생성한다.
+
+    Args:
+        embedding_properties: ``plot_embedding`` 외 추가로 SET 할 임베딩 속성 키들.
+            예: ``["plot_embedding_v1", "plot_embedding_v2"]``.
+
+    Note:
+        모든 추가 속성은 동일한 ``$plot_embedding`` 파라미터로 채워진다.
+        (다중 임베딩 모델을 동시에 사용하려면 별도 dual-writer 경로 사용.)
+    """
+
+    extra = embedding_properties or []
+    extra_lines = "".join(f",\n    m.{prop}      = $plot_embedding" for prop in extra)
+
+    return f"""
+MERGE (m:Movie {{movie_id: $movie_id}})
+SET m.title          = $title,
+    m.producing_year = $producing_year,
+    m.country        = $country,
+    m.plot_raw       = $plot_raw,
+    m.plot_summary   = $plot_summary,
+    m.plot_embedding = $plot_embedding{extra_lines},
+    m.updated_at     = datetime()
+
+// Genre
+WITH m
+UNWIND $genres AS gname
+  MERGE (g:Genre {{name: gname}})
+  MERGE (m)-[:HAS_GENRE]->(g)
+
+// Theme
+WITH m
+UNWIND $themes AS tname
+  MERGE (t:Theme {{name: tname}})
+  MERGE (m)-[:HAS_THEME]->(t)
+
+// Mood
+WITH m
+UNWIND $moods AS mdname
+  MERGE (md:Mood {{name: mdname}})
+  MERGE (m)-[:HAS_MOOD]->(md)
+
+// Keywords (semantic + keyword anchor)
+WITH m
+UNWIND $keywords AS kw
+  MERGE (k:Keyword {{normalized: kw.normalized}})
     ON CREATE SET k.kind = kw.kind, k.term = kw.term
   MERGE (m)-[r:MENTIONS]->(k)
     SET r.weight = kw.weight
@@ -333,6 +390,9 @@ HYBRID_MOVIE_RECOMMEND_WEIGHTED: Final[str] = """
 CALL db.index.vector.queryNodes('movie_plot_vec', $vec_top_k, $query_embedding)
 YIELD node AS m, score AS vec_score
 
+WITH m, vec_score
+WHERE coalesce(m.toxicity_score, 0.0) <= $max_toxicity
+
 OPTIONAL MATCH (m)-[:MENTIONS]->(k:Keyword)
 WHERE k.normalized IN $query_keywords
 WITH m, vec_score, count(DISTINCT k) AS kw_hits
@@ -378,5 +438,6 @@ __all__ = [
     "UPSERT_COMMENT_WITH_ONTOLOGY",
     "HYBRID_MOVIE_RECOMMEND",
     "HYBRID_MOVIE_RECOMMEND_WEIGHTED",
+    "build_upsert_movie_with_ontology",
     "vector_index_statements_for_version",
 ]

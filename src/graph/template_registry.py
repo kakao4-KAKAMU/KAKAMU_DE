@@ -89,11 +89,26 @@ class TemplateRegistry:
         return cleaned
 
 
+_TRUTHY = {"true", "1", "yes", "y", "on"}
+_FALSY = {"false", "0", "no", "n", "off"}
+
+
 def _coerce(value: Any, hint: str) -> Any:
     if hint == "int":
         return int(value)
     if hint == "float":
         return float(value)
+    if hint == "bool":
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, (int, float)):
+            return bool(value)
+        text = str(value).strip().lower()
+        if text in _TRUTHY:
+            return True
+        if text in _FALSY:
+            return False
+        raise TemplateValidationError(f"Cannot coerce {value!r} to bool")
     if hint == "float_list":
         if not isinstance(value, list):
             raise TemplateValidationError(f"Expected list, got {type(value)}")
