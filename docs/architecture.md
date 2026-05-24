@@ -122,36 +122,39 @@ flowchart TB
 
 ## 3. 사용자 Chat 흐름 (LangGraph)
 
+`src/chat/graph.py` 의 StateGraph 노드 시퀀스는 다음과 같다.
+
 ```mermaid
 sequenceDiagram
     autonumber
     actor U as User
     participant API as FastAPI /chat
-    participant LG as LangGraph
-    participant PG as PostgreSQL\n(chat_message)
-    participant VL as vLLM\n(prefix-cache)
+    participant LG as LangGraph (StateGraph)
+    participant PG as PostgreSQL (chat_message + checkpoint)
+    participant VL as vLLM (prefix-cache)
     participant NEO as Neo4j
     participant EMB as Embedding
 
     U->>API: query "감성적인 한국 영화 추천해줘"
-    API->>PG: append(user message)
-    API->>LG: invoke(state{user_id, query})
+    API->>PG: open_session + append(user message)
+    API->>LG: invoke(state{user_id, session_id, query})
 
-    LG->>EMB: embed(query)
-    LG->>VL: build_user_intent_messages\n(system prompt = "Cypher Planner")
-    Note over VL: 동일 system prefix 는\nKV-block 단위로 재사용
-    VL-->>LG: {cypher, params}
-
-    LG->>NEO: HYBRID_MOVIE_RECOMMEND\n(vector + keyword + user pref)
+    LG->>EMB: embed_query
+    LG->>LG: plan_intent (IntentResolver: vocab + NN)
+    LG->>LG: select_weights (ThompsonBandit.sample_arm)
+    LG->>NEO: retrieve_movies (TemplateExecutor.hybrid_recommend)
     NEO-->>LG: top-K movies
 
-    LG->>VL: 응답 생성 messages\n(user_id 라벨 포함)
+    LG->>VL: generate_reply (vLLM JSON mode)
     VL-->>LG: assistant text
 
-    LG->>PG: append(assistant message,\nontology_ref={movie_ids,score})
-    LG-->>API: response
-    API-->>U: stream response
+    LG->>PG: persist_history(ontology_ref={arm_id,movie_ids,themes})
+    LG-->>API: final state (reply, arm_id, retrieved)
+    API-->>U: ChatResponse
 ```
+
+체크포인트는 `langgraph-checkpoint-postgres` 의 `PostgresSaver` 가 담당하며,
+세션별 thread_id = `session_id` 규약을 따른다.
 
 ---
 

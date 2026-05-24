@@ -183,21 +183,39 @@ score = 0.55 · vector_similarity
 
 ---
 
-## 7. 6-Step 자동화 (구현 완료)
+## 7. 구현 완료 모듈
 
-| Step | 모듈 | 문서 |
+| 영역 | 모듈 | 문서 |
 |------|------|------|
 | Cypher Template | `src/graph/template_*` | [docs/cypher_templates.md](docs/cypher_templates.md) |
 | Versioned Embedding | `src/embedding/version_*` | [docs/versioned_embedding.md](docs/versioned_embedding.md) |
 | Auto Vocabulary | `src/vocab/*` | [docs/auto_vocab.md](docs/auto_vocab.md) |
 | Outbox Ingest | `src/ingest/*` | [docs/outbox_ingest.md](docs/outbox_ingest.md) |
-| Bandit Weights | `src/recommend/*` | [docs/bandit_weights.md](docs/bandit_weights.md) |
+| Bandit Weights | `src/recommend/*` (Postgres write-through) | [docs/bandit_weights.md](docs/bandit_weights.md) |
 | LLM Judge | `src/eval/*` | [docs/llm_judge.md](docs/llm_judge.md) |
+| **LangGraph + FastAPI** | `src/chat/*`, `src/api/*` | [docs/api.md](docs/api.md) |
 
 통합 smoke: [docs/smoke_test.md](docs/smoke_test.md)
 
-## 8. 다음 단계 (Roadmap)
+## 8. 서비스 실행
 
-- [ ] LangGraph `StateGraph` + FastAPI `/chat` (동시 10명 세션)
+```bash
+# 1) 인프라 및 스키마 (Postgres / Neo4j / LangGraph checkpoint)
+python -m scripts.bootstrap_schema
+
+# 2) Outbox worker (실 Extractor + Loader)
+python scripts/run_ingest_worker.py            # production
+python scripts/run_ingest_worker.py --mock     # mock (smoke 용)
+
+# 3) HTTP API
+uvicorn src.api.app:app --host 0.0.0.0 --port 8080
+```
+
+## 9. 향후 (Backlog)
+
+- [ ] GitHub Actions CI (`ruff` / `mypy` / `pytest`)
+- [ ] structlog / prometheus exporter 본격 도입
+- [ ] `tenacity` 기반 vLLM/Neo4j retry policy
+- [ ] schema_version 마이그레이션 도구
+- [ ] 한국어 도메인 goldenset 보강
 - [ ] Neo4j MCP 연동 (`GraphRAG/index.ipynb`)
-- [ ] LangGraph `PostgresSaver` 체크포인트
