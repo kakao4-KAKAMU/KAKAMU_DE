@@ -28,8 +28,9 @@ echo "Starting vLLM embedding on :${EMBED_PORT} (${EMBED_MODEL})"
 python -m vllm.entrypoints.openai.api_server \
   --model "${EMBED_MODEL}" \
   --port "${EMBED_PORT}" \
-  --task embed \
+  --runner pooling \
   --gpu-memory-utilization 0.20 \
+  --hf-overrides '{"architectures": ["BgeM3EmbeddingModel"]}' \
   &
 EMBED_PID=$!
 
