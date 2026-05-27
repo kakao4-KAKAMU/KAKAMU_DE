@@ -21,7 +21,9 @@ class Neo4jSettings(BaseSettings):
     password: str = Field(default="neo4j")
     database: str = Field(default="neo4j")
 
-    model_config = SettingsConfigDict(env_prefix="NEO4J_", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=".env", env_prefix="NEO4J_", extra="ignore"
+    )
 
 
 class PostgresSettings(BaseSettings):
@@ -33,7 +35,7 @@ class PostgresSettings(BaseSettings):
     user: str = Field(default="postgres")
     password: str = Field(default="postgres")
 
-    model_config = SettingsConfigDict(env_prefix="PG_", extra="ignore")
+    model_config = SettingsConfigDict(env_file=".env", env_prefix="PG_", extra="ignore")
 
     @property
     def dsn(self) -> str:
@@ -41,6 +43,9 @@ class PostgresSettings(BaseSettings):
             f"postgresql+psycopg://{self.user}:{self.password}"
             f"@{self.host}:{self.port}/{self.database}"
         )
+    
+    def __hash__(self) -> int:
+        return hash((self.host, self.port, self.database, self.user, self.password))
 
 
 class VLLMGenSettings(BaseSettings):
@@ -58,7 +63,9 @@ class VLLMGenSettings(BaseSettings):
     max_model_len: int = Field(default=8192)
     max_num_seqs: int = Field(default=32)
 
-    model_config = SettingsConfigDict(env_prefix="VLLM_GEN_", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=".env", env_prefix="VLLM_GEN_", extra="ignore"
+    )
 
 
 class VLLMEmbedSettings(BaseSettings):
@@ -70,7 +77,9 @@ class VLLMEmbedSettings(BaseSettings):
     gpu_memory_utilization: float = Field(default=0.20)
     cache_size: int = Field(default=4096)
 
-    model_config = SettingsConfigDict(env_prefix="VLLM_EMBED_", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=".env", env_prefix="VLLM_EMBED_", extra="ignore"
+    )
 
 
 class EmbeddingSettings(BaseSettings):
@@ -83,7 +92,9 @@ class EmbeddingSettings(BaseSettings):
         default="sentence_transformers"
     )
 
-    model_config = SettingsConfigDict(env_prefix="EMBED_", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=".env", env_prefix="EMBED_", extra="ignore"
+    )
 
 
 class OntologySettings(BaseSettings):
@@ -92,7 +103,9 @@ class OntologySettings(BaseSettings):
     prompt_version: str = Field(default="1.0")
     model_name: str = Field(default="Qwen/Qwen2.5-7B-Instruct-AWQ")
 
-    model_config = SettingsConfigDict(env_prefix="ONTOLOGY_", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=".env", env_prefix="ONTOLOGY_", extra="ignore"
+    )
 
 
 class VocabSettings(BaseSettings):
@@ -103,7 +116,9 @@ class VocabSettings(BaseSettings):
     alias_cos_sim: float = Field(default=0.90)
     promote_max_cos_sim: float = Field(default=0.85)
 
-    model_config = SettingsConfigDict(env_prefix="VOCAB_", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=".env", env_prefix="VOCAB_", extra="ignore"
+    )
 
 
 class BanditSettings(BaseSettings):
@@ -112,7 +127,9 @@ class BanditSettings(BaseSettings):
     baseline_min_share: float = Field(default=0.05)
     max_weight_delta: float = Field(default=0.20)
 
-    model_config = SettingsConfigDict(env_prefix="BANDIT_", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=".env", env_prefix="BANDIT_", extra="ignore"
+    )
 
 
 class EvalSettings(BaseSettings):
@@ -131,13 +148,15 @@ class EvalSettings(BaseSettings):
         validation_alias=AliasChoices("EVAL_SLACK_WEBHOOK_URL", "slack_webhook_url"),
     )
 
-    model_config = SettingsConfigDict(extra="ignore")
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 
 class AppSettings(BaseSettings):
     """루트 애플리케이션 설정."""
 
-    env: Literal["local", "dev", "stg", "prod"] = Field(default="local", validation_alias="APP_ENV")
+    env: Literal["local", "dev", "stg", "prod"] = Field(
+        default="local", validation_alias="APP_ENV"
+    )
     log_level: str = Field(default="INFO")
     host: str = Field(default="0.0.0.0", validation_alias="APP_HOST")
     port: int = Field(default=8080, validation_alias="APP_PORT")
