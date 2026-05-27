@@ -32,6 +32,8 @@ NODE_CONSTRAINTS: Final[List[str]] = [
     "CREATE CONSTRAINT category_name_unique IF NOT EXISTS FOR (c:Category) REQUIRE c.name IS UNIQUE",
     "CREATE CONSTRAINT emotion_tag_unique IF NOT EXISTS FOR (e:Emotion) REQUIRE e.tag      IS UNIQUE",
     "CREATE CONSTRAINT country_code_unique IF NOT EXISTS FOR (c:Country) REQUIRE c.code    IS UNIQUE",
+    "CREATE CONSTRAINT embedding_version_unique IF NOT EXISTS FOR (e:EmbeddingVersionMeta) REQUIRE e.version IS UNIQUE",
+    "CREATE CONSTRAINT embedding_version_property_unique IF NOT EXISTS FOR (e:EmbeddingVersionMeta) REQUIRE e.property_key IS UNIQUE",
 ]
 
 # ---------------------------------------------------------------------------
@@ -44,6 +46,10 @@ NODE_PROPERTY_INDEXES: Final[List[str]] = [
     "CREATE INDEX comment_created_idx IF NOT EXISTS FOR (c:Comment) ON (c.created_at)",
     "CREATE INDEX user_created_idx IF NOT EXISTS FOR (u:User)    ON (u.created_at)",
     "CREATE INDEX feed_sentiment_idx IF NOT EXISTS FOR (f:Feed)  ON (f.sentiment_score)",
+    "CREATE INDEX embedding_version_role_idx IF NOT EXISTS FOR (e:EmbeddingVersionMeta) ON (e.role)",
+    "CREATE INDEX embedding_version_dimension_idx IF NOT EXISTS FOR (e:EmbeddingVersionMeta) ON (e.dimension)",
+    "CREATE INDEX embedding_version_model_idx IF NOT EXISTS FOR (e:EmbeddingVersionMeta) ON (e.model_name)",
+    "CREATE INDEX embedding_version_created_idx IF NOT EXISTS FOR (e:EmbeddingVersionMeta) ON (e.created_at)",
 ]
 
 # ---------------------------------------------------------------------------

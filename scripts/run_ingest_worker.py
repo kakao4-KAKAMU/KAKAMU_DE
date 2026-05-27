@@ -10,6 +10,7 @@ import argparse
 import asyncio
 import logging
 
+from src.config.settings import get_settings
 from src.embedding.vllm_embedding import VLLMEmbeddingClient
 from src.embedding.version_registry import EmbeddingVersionRegistry
 from src.graph.client import Neo4jClient
@@ -26,12 +27,14 @@ logging.basicConfig(level=logging.INFO)
 
 
 def _build_production_dispatcher() -> IngestDispatcher:
-    neo4j = Neo4jClient()
-    registry = EmbeddingVersionRegistry(neo4j)
+    settings = get_settings()
+    neo4j = Neo4jClient(settings.neo4j)
+    neo4j.init_schema(embedding_dim=settings.embedding.dimension)
+    registry = EmbeddingVersionRegistry(neo4j, settings=settings.embedding)
     loader = OntologyLoader(neo4j, embedding_registry=registry)
     return build_production_dispatcher(
-        llm=VLLMChatClient(),
-        embedder=VLLMEmbeddingClient(),
+        llm=VLLMChatClient(settings.vllm_gen),
+        embedder=VLLMEmbeddingClient(settings.vllm_embed, settings.embedding),
         loader=loader,
         neo4j=neo4j,
     )
