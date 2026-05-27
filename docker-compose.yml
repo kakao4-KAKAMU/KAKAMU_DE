@@ -15,9 +15,12 @@
 #
 #   # 2) 스키마 초기화 (1회)
 #   docker compose run --rm bootstrap
+#   python -m scripts.bootstrap_schema
 #
 #   # 3) API + ingest worker (vLLM 없이도 기동 가능 — LLM 호출은 실패할 수 있음)
 #   docker compose --profile app up -d api ingest-worker
+#   python -m uvicorn src.api.app:app --host 0.0.0.0 --port 8080
+#   python -m scripts.run_ingest_worker --concurrency 10
 #
 #   # 4) GPU + vLLM 포함 전체 스택
 #   docker compose --profile app --profile gpu up -d
@@ -36,25 +39,24 @@ services:
   # Storage
   # ---------------------------------------------------------------------------
   neo4j:
-    image: neo4j:5
+    image: neo4j:latest
     container_name: mrs-neo4j
     restart: unless-stopped
     ports:
       - "7474:7474"
       - "7687:7687"
     environment:
-      NEO4J_AUTH: ${NEO4J_USER:-neo4j}/${NEO4J_PASSWORD:-neo4j}
-      NEO4J_PLUGINS: '["apoc"]'
+      NEO4J_PLUGINS: '["apoc-extended"]'
       NEO4J_apoc_export_file_enabled: "true"
       NEO4J_apoc_import_file_enabled: "true"
-      NEO4J_dbms_security_procedures_unrestricted: apoc.*
+      NEO4J_apoc_import_file_use__neo4j__config: "true"
       NEO4J_server_memory_heap_initial__size: 512m
       NEO4J_server_memory_heap_max__size: 1G
       NEO4J_server_memory_pagecache_size: 512m
     volumes:
-      - neo4j_data:/data
-      - neo4j_logs:/logs
-      - neo4j_plugins:/plugins
+      - ~/Desktop/dvc/chatbot/neo4j/data:/data
+      - ~/Desktop/dvc/chatbot/neo4j/conf:/var/lib/neo4j/conf
+      - ~/Desktop/dvc/chatbot/neo4j/plugins:/var/lib/neo4j/plugins
     healthcheck:
       test:
         [
@@ -67,7 +69,7 @@ services:
       start_period: 40s
 
   postgres:
-    image: postgres:16-alpine
+    image: postgres:latest
     container_name: mrs-postgres
     restart: unless-stopped
     ports:
@@ -77,7 +79,7 @@ services:
       POSTGRES_USER: ${PG_USER:-postgres}
       POSTGRES_PASSWORD: ${PG_PASSWORD:-postgres}
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - ~/Desktop/dvc/chatbot/movie_crawler/movie_postgresql_server:/var/lib/postgresql/18/docker
     healthcheck:
       test:
         [
@@ -164,8 +166,8 @@ services:
     environment:
       NEO4J_URI: bolt://neo4j:7687
       PG_HOST: postgres
-      VLLM_GEN__BASE_URL: http://vllm-gen:8000/v1
-      VLLM_EMBED__BASE_URL: http://vllm-embed:8001/v1
+      VLLM_GEN__BASE_URL: http://210.109.52.56/vllm/v1
+      VLLM_EMBED__BASE_URL: http://210.109.52.56/vllm-embed/v1
     depends_on:
       neo4j:
         condition: service_healthy
@@ -178,85 +180,78 @@ services:
   # ---------------------------------------------------------------------------
   # vLLM (NVIDIA GPU 필요 — README scripts/start_vllm.sh 와 동일 역할)
   # ---------------------------------------------------------------------------
-  vllm-gen:
-    image: vllm/vllm-openai:latest
-    container_name: mrs-vllm-gen
-    profiles: [gpu]
-    restart: unless-stopped
-    ports:
-      - "8000:8000"
-    env_file:
-      - docker-compose.env
-    environment:
-      HF_HOME: /root/.cache/huggingface
-    volumes:
-      - huggingface_cache:/root/.cache/huggingface
-    ipc: host
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
-    command:
-      - --model
-      - ${VLLM_GEN__MODEL_NAME:-Qwen/Qwen2.5-7B-Instruct-AWQ}
-      - --host
-      - "0.0.0.0"
-      - --port
-      - "8000"
-      - --dtype
-      - auto
-      - --quantization
-      - awq
-      - --gpu-memory-utilization
-      - "0.65"
-      - --max-model-len
-      - "8192"
-      - --max-num-seqs
-      - "32"
-      - --enable-prefix-caching
-      - --enable-chunked-prefill
-      - --block-size
-      - "16"
+  # vllm-gen:
+  #   image: vllm/vllm-openai:latest
+  #   container_name: mrs-vllm-gen
+  #   profiles: [gpu]
+  #   restart: unless-stopped
+  #   ports:
+  #     - "8000:8000"
+  #   env_file:
+  #     - docker-compose.env
+  #   environment:
+  #     HF_HOME: /root/.cache/huggingface
+  #   volumes:
+  #     - huggingface_cache:/root/.cache/huggingface
+  #   ipc: host
+  #   deploy:
+  #     resources:
+  #       reservations:
+  #         devices:
+  #           - driver: nvidia
+  #             count: 1
+  #             capabilities: [gpu]
+  #   command:
+  #     - --model
+  #     - ${VLLM_GEN__MODEL_NAME:-Qwen/Qwen2.5-7B-Instruct-AWQ}
+  #     - --host
+  #     - "0.0.0.0"
+  #     - --port
+  #     - "8000"
+  #     - --dtype
+  #     - auto
+  #     - --quantization
+  #     - awq
+  #     - --gpu-memory-utilization
+  #     - "0.65"
+  #     - --max-model-len
+  #     - "8192"
+  #     - --max-num-seqs
+  #     - "32"
+  #     - --enable-prefix-caching
+  #     - --enable-chunked-prefill
+  #     - --block-size
+  #     - "16"
 
-  vllm-embed:
-    image: vllm/vllm-openai:latest
-    container_name: mrs-vllm-embed
-    profiles: [gpu]
-    restart: unless-stopped
-    ports:
-      - "8001:8001"
-    env_file:
-      - docker-compose.env
-    environment:
-      HF_HOME: /root/.cache/huggingface
-    volumes:
-      - huggingface_cache:/root/.cache/huggingface
-    ipc: host
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
-    command:
-      - --model
-      - ${VLLM_EMBED__MODEL_NAME:-BAAI/bge-m3}
-      - --host
-      - "0.0.0.0"
-      - --port
-      - "8001"
-      - --task
-      - embed
-      - --gpu-memory-utilization
-      - "0.20"
-
-volumes:
-  neo4j_data:
-  neo4j_logs:
-  neo4j_plugins:
-  postgres_data:
-  huggingface_cache:
+  # vllm-embed:
+  #   image: vllm/vllm-openai:latest
+  #   container_name: mrs-vllm-embed
+  #   profiles: [gpu]
+  #   restart: unless-stopped
+  #   ports:
+  #     - "8001:8001"
+  #   env_file:
+  #     - docker-compose.env
+  #   environment:
+  #     HF_HOME: /root/.cache/huggingface
+  #   volumes:
+  #     - huggingface_cache:/root/.cache/huggingface
+  #   ipc: host
+  #   deploy:
+  #     resources:
+  #       reservations:
+  #         devices:
+  #           - driver: nvidia
+  #             count: 1
+  #             capabilities: [gpu]
+  #   command:
+  #     - --model
+  #     - ${VLLM_EMBED__MODEL_NAME:-BAAI/bge-m3}
+  #     - --host
+  #     - "0.0.0.0"
+  #     - --port
+  #     - "8001"
+  #     - --task
+  #     - embed
+  #     - --gpu-memory-utilization
+  #     - "0.20"
