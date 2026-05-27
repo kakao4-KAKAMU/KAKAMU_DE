@@ -43,15 +43,17 @@ movie_recommand_system/
 
 ## 2. 핵심 책임 (SOLID 매핑)
 
-| 책임 | 모듈 | 원칙 |
-|------|------|------|
-| 비정형 → 온톨로지 변환 | `ontology/prompts.py`, `extractor/*` | SRP / DIP |
-| 표상 검증 | `ontology/schema.py` (Pydantic) | LSP |
-| 그래프 스키마 정의 | `graph/cypher_statements.py` | OCP (추가만으로 확장) |
-| 그래프 IO | `graph/client.py`, `graph/loader.py` | SRP / DIP |
-| LLM 호출 | `llm/vllm_client.py` | LSP (LLMClient Protocol) |
-| 채팅 이력 영속화 | `persistence/chat_history.py` | SRP |
-| 설정 | `config/settings.py` | ISP (도메인별 Settings 분리) |
+
+| 책임            | 모듈                                   | 원칙                       |
+| ------------- | ------------------------------------ | ------------------------ |
+| 비정형 → 온톨로지 변환 | `ontology/prompts.py`, `extractor/*` | SRP / DIP                |
+| 표상 검증         | `ontology/schema.py` (Pydantic)      | LSP                      |
+| 그래프 스키마 정의    | `graph/cypher_statements.py`         | OCP (추가만으로 확장)           |
+| 그래프 IO        | `graph/client.py`, `graph/loader.py` | SRP / DIP                |
+| LLM 호출        | `llm/vllm_client.py`                 | LSP (LLMClient Protocol) |
+| 채팅 이력 영속화     | `persistence/chat_history.py`        | SRP                      |
+| 설정            | `config/settings.py`                 | ISP (도메인별 Settings 분리)   |
+
 
 ---
 
@@ -131,6 +133,7 @@ EMBED_DIMENSION=1024
   - 사용자 자연어 추천 요청 → 단일 Cypher 쿼리(JSON) 변환.
 
 > 사용 예
+>
 > ```python
 > from src.llm.vllm_client import VLLMChatClient
 > from src.extractor.movie_extractor import MoviePlotExtractor
@@ -175,25 +178,27 @@ score = 0.55 · vector_similarity
 - 시스템 프롬프트(`ONTOLOGY_SYSTEM_PROMPT`)는 **불변 상수** 로 둔다 (KV-cache 재사용).
 - 사용자별 chat history 는 PostgreSQL `chat_message` 테이블에 적재한다.
 - 임베딩 모델을 교체할 경우 `EMBED_DIMENSION` 을 갱신한 뒤
-  `scripts/bootstrap_schema.py` 를 재실행해야 벡터 인덱스가 재정의된다.
+`scripts/bootstrap_schema.py` 를 재실행해야 벡터 인덱스가 재정의된다.
 - 신규 카테고리/감정 태그를 추가하려면
-  1) `ontology/schema.py` 의 Enum 에 추가,
-  2) `graph/cypher_statements.py` 의 `SEED_*` 에 추가,
-  3) `bootstrap_schema` 재실행.
+  1. `ontology/schema.py` 의 Enum 에 추가,
+  2. `graph/cypher_statements.py` 의 `SEED_`* 에 추가,
+  3. `bootstrap_schema` 재실행.
 
 ---
 
 ## 7. 구현 완료 모듈
 
-| 영역 | 모듈 | 문서 |
-|------|------|------|
-| Cypher Template | `src/graph/template_*` | [docs/cypher_templates.md](docs/cypher_templates.md) |
-| Versioned Embedding | `src/embedding/version_*` | [docs/versioned_embedding.md](docs/versioned_embedding.md) |
-| Auto Vocabulary | `src/vocab/*` | [docs/auto_vocab.md](docs/auto_vocab.md) |
-| Outbox Ingest | `src/ingest/*` | [docs/outbox_ingest.md](docs/outbox_ingest.md) |
-| Bandit Weights | `src/recommend/*` (Postgres write-through) | [docs/bandit_weights.md](docs/bandit_weights.md) |
-| LLM Judge | `src/eval/*` | [docs/llm_judge.md](docs/llm_judge.md) |
-| **LangGraph + FastAPI** | `src/chat/*`, `src/api/*` | [docs/api.md](docs/api.md) |
+
+| 영역                      | 모듈                                         | 문서                                                         |
+| ----------------------- | ------------------------------------------ | ---------------------------------------------------------- |
+| Cypher Template         | `src/graph/template_*`                     | [docs/cypher_templates.md](docs/cypher_templates.md)       |
+| Versioned Embedding     | `src/embedding/version_*`                  | [docs/versioned_embedding.md](docs/versioned_embedding.md) |
+| Auto Vocabulary         | `src/vocab/*`                              | [docs/auto_vocab.md](docs/auto_vocab.md)                   |
+| Outbox Ingest           | `src/ingest/*`                             | [docs/outbox_ingest.md](docs/outbox_ingest.md)             |
+| Bandit Weights          | `src/recommend/*` (Postgres write-through) | [docs/bandit_weights.md](docs/bandit_weights.md)           |
+| LLM Judge               | `src/eval/*`                               | [docs/llm_judge.md](docs/llm_judge.md)                     |
+| **LangGraph + FastAPI** | `src/chat/`*, `src/api/*`                  | [docs/api.md](docs/api.md)                                 |
+
 
 통합 smoke: [docs/smoke_test.md](docs/smoke_test.md)
 
@@ -204,8 +209,8 @@ score = 0.55 · vector_similarity
 python -m scripts.bootstrap_schema
 
 # 2) Outbox worker (실 Extractor + Loader)
-python scripts/run_ingest_worker.py            # production
-python scripts/run_ingest_worker.py --mock     # mock (smoke 용)
+python -m scripts.run_ingest_worker            # production
+python -m scripts.run_ingest_worker --mock     # mock (smoke 용)
 
 # 3) HTTP API
 uvicorn src.api.app:app --host 0.0.0.0 --port 8080
@@ -213,9 +218,10 @@ uvicorn src.api.app:app --host 0.0.0.0 --port 8080
 
 ## 9. 향후 (Backlog)
 
-- [ ] GitHub Actions CI (`ruff` / `mypy` / `pytest`)
-- [ ] structlog / prometheus exporter 본격 도입
-- [ ] `tenacity` 기반 vLLM/Neo4j retry policy
-- [ ] schema_version 마이그레이션 도구
-- [ ] 한국어 도메인 goldenset 보강
-- [ ] Neo4j MCP 연동 (`GraphRAG/index.ipynb`)
+- GitHub Actions CI (`ruff` / `mypy` / `pytest`)
+- structlog / prometheus exporter 본격 도입
+- `tenacity` 기반 vLLM/Neo4j retry policy
+- schema_version 마이그레이션 도구
+- 한국어 도메인 goldenset 보강
+- Neo4j MCP 연동 (`GraphRAG/index.ipynb`)
+
