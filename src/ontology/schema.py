@@ -104,7 +104,7 @@ class Keyword(BaseModel):
         description="해당 문서 내 중요도(0~1). TF-IDF 또는 LLM 판단치.",
     )
     kind: Literal[
-        "entity", "concept", "theme", "mood", "trope", "object", "location", "other"
+        "entity", "concept", "theme", "mood", "trope", "object", "location", "other", "genre"
     ] = Field(default="concept", description="키워드의 종류(상위 분류).")
 
     @field_validator("term", "normalized")
