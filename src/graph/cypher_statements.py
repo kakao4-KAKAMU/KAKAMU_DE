@@ -351,10 +351,15 @@ UNWIND $keywords AS kw
 # 6. Hybrid Retrieval Cypher (semantic + keyword)
 # ---------------------------------------------------------------------------
 
-HYBRID_MOVIE_RECOMMEND: Final[str] = """
-// 1) Vector 후보군
-CALL db.index.vector.queryNodes('movie_plot_vec', $vec_top_k, $query_embedding)
-YIELD node AS m, score AS vec_score
+HYBRID_MOVIE_RECOMMEND: Final[
+    str
+] = """
+// 1) Vector similarity 계산 (index 자동 활용)
+MATCH (m:Movie)
+WHERE m.plot_embedding IS NOT NULL
+WITH m, vector.similarity.cosine(m.plot_embedding, $query_embedding) AS vec_score
+ORDER BY vec_score DESC
+LIMIT $vec_top_k
 
 // 2) Keyword/Theme/Mood 부스트
 OPTIONAL MATCH (m)-[:MENTIONS]->(k:Keyword)
@@ -392,13 +397,21 @@ RETURN m.movie_id      AS movie_id,
        score
 """
 
-HYBRID_MOVIE_RECOMMEND_WEIGHTED: Final[str] = """
-CALL db.index.vector.queryNodes('movie_plot_vec', $vec_top_k, $query_embedding)
-YIELD node AS m, score AS vec_score
+HYBRID_MOVIE_RECOMMEND_WEIGHTED: Final[
+    str
+] = """
+// 1) 후보군을 넉넉하게 확보 (vec_top_k * 버퍼 배수)
+MATCH (m:Movie)
+WHERE m.plot_embedding IS NOT NULL
+WITH m, vector.similarity.cosine(m.plot_embedding, $query_embedding) AS vec_score
+ORDER BY vec_score DESC
+LIMIT toInteger($vec_top_k * 5)   -- ← 필터 손실 보정용 버퍼
 
+// 2) toxicity 필터 (기존과 동일한 위치)
 WITH m, vec_score
 WHERE coalesce(m.toxicity_score, 0.0) <= $max_toxicity
 
+// 3) Keyword / Theme / Mood 부스트
 OPTIONAL MATCH (m)-[:MENTIONS]->(k:Keyword)
 WHERE k.normalized IN $query_keywords
 WITH m, vec_score, count(DISTINCT k) AS kw_hits
@@ -411,22 +424,27 @@ OPTIONAL MATCH (m)-[:HAS_MOOD]->(md:Mood)
 WHERE md.name IN $query_moods
 WITH m, vec_score, kw_hits, theme_hits, count(DISTINCT md) AS mood_hits
 
+// 4) User preference 가중치
 OPTIONAL MATCH (u:User {user_id: $user_id})-[p:PREFERS]->(x)
 WHERE x:Genre OR x:Theme OR x:Keyword
 OPTIONAL MATCH (m)-[:HAS_GENRE|HAS_THEME|MENTIONS]->(x)
 WITH m, vec_score, kw_hits, theme_hits, mood_hits,
      coalesce(sum(p.weight), 0.0) AS user_pref_score
 
+// 5) 최종 스코어 산출
 WITH m,
-     ($w_vec * vec_score)
-   + ($w_kw * (1.0 - exp(-toFloat(kw_hits))))
+     ($w_vec   * vec_score)
+   + ($w_kw    * (1.0 - exp(-toFloat(kw_hits))))
    + ($w_theme * (1.0 - exp(-toFloat(theme_hits))))
-   + ($w_mood * (1.0 - exp(-toFloat(mood_hits))))
-   + ($w_user * tanh(user_pref_score)) AS score
+   + ($w_mood  * (1.0 - exp(-toFloat(mood_hits))))
+   + ($w_user  * tanh(user_pref_score)) AS score
 ORDER BY score DESC
 LIMIT $top_k
 
-RETURN m.movie_id AS movie_id, m.title AS title, m.plot_summary AS plot_summary, score
+RETURN m.movie_id     AS movie_id,
+       m.title        AS title,
+       m.plot_summary AS plot_summary,
+       score
 """
 
 
