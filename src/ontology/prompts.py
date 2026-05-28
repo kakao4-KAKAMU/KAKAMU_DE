@@ -52,8 +52,8 @@ ONTOLOGY_SYSTEM_PROMPT: Final[str] = dedent(
     - 장르/테마/무드는 한국어 표제어로 통일.
 
     [semantic vs keyword 균형]
+    - keywords.kind 는 정해진 종류 이외는 사용할 수 없다.
     - keywords.kind 는 다음 중 하나: entity/concept/theme/mood/trope/object/location/other.
-    - keywords.kind 는 정해진 종류 이외는 사용할 수 없다. (ex) event, title, character, time
     - semantic anchor 가 되는 추상 개념(theme/mood) 과
       검색 anchor 가 되는 구체 표현(entity/object/location) 을 모두 골고루 추출한다.
     - 한 문서당 keywords 는 5~15개를 권장한다(중요도 weight 로 가중).
