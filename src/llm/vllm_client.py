@@ -9,6 +9,8 @@
      **동일한 순서/내용**으로 배치하여 prefix-cache hit-rate 를 극대화한다.
    - 또한 OpenAI 호환 확장 필드인 `user` 를 채워, vLLM 서버 사이드에서
      사용자별 라우팅/로그 추적이 가능하도록 한다.
+   - `cache_salt` 로 동일 온톨로지 타입끼리 prefix-cache 를 공유하고,
+     타입/테넌트 간 캐시 격리를 할 수 있다 (`extra_body.cache_salt`).
 
 2) **JSON 강제 출력**
    - `response_format={"type": "json_schema", "json_schema": ...}` 로 structured output.
@@ -34,6 +36,15 @@ from src.config.settings import VLLMGenSettings, get_settings
 logger = logging.getLogger(__name__)
 
 
+def _apply_extra_body(kwargs: dict[str, Any], extra: dict[str, Any]) -> None:
+    """extra_body 필드를 병합한다 (guided_json / cache_salt 등)."""
+    if not extra:
+        return
+    merged = dict(kwargs.get("extra_body") or {})
+    merged.update(extra)
+    kwargs["extra_body"] = merged
+
+
 class VLLMChatClient:
     """OpenAI 호환 vLLM 서버용 chat 클라이언트."""
 
@@ -56,6 +67,7 @@ class VLLMChatClient:
         max_tokens: int | None = None,
         temperature: float | None = None,
         response_format: dict[str, Any] | None = None,
+        cache_salt: str | None = None,
         guided_json_schema: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """JSON 객체만 반환하는 chat 호출.
@@ -65,6 +77,7 @@ class VLLMChatClient:
             user_id : 사용자 단위 prefix-cache 추적/라우팅을 위한 식별자.
             max_tokens / temperature : per-call override.
             response_format: OpenAI structured output (`json_schema` 등).
+            cache_salt: vLLM prefix-cache 격리/공유용 salt (`extra_body`).
             guided_json_schema : vLLM `extra_body.guided_json` (response_format 미지정 시).
         """
 
@@ -81,8 +94,13 @@ class VLLMChatClient:
             kwargs["response_format"] = response_format
         else:
             kwargs["response_format"] = {"type": "json_object"}
-            if guided_json_schema is not None:
-                kwargs["extra_body"] = {"guided_json": guided_json_schema}
+
+        extra_body: dict[str, Any] = {}
+        if cache_salt:
+            extra_body["cache_salt"] = cache_salt
+        if guided_json_schema is not None and response_format is None:
+            extra_body["guided_json"] = guided_json_schema
+        _apply_extra_body(kwargs, extra_body)
 
         resp = self._client.chat.completions.create(**kwargs)
         content = resp.choices[0].message.content or "{}"

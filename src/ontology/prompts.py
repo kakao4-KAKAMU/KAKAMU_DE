@@ -33,6 +33,11 @@ from typing import Any, Final
 # 공통 시스템 프롬프트 (prefix-cache friendly: 호출마다 동일)
 # ---------------------------------------------------------------------------
 
+# 온톨로지 타입별 cache_salt: 동일 타입 호출끼리 system prefix KV-cache 공유.
+ONTOLOGY_MOVIE_CACHE_SALT: Final[str] = "ontology:movie_plot:v1"
+ONTOLOGY_FEED_CACHE_SALT: Final[str] = "ontology:feed:v1"
+ONTOLOGY_COMMENT_CACHE_SALT: Final[str] = "ontology:comment:v1"
+
 ONTOLOGY_SYSTEM_PROMPT: Final[str] = dedent(
     """
     너는 영화/피드/댓글 텍스트를 지식그래프 온톨로지로 변환하는
@@ -196,6 +201,7 @@ def build_movie_plot_messages(
             "type": "json_schema",
             "json_schema": _MOVIE_PLOT_SCHEMA_JSON,
         },
+        "cache_salt": ONTOLOGY_MOVIE_CACHE_SALT,
     }
 
 
@@ -395,6 +401,7 @@ def build_feed_messages(
             "type": "json_schema",
             "json_schema": _FEED_SCHEMA_JSON,
         },
+        "cache_salt": ONTOLOGY_FEED_CACHE_SALT,
     }
 
 
@@ -572,6 +579,7 @@ def build_comment_messages(
             "type": "json_schema",
             "json_schema": _COMMENT_SCHEMA_JSON,
         },
+        "cache_salt": ONTOLOGY_COMMENT_CACHE_SALT,
     }
 
 
@@ -632,6 +640,9 @@ def build_user_intent_messages(
 
 __all__ = [
     "ONTOLOGY_SYSTEM_PROMPT",
+    "ONTOLOGY_MOVIE_CACHE_SALT",
+    "ONTOLOGY_FEED_CACHE_SALT",
+    "ONTOLOGY_COMMENT_CACHE_SALT",
     "USER_INTENT_TO_CYPHER_SYSTEM_PROMPT",
     "build_movie_plot_messages",
     "build_feed_messages",

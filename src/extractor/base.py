@@ -13,7 +13,7 @@ from __future__ import annotations
 import json
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Generic, Protocol, TypedDict, TypeVar
+from typing import Any, Generic, NotRequired, Protocol, TypedDict, TypeVar
 
 from pydantic import BaseModel, ValidationError
 
@@ -28,6 +28,7 @@ class OntologyChatPayload(TypedDict):
 
     messages: list[dict[str, str]]
     response_format: dict[str, Any]
+    cache_salt: NotRequired[str]
 
 
 class LLMClient(Protocol):
@@ -41,6 +42,7 @@ class LLMClient(Protocol):
         max_tokens: int = 1024,
         temperature: float = 0.2,
         response_format: dict[str, Any] | None = None,
+        cache_salt: str | None = None,
         guided_json_schema: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         ...
@@ -62,10 +64,12 @@ class OntologyExtractor(ABC, Generic[T]):
         payload = self.build_messages(**kwargs)
         user_id = kwargs.get("author_id") or kwargs.get("user_id") or "system"
 
+        cache_salt = kwargs.get("cache_salt") or payload.get("cache_salt")
         raw = self._llm.chat_json(
             messages=payload["messages"],
             user_id=user_id,
             response_format=payload["response_format"],
+            cache_salt=cache_salt,
         )
 
         try:
