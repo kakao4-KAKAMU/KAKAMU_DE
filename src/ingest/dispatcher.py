@@ -86,7 +86,7 @@ def build_movie_handler(
     embedder: Embedder,
     loader: OntologyLoader,
 ) -> Handler:
-    """payload: {movie_id, title, producing_year?, country?, genres?, plot}"""
+    """payload: {movie_id, title, producing_year?, country?, genres?, plot, toxicity_score?}"""
 
     def _handler(payload: Mapping[str, Any]) -> None:
         movie_id = str(payload["movie_id"])

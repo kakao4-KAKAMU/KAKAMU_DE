@@ -182,6 +182,7 @@ SET m.title          = $title,
     m.plot_raw       = $plot_raw,
     m.plot_summary   = $plot_summary,
     m.plot_embedding = $plot_embedding,
+    m.toxicity_score = $toxicity_score,
     m.updated_at     = datetime()
 
 // Genre
@@ -237,6 +238,7 @@ SET m.title          = $title,
     m.plot_raw       = $plot_raw,
     m.plot_summary   = $plot_summary,
     m.plot_embedding = $plot_embedding{extra_lines},
+    m.toxicity_score = $toxicity_score,
     m.updated_at     = datetime()
 
 // Genre
@@ -405,7 +407,7 @@ MATCH (m:Movie)
 WHERE m.plot_embedding IS NOT NULL
 WITH m, vector.similarity.cosine(m.plot_embedding, $query_embedding) AS vec_score
 ORDER BY vec_score DESC
-LIMIT toInteger($vec_top_k * 5)   -- ← 필터 손실 보정용 버퍼
+LIMIT toInteger($vec_top_k * 5)   // 필터 손실 보정용 버퍼
 
 // 2) toxicity 필터 (기존과 동일한 위치)
 WITH m, vec_score

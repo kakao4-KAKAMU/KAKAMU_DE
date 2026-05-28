@@ -168,6 +168,9 @@ class MoviePlotOntology(OntologyResult):
         default_factory=list,
         description="추정 타겟 관객층 태그(예: 'family', 'cinephile', 'teen').",
     )
+    toxicity_score: float = Field(
+        default=0.0, ge=0.0, le=1.0, description="유해/공격성 점수(0~1)."
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -228,8 +231,12 @@ class CommentOntology(OntologyResult):
         default=None,
         description="해당 댓글이 특정 사용자를 향한 경우 그 user_id.",
     )
-    contains_spoiler: bool = Field(default=False)
-    toxicity_score: float = Field(default=0.0, ge=0.0, le=1.0)
+    contains_spoiler: bool = Field(
+        default=False, description="스포일러 포함 여부."
+    )
+    toxicity_score: float = Field(
+        default=0.0, ge=0.0, le=1.0, description="유해/공격성 점수(0~1)."
+    )
 
 
 # ---------------------------------------------------------------------------

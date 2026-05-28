@@ -86,6 +86,7 @@ _MOVIE_PLOT_SCHEMA_HINT: Final[str] = dedent(
       "characters": ["<역할/이름>", ...],
       "locations": ["<배경 시대/공간>", ...],
       "target_audience": ["family|teen|adult|cinephile|...", ...]
+      "toxicity_score": 0.0~1.0
     }
     """
 ).strip()
@@ -103,7 +104,7 @@ _MOVIE_PLOT_GUIDE: Final[str] = dedent(
     - keywords.kind 분포 가이드:
         theme/mood 합쳐 30~40%,
         entity(인물/단체)/location/object 합쳐 40~50%,
-        나머지는 concept/other.
+    - toxicity_score 는 욕설/공격성/혐오표현 수위(0.1~1.0).
     """
 ).strip()
 

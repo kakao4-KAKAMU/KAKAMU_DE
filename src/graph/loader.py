@@ -97,6 +97,7 @@ class OntologyLoader:
             "genres": list(genres),
             "themes": themes,
             "moods": moods,
+            "toxicity_score": ontology.toxicity_score,
             "keywords": [k.model_dump() for k in keywords],
         }
         self._neo4j.execute_write(self._movie_upsert_cypher(), params)
