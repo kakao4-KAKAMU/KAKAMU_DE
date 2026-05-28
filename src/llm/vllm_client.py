@@ -42,6 +42,7 @@ class VLLMChatClient:
         self._client = OpenAI(
             base_url=self._settings.base_url,
             api_key=self._settings.api_key,
+            timeout=600
         )
 
     # ------------------------------------------------------------------
