@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from src.extractor.base import LLMClient, OntologyExtractor
+from src.extractor.base import LLMClient, OntologyChatPayload, OntologyExtractor
 from src.ontology.prompts import build_movie_plot_messages
 from src.ontology.schema import MoviePlotOntology
 
@@ -22,7 +22,7 @@ class MoviePlotExtractor(OntologyExtractor[MoviePlotOntology]):
         country: str | None,
         genres: list[str] | None,
         plot: str,
-    ) -> list[dict[str, str]]:
+    ) -> OntologyChatPayload:
         return build_movie_plot_messages(
             movie_id=movie_id,
             title=title,

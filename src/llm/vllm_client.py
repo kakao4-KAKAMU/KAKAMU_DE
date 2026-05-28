@@ -11,9 +11,9 @@
      사용자별 라우팅/로그 추적이 가능하도록 한다.
 
 2) **JSON 강제 출력**
-   - `response_format={"type": "json_object"}` 를 사용해 LLM 출력의 형태를 잡고,
-     `extra_body={"guided_json": ...}` 또는 `guided_decoding_backend` 를 통해
-     Pydantic 스키마 기반 guided decoding 을 옵션으로 제공한다.
+   - `response_format={"type": "json_schema", "json_schema": ...}` 로 structured output.
+   - 미지정 시 `{"type": "json_object"}` 를 사용한다.
+   - `guided_json_schema` 는 vLLM guided decoding 호환을 위한 레거시 옵션이다.
 
 SOLID
 -----
@@ -55,6 +55,7 @@ class VLLMChatClient:
         user_id: str | None = None,
         max_tokens: int | None = None,
         temperature: float | None = None,
+        response_format: dict[str, Any] | None = None,
         guided_json_schema: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """JSON 객체만 반환하는 chat 호출.
@@ -63,7 +64,8 @@ class VLLMChatClient:
             messages: system/user role messages.
             user_id : 사용자 단위 prefix-cache 추적/라우팅을 위한 식별자.
             max_tokens / temperature : per-call override.
-            guided_json_schema : Pydantic JSON Schema. 지정 시 guided decoding 적용.
+            response_format: OpenAI structured output (`json_schema` 등).
+            guided_json_schema : vLLM `extra_body.guided_json` (response_format 미지정 시).
         """
 
         kwargs: dict[str, Any] = {
@@ -71,13 +73,16 @@ class VLLMChatClient:
             "messages": messages,
             "max_tokens": max_tokens or self._settings.max_tokens,
             "temperature": temperature if temperature is not None else self._settings.temperature,
-            "response_format": {"type": "json_object"},
         }
         if user_id:
             kwargs["user"] = user_id
 
-        if guided_json_schema is not None:
-            kwargs["extra_body"] = {"guided_json": guided_json_schema}
+        if response_format is not None:
+            kwargs["response_format"] = response_format
+        else:
+            kwargs["response_format"] = {"type": "json_object"}
+            if guided_json_schema is not None:
+                kwargs["extra_body"] = {"guided_json": guided_json_schema}
 
         resp = self._client.chat.completions.create(**kwargs)
         content = resp.choices[0].message.content or "{}"

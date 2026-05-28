@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from src.extractor.base import LLMClient, OntologyExtractor
+from src.extractor.base import LLMClient, OntologyChatPayload, OntologyExtractor
 from src.ontology.prompts import build_feed_messages
 from src.ontology.schema import FeedOntology
 
@@ -19,7 +19,7 @@ class FeedExtractor(OntologyExtractor[FeedOntology]):
         related_movie_id: str | None,
         known_movie_ids: list[str] | None,
         content: str,
-    ) -> list[dict[str, str]]:
+    ) -> OntologyChatPayload:
         return build_feed_messages(
             feed_id=feed_id,
             author_id=author_id,

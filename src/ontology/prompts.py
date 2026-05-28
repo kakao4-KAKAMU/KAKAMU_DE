@@ -27,7 +27,7 @@ vLLM prefix-cache 친화 설계
 from __future__ import annotations
 
 from textwrap import dedent
-from typing import Final
+from typing import Any, Final
 
 # ---------------------------------------------------------------------------
 # 공통 시스템 프롬프트 (prefix-cache friendly: 호출마다 동일)
@@ -65,32 +65,67 @@ ONTOLOGY_SYSTEM_PROMPT: Final[str] = dedent(
 # 1. Movie Plot Ontology 프롬프트
 # ---------------------------------------------------------------------------
 
-_MOVIE_PLOT_SCHEMA_HINT: Final[str] = dedent(
-    """
-    [출력 JSON 스키마]
-    {
-      "schema_version": "1.0",
-      "source_id": "<movie_id>",
-      "language": "ko",
-      "summary": "<2~3문장 요약>",
-      "themes": ["<주제 표제어>", ...],
-      "moods": ["<분위기 표제어>", ...],
-      "tropes": ["<트로프 식별자(snake_case)>", ...],
-      "keywords": [
-        {
-          "term": "<원문 표면형>",
-          "normalized": "<정규화 표제어>",
-          "weight": 0.0~1.0,
-          "kind": "entity|concept|theme|mood|trope|object|location|other"
-        }, ...
-      ],
-      "characters": ["<역할/이름>", ...],
-      "locations": ["<배경 시대/공간>", ...],
-      "target_audience": ["family|teen|adult|cinephile|...", ...]
-      "toxicity_score": 0.0~1.0
-    }
-    """
-).strip()
+_MOVIE_PLOT_SCHEMA_JSON: Final[dict[str, Any]] = {
+    "name": "movie_knowledge_ontology",
+    "strict": True,  # 스키마를 엄격하게 준수하도록 강제
+    "schema": {
+        "type": "object",
+        "properties": {
+            "schema_version": {"type": "string", "enum": ["1.0"]},
+            "source_id": {"type": "string"},
+            "language": {"type": "string"},
+            "summary": {"type": "string"},
+            "themes": {"type": "array", "items": {"type": "string"}},
+            "moods": {"type": "array", "items": {"type": "string"}},
+            "tropes": {"type": "array", "items": {"type": "string"}},
+            "keywords": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "term": {"type": "string"},
+                        "normalized": {"type": "string"},
+                        "weight": {"type": "number"},
+                        "kind": {
+                            "type": "string",
+                            "enum": [
+                                "entity",
+                                "concept",
+                                "theme",
+                                "mood",
+                                "trope",
+                                "object",
+                                "location",
+                                "other",
+                            ],
+                        },
+                    },
+                    "required": ["term", "normalized", "weight", "kind"],
+                    "additionalProperties": False,
+                },
+            },
+            "characters": {"type": "array", "items": {"type": "string"}},
+            "locations": {"type": "array", "items": {"type": "string"}},
+            "target_audience": {"type": "array", "items": {"type": "string"}},
+            "toxicity_score": {"type": "number"},
+        },
+        "required": [
+            "schema_version",
+            "source_id",
+            "language",
+            "summary",
+            "themes",
+            "moods",
+            "tropes",
+            "keywords",
+            "characters",
+            "locations",
+            "target_audience",
+            "toxicity_score",
+        ],
+        "additionalProperties": False,
+    },
+}
 
 
 _MOVIE_PLOT_GUIDE: Final[str] = dedent(
@@ -120,8 +155,8 @@ def build_movie_plot_messages(
     country: str | None,
     genres: list[str] | None,
     plot: str,
-) -> list[dict[str, str]]:
-    """영화 줄거리 → MoviePlotOntology 매핑용 messages 생성.
+) -> dict[str, Any]:
+    """영화 줄거리 → MoviePlotOntology 매핑용 messages + response_format 생성.
 
     Args:
         movie_id: 영화 고유 ID. 결과 JSON 의 source_id 로 들어간다.
@@ -151,21 +186,17 @@ def build_movie_plot_messages(
         """
     ).strip()
 
-    system_rules = dedent(
-        f"""
-    {_MOVIE_PLOT_GUIDE}
-
-    {_MOVIE_PLOT_SCHEMA_HINT}
-
-    위 스키마에 정확히 맞춘 JSON 만 출력하라.
-    """
-    )
-
-    return [
-        {"role": "system", "content": ONTOLOGY_SYSTEM_PROMPT},
-        {"role": "system", "content": system_rules},
-        {"role": "user", "content": user_payload},
-    ]
+    return {
+        "messages": [
+            {"role": "system", "content": ONTOLOGY_SYSTEM_PROMPT},
+            {"role": "system", "content": _MOVIE_PLOT_GUIDE},
+            {"role": "user", "content": user_payload},
+        ],
+        "response_format": {
+            "type": "json_schema",
+            "json_schema": _MOVIE_PLOT_SCHEMA_JSON,
+        },
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -173,32 +204,125 @@ def build_movie_plot_messages(
 # ---------------------------------------------------------------------------
 
 
-_FEED_SCHEMA_HINT: Final[str] = dedent(
-    """
-    [출력 JSON 스키마]
-    {
-      "schema_version": "1.0",
-      "source_id": "<feed_id>",
-      "language": "ko",
-      "summary": "<1~2문장 요약>",
-      "categories": ["review|recommendation|question|discussion|news|spoiler|theory|comparison|meta|off_topic", ...],
-      "sentiment": "very_negative|negative|neutral|positive|very_positive",
-      "sentiment_score": -1.0~1.0,
-      "emotions": [
-        {"tag": "joy|sadness|anger|fear|disgust|surprise|nostalgia|empathy|excitement|boredom|confusion|admiration",
-         "score": 0.0~1.0}, ...
-      ],
-      "keywords": [
-        {"term": "...", "normalized": "...", "weight": 0.0~1.0,
-         "kind": "entity|concept|theme|mood|trope|object|location|other"}, ...
-      ],
-      "referenced_movie_ids": ["<movie_id>", ...],
-      "referenced_person_names": ["<감독/배우 등>", ...],
-      "contains_spoiler": true|false,
-      "toxicity_score": 0.0~1.0
-    }
-    """
-).strip()
+_FEED_SCHEMA_JSON: Final[dict[str, Any]] = {
+    "name": "feed_knowledge_ontology",
+    "strict": True,
+    "schema": {
+        "type": "object",
+        "properties": {
+            "schema_version": {"type": "string", "enum": ["1.0"]},
+            "source_id": {"type": "string"},
+            "language": {"type": "string"},
+            "summary": {"type": "string"},
+            "categories": {
+                "type": "array",
+                "items": {
+                    "type": "string",
+                    "enum": [
+                        "review",
+                        "recommendation",
+                        "question",
+                        "discussion",
+                        "news",
+                        "spoiler",
+                        "theory",
+                        "comparison",
+                        "meta",
+                        "off_topic",
+                    ],
+                },
+            },
+            "sentiment": {
+                "type": "string",
+                "enum": [
+                    "very_negative",
+                    "negative",
+                    "neutral",
+                    "positive",
+                    "very_positive",
+                ],
+            },
+            "sentiment_score": {"type": "number"},
+            "emotions": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "tag": {
+                            "type": "string",
+                            "enum": [
+                                "joy",
+                                "sadness",
+                                "anger",
+                                "fear",
+                                "disgust",
+                                "surprise",
+                                "nostalgia",
+                                "empathy",
+                                "excitement",
+                                "boredom",
+                                "confusion",
+                                "admiration",
+                            ],
+                        },
+                        "score": {"type": "number"},
+                    },
+                    "required": ["tag", "score"],
+                    "additionalProperties": False,
+                },
+            },
+            "keywords": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "term": {"type": "string"},
+                        "normalized": {"type": "string"},
+                        "weight": {"type": "number"},
+                        "kind": {
+                            "type": "string",
+                            "enum": [
+                                "entity",
+                                "concept",
+                                "theme",
+                                "mood",
+                                "trope",
+                                "object",
+                                "location",
+                                "other",
+                            ],
+                        },
+                    },
+                    "required": ["term", "normalized", "weight", "kind"],
+                    "additionalProperties": False,
+                },
+            },
+            "referenced_movie_ids": {"type": "array", "items": {"type": "string"}},
+            "referenced_person_names": {
+                "type": "array",
+                "items": {"type": "string"},
+            },
+            "contains_spoiler": {"type": "boolean"},
+            "toxicity_score": {"type": "number"},
+        },
+        "required": [
+            "schema_version",
+            "source_id",
+            "language",
+            "summary",
+            "categories",
+            "sentiment",
+            "sentiment_score",
+            "emotions",
+            "keywords",
+            "referenced_movie_ids",
+            "referenced_person_names",
+            "contains_spoiler",
+            "toxicity_score",
+        ],
+        "additionalProperties": False,
+    },
+}
 
 
 _FEED_GUIDE: Final[str] = dedent(
@@ -227,7 +351,7 @@ def build_feed_messages(
     related_movie_id: str | None,
     known_movie_ids: list[str] | None,
     content: str,
-) -> list[dict[str, str]]:
+) -> dict[str, Any]:
     """피드 본문 → FeedOntology 매핑용 messages.
 
     Args:
@@ -257,17 +381,21 @@ def build_feed_messages(
         f"""
         {_FEED_GUIDE}
 
-        {_FEED_SCHEMA_HINT}
-
         위 스키마에 정확히 맞춘 JSON 만 출력하라.
         """
     ).strip()
 
-    return [
-        {"role": "system", "content": ONTOLOGY_SYSTEM_PROMPT},
-        {"role": "system", "content": system_rules},
-        {"role": "user", "content": user_payload},
-    ]
+    return {
+        "messages": [
+            {"role": "system", "content": ONTOLOGY_SYSTEM_PROMPT},
+            {"role": "system", "content": system_rules},
+            {"role": "user", "content": user_payload},
+        ],
+        "response_format": {
+            "type": "json_schema",
+            "json_schema": _FEED_SCHEMA_JSON,
+        },
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -275,25 +403,104 @@ def build_feed_messages(
 # ---------------------------------------------------------------------------
 
 
-_COMMENT_SCHEMA_HINT: Final[str] = dedent(
-    """
-    [출력 JSON 스키마]
-    {
-      "schema_version": "1.0",
-      "source_id": "<comment_id>",
-      "language": "ko",
-      "summary": "<1문장 요약>",
-      "intents": ["agree|disagree|question|answer|recommend|critique|appreciation|joke|spoiler_warning|off_topic", ...],
-      "sentiment": "very_negative|negative|neutral|positive|very_positive",
-      "sentiment_score": -1.0~1.0,
-      "emotions": [{"tag": "<EmotionTag>", "score": 0.0~1.0}, ...],
-      "keywords": [{"term": "...", "normalized": "...", "weight": 0.0~1.0, "kind": "..."}],
-      "targets_user_id": "<user_id 또는 null>",
-      "contains_spoiler": true|false,
-      "toxicity_score": 0.0~1.0
-    }
-    """
-).strip()
+_COMMENT_SCHEMA_JSON: Final[dict[str, Any]] = {
+    "name": "comment_knowledge_ontology",
+    "strict": True,
+    "schema": {
+        "type": "object",
+        "properties": {
+            "schema_version": {"type": "string", "enum": ["1.0"]},
+            "source_id": {"type": "string"},
+            "language": {"type": "string"},
+            "summary": {"type": "string"},
+            "intents": {
+                "type": "array",
+                "items": {
+                    "type": "string",
+                    "enum": [
+                        "agree",
+                        "disagree",
+                        "question",
+                        "answer",
+                        "recommend",
+                        "critique",
+                        "appreciation",
+                        "joke",
+                        "spoiler_warning",
+                        "off_topic",
+                    ],
+                },
+            },
+            "sentiment": {
+                "type": "string",
+                "enum": [
+                    "very_negative",
+                    "negative",
+                    "neutral",
+                    "positive",
+                    "very_positive",
+                ],
+            },
+            "sentiment_score": {"type": "number"},
+            "emotions": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "tag": {"type": "string"},
+                        "score": {"type": "number"},
+                    },
+                    "required": ["tag", "score"],
+                    "additionalProperties": False,
+                },
+            },
+            "keywords": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "term": {"type": "string"},
+                        "normalized": {"type": "string"},
+                        "weight": {"type": "number"},
+                        "kind": {
+                            "type": "string",
+                            "enum": [
+                                "entity",
+                                "concept",
+                                "theme",
+                                "mood",
+                                "trope",
+                                "object",
+                                "location",
+                                "other",
+                            ],
+                        },
+                    },
+                    "required": ["term", "normalized", "weight", "kind"],
+                    "additionalProperties": False,
+                },
+            },
+            "targets_user_id": {"type": ["string", "null"]},
+            "contains_spoiler": {"type": "boolean"},
+            "toxicity_score": {"type": "number"},
+        },
+        "required": [
+            "schema_version",
+            "source_id",
+            "language",
+            "summary",
+            "intents",
+            "sentiment",
+            "sentiment_score",
+            "emotions",
+            "keywords",
+            "targets_user_id",
+            "contains_spoiler",
+            "toxicity_score",
+        ],
+        "additionalProperties": False,
+    },
+}
 
 
 _COMMENT_GUIDE: Final[str] = dedent(
@@ -317,7 +524,7 @@ def build_comment_messages(
     mentioned_user_ids: list[str] | None,
     parent_feed_summary: str | None,
     content: str,
-) -> list[dict[str, str]]:
+) -> dict[str, Any]:
     """댓글 본문 → CommentOntology 매핑용 messages.
 
     Args:
@@ -351,17 +558,21 @@ def build_comment_messages(
         f"""
         {_COMMENT_GUIDE}
 
-        {_COMMENT_SCHEMA_HINT}
-
         위 스키마에 정확히 맞춘 JSON 만 출력하라.
         """
     ).strip()
 
-    return [
-        {"role": "system", "content": ONTOLOGY_SYSTEM_PROMPT},
-        {"role": "system", "content": system_rules},
-        {"role": "user", "content": user_payload},
-    ]
+    return {
+        "messages": [
+            {"role": "system", "content": ONTOLOGY_SYSTEM_PROMPT},
+            {"role": "system", "content": system_rules},
+            {"role": "user", "content": user_payload},
+        ],
+        "response_format": {
+            "type": "json_schema",
+            "json_schema": _COMMENT_SCHEMA_JSON,
+        },
+    }
 
 
 # ---------------------------------------------------------------------------

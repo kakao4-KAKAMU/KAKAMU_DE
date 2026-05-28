@@ -13,7 +13,7 @@ from __future__ import annotations
 import json
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Generic, Protocol, TypeVar
+from typing import Any, Generic, Protocol, TypedDict, TypeVar
 
 from pydantic import BaseModel, ValidationError
 
@@ -21,6 +21,13 @@ logger = logging.getLogger(__name__)
 
 
 T = TypeVar("T", bound=BaseModel)
+
+
+class OntologyChatPayload(TypedDict):
+    """프롬프트 빌더 → LLM 호출에 전달하는 messages + structured output 스펙."""
+
+    messages: list[dict[str, str]]
+    response_format: dict[str, Any]
 
 
 class LLMClient(Protocol):
@@ -33,6 +40,8 @@ class LLMClient(Protocol):
         user_id: str | None = None,
         max_tokens: int = 1024,
         temperature: float = 0.2,
+        response_format: dict[str, Any] | None = None,
+        guided_json_schema: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         ...
 
@@ -45,15 +54,19 @@ class OntologyExtractor(ABC, Generic[T]):
         self._schema_cls = schema_cls
 
     @abstractmethod
-    def build_messages(self, **kwargs: Any) -> list[dict[str, str]]:
-        """입력에서 chat messages 를 생성. 구현체별로 다르다."""
+    def build_messages(self, **kwargs: Any) -> OntologyChatPayload:
+        """입력에서 chat messages 와 response_format 을 생성. 구현체별로 다르다."""
 
     def extract(self, **kwargs: Any) -> T:
         """messages 생성 → LLM 호출 → JSON → Pydantic 검증 까지의 표준 흐름."""
-        messages = self.build_messages(**kwargs)
+        payload = self.build_messages(**kwargs)
         user_id = kwargs.get("author_id") or kwargs.get("user_id") or "system"
 
-        raw = self._llm.chat_json(messages, user_id=user_id)
+        raw = self._llm.chat_json(
+            messages=payload["messages"],
+            user_id=user_id,
+            response_format=payload["response_format"],
+        )
 
         try:
             return self._schema_cls.model_validate(raw)
@@ -76,4 +89,4 @@ class OntologyExtractor(ABC, Generic[T]):
                 raise e
 
 
-__all__ = ["LLMClient", "OntologyExtractor"]
+__all__ = ["LLMClient", "OntologyChatPayload", "OntologyExtractor"]

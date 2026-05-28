@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from src.extractor.base import LLMClient, OntologyExtractor
+from src.extractor.base import LLMClient, OntologyChatPayload, OntologyExtractor
 from src.ontology.prompts import build_comment_messages
 from src.ontology.schema import CommentOntology
 
@@ -20,7 +20,7 @@ class CommentExtractor(OntologyExtractor[CommentOntology]):
         mentioned_user_ids: list[str] | None,
         parent_feed_summary: str | None,
         content: str,
-    ) -> list[dict[str, str]]:
+    ) -> OntologyChatPayload:
         return build_comment_messages(
             comment_id=comment_id,
             feed_id=feed_id,

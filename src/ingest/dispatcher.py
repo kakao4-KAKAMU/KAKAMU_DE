@@ -38,6 +38,8 @@ class LLMClient(Protocol):
         user_id: str | None = None,
         max_tokens: int | None = None,
         temperature: float | None = None,
+        response_format: dict[str, Any] | None = None,
+        guided_json_schema: dict[str, Any] | None = None,
     ) -> dict[str, Any]: ...
 
 
