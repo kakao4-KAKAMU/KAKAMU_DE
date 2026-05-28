@@ -53,7 +53,7 @@ class VLLMGenSettings(BaseSettings):
 
     base_url: str = Field(default="http://localhost:8000/v1")
     api_key: str = Field(default="EMPTY")
-    model_name: str = Field(default="Qwen/Qwen2.5-7B-Instruct-AWQ")
+    model_name: str = Field(default="Qwen/Qwen3-8B-GGUF:Q4_K_M")
     max_tokens: int = Field(default=1024)
     temperature: float = Field(default=0.2)
     enable_prefix_caching: bool = Field(default=True)
@@ -101,7 +101,7 @@ class OntologySettings(BaseSettings):
     """온톨로지 추출/적재 버전."""
 
     prompt_version: str = Field(default="1.0")
-    model_name: str = Field(default="Qwen/Qwen2.5-7B-Instruct-AWQ")
+    model_name: str = Field(default="Qwen/Qwen3-8B-GGUF:Q4_K_M")
 
     model_config = SettingsConfigDict(
         env_file=".env", env_prefix="ONTOLOGY_", extra="ignore"
