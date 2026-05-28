@@ -53,6 +53,7 @@ ONTOLOGY_SYSTEM_PROMPT: Final[str] = dedent(
 
     [semantic vs keyword 균형]
     - keywords.kind 는 다음 중 하나: entity/concept/theme/mood/trope/object/location/other.
+    - keywords.kind 는 정해진 종류 이외는 사용할 수 없다. (ex) event, title, character, time
     - semantic anchor 가 되는 추상 개념(theme/mood) 과
       검색 anchor 가 되는 구체 표현(entity/object/location) 을 모두 골고루 추출한다.
     - 한 문서당 keywords 는 5~15개를 권장한다(중요도 weight 로 가중).
@@ -104,6 +105,8 @@ _MOVIE_PLOT_GUIDE: Final[str] = dedent(
     - keywords.kind 분포 가이드:
         theme/mood 합쳐 30~40%,
         entity(인물/단체)/location/object 합쳐 40~50%,
+        나머지는 concept/other
+        이외 다른 kind는 사용할 수 없다.
     - toxicity_score 는 욕설/공격성/혐오표현 수위(0.1~1.0).
     """
 ).strip()
@@ -145,17 +148,22 @@ def build_movie_plot_messages(
         \"\"\"
         {plot.strip()}
         \"\"\"
-
-        {_MOVIE_PLOT_GUIDE}
-
-        {_MOVIE_PLOT_SCHEMA_HINT}
-
-        위 스키마에 정확히 맞춘 JSON 만 출력하라.
         """
     ).strip()
 
+    system_rules = dedent(
+        f"""
+    {_MOVIE_PLOT_GUIDE}
+
+    {_MOVIE_PLOT_SCHEMA_HINT}
+
+    위 스키마에 정확히 맞춘 JSON 만 출력하라.
+    """
+    )
+
     return [
         {"role": "system", "content": ONTOLOGY_SYSTEM_PROMPT},
+        {"role": "system", "content": system_rules},
         {"role": "user", "content": user_payload},
     ]
 
@@ -207,7 +215,7 @@ _FEED_GUIDE: Final[str] = dedent(
     - referenced_movie_ids 는 입력 메타의 known_movie_ids 에 포함된 ID 만 사용한다.
       메타에 없는 영화는 referenced_person_names 또는 keywords 로 처리.
     - contains_spoiler: 결말/반전을 직접 서술하면 true.
-    - toxicity_score: 욕설/공격성/혐오표현 수위.
+    - toxicity_score: 욕설/공격성/혐오표현 수위(0.1~1.0).
     """
 ).strip()
 
@@ -242,7 +250,11 @@ def build_feed_messages(
         \"\"\"
         {content.strip()}
         \"\"\"
+        """
+    ).strip()
 
+    system_rules = dedent(
+        f"""
         {_FEED_GUIDE}
 
         {_FEED_SCHEMA_HINT}
@@ -253,6 +265,7 @@ def build_feed_messages(
 
     return [
         {"role": "system", "content": ONTOLOGY_SYSTEM_PROMPT},
+        {"role": "system", "content": system_rules},
         {"role": "user", "content": user_payload},
     ]
 
@@ -291,6 +304,7 @@ _COMMENT_GUIDE: Final[str] = dedent(
     - 다른 사용자(@언급/대댓글) 를 향한 경우 targets_user_id 를 채운다.
       mentioned_user_ids 메타에 후보가 있는 경우 그 중에서만 선택.
     - keywords 는 5개를 넘기지 않는다(짧은 텍스트에 과추출 금지).
+    - toxicity_score: 욕설/공격성/혐오표현 수위(0.1~1.0).
     """
 ).strip()
 
@@ -330,7 +344,11 @@ def build_comment_messages(
         \"\"\"
         {content.strip()}
         \"\"\"
+        """
+    ).strip()
 
+    system_rules = dedent(
+        f"""
         {_COMMENT_GUIDE}
 
         {_COMMENT_SCHEMA_HINT}
@@ -341,6 +359,7 @@ def build_comment_messages(
 
     return [
         {"role": "system", "content": ONTOLOGY_SYSTEM_PROMPT},
+        {"role": "system", "content": system_rules},
         {"role": "user", "content": user_payload},
     ]
 
