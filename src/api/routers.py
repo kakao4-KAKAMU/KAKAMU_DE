@@ -27,6 +27,7 @@ from src.api.schemas import (
     RecommendResponse,
 )
 from src.chat.state import ChatState
+from src.persistence.chat_history import ChatSession
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +63,12 @@ def _initial_chat_state(req: ChatRequest, session_id: str) -> ChatState:
         max_toxicity=req.max_toxicity,
     )
 
+
+@router.get("/chat/list")
+def chat_list(
+    container: AppContainer = Depends(get_app_container),
+) -> list[ChatSession]:
+    return container.chat_history.list_sessions()
 
 @router.post("/chat", response_model=ChatResponse)
 def chat(

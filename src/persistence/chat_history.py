@@ -12,8 +12,8 @@ LangGraph 의 `PostgresSaver` 와 호환되는 chat history 스토어.
 from __future__ import annotations
 
 import json
-from typing import Any, List, Optional
-
+from typing import Any, List, Optional, TypedDict
+from datetime import datetime
 from src.config.settings import PostgresSettings, get_settings
 from src.persistence.db import get_connection
 
@@ -48,6 +48,12 @@ CREATE INDEX IF NOT EXISTS idx_chat_message_user_time
     ON chat_message(user_id, created_at DESC);
 """
 
+class ChatSession(TypedDict):
+    session_id: str
+    user_id: str
+    started_at: datetime
+    last_active: datetime
+    metadata: dict[str, Any]
 
 class ChatHistoryStore:
     def __init__(self, settings: Optional[PostgresSettings] = None) -> None:
@@ -70,6 +76,26 @@ class ChatHistoryStore:
                 (session_id, user_id, json.dumps(metadata or {})),
             )
             conn.commit()
+
+    def list_sessions(self) -> list[ChatSession]:
+        with get_connection(self._settings) as conn, conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT session_id, user_id, started_at, last_active, metadata
+                FROM chat_session
+                ORDER BY started_at DESC
+            """)
+            rows = cur.fetchall()
+            return [
+                {
+                    "session_id": r[0],
+                    "user_id": r[1],
+                    "started_at": r[2],
+                    "last_active": r[3],
+                    "metadata": r[4],
+                }
+                for r in rows
+            ]
 
     def append(
         self,
@@ -130,4 +156,4 @@ class ChatHistoryStore:
             ]
 
 
-__all__ = ["ChatHistoryStore"]
+__all__ = ["ChatHistoryStore", "ChatSession"]
