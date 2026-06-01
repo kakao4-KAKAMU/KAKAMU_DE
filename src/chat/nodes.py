@@ -43,6 +43,9 @@ class ChatLLMLike(Protocol):
         user_id: str | None = None,
         max_tokens: int | None = None,
         temperature: float | None = None,
+        response_format: dict[str, Any] | None = None,
+        cache_salt: str | None = None,
+        guided_json_schema: dict[str, Any] | None = None,
     ) -> dict[str, Any]: ...
 
 
@@ -134,6 +137,20 @@ _REPLY_SYSTEM_PROMPT = dedent(
 ).strip()
 
 
+_REPLY_RESPONSE_FORMAT = {
+    "type": "json_schema",
+    "json_schema": {
+        "name": "reply_knowledge_ontology",
+        "strict": True,
+        "schema": {
+            "type": "object",
+            "properties": {
+                "reply": {"type": "string"},
+            },
+        },
+    },
+}
+
 def generate_reply(state: ChatState, deps: ChatGraphDependencies) -> ChatState:
     user_query = state.get("query", "")
     retrieved = state.get("retrieved") or []
@@ -152,6 +169,7 @@ def generate_reply(state: ChatState, deps: ChatGraphDependencies) -> ChatState:
     try:
         raw = deps.llm.chat_json(
             messages,
+            response_format=_REPLY_RESPONSE_FORMAT,
             user_id=state.get("user_id"),
             max_tokens=deps.reply_max_tokens,
             temperature=deps.reply_temperature,
