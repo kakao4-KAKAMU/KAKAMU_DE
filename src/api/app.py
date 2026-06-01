@@ -14,12 +14,17 @@ from __future__ import annotations
 import logging
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from src.api.routers import router
 from src.config.settings import get_settings
 
 logger = logging.getLogger(__name__)
 
+origins = [
+    'http://localhost:8081',
+    'http://210.109.52.56',
+]
 
 def create_app() -> FastAPI:
     settings = get_settings()
@@ -27,6 +32,13 @@ def create_app() -> FastAPI:
         title="movie-recommend-system",
         version="0.1.0",
         description="Knowledge-graph based movie recommendation + LLM chat",
+    )
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
     )
     app.include_router(router)
     logger.info("FastAPI app initialized (env=%s)", settings.env)
