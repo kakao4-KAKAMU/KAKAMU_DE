@@ -12,11 +12,13 @@ LangGraph 의 `PostgresSaver` 와 호환되는 chat history 스토어.
 from __future__ import annotations
 
 import json
-from typing import Any, List, Optional, TypedDict
+from typing import Any, List, Optional
 from datetime import datetime
+from uuid import UUID
+from pydantic import BaseModel
 from src.config.settings import PostgresSettings, get_settings
 from src.persistence.db import get_connection
-
+from src.chat.state import ChatMetadata
 DDL = """
 CREATE TABLE IF NOT EXISTS chat_session (
     session_id   UUID PRIMARY KEY,
@@ -37,6 +39,7 @@ CREATE TABLE IF NOT EXISTS chat_message (
     tool_name    TEXT,
     tokens_in    INTEGER,
     tokens_out   INTEGER,
+    reply_metadata     JSONB DEFAULT '{}'::jsonb,
     ontology_ref JSONB,
     created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -48,12 +51,25 @@ CREATE INDEX IF NOT EXISTS idx_chat_message_user_time
     ON chat_message(user_id, created_at DESC);
 """
 
-class ChatSession(TypedDict):
-    session_id: str
+class ChatSession(BaseModel):
+    session_id: UUID
     user_id: str
     started_at: datetime
     last_active: datetime
     metadata: dict[str, Any]
+
+class ChatSessionList(BaseModel):
+    sessions: list[ChatSession]
+
+class ChatMessage(BaseModel):
+    id: int
+    session_id: UUID
+    user_id: str
+    role: str
+    content: str
+    created_at: datetime
+    reply_metadata: Optional[ChatMetadata]
+
 
 class ChatHistoryStore:
     def __init__(self, settings: Optional[PostgresSettings] = None) -> None:
@@ -87,15 +103,57 @@ class ChatHistoryStore:
             """)
             rows = cur.fetchall()
             return [
-                {
-                    "session_id": r[0],
-                    "user_id": r[1],
-                    "started_at": r[2],
-                    "last_active": r[3],
-                    "metadata": r[4],
-                }
+                ChatSession(
+                    session_id=r[0],
+                    user_id=r[1],
+                    started_at=r[2],
+                    last_active=r[3],
+                    metadata=r[4],
+                )
                 for r in rows
             ]
+
+    def get_session_history(
+        self, *, session_id: str, cursor: Optional[int] = None, limit: int = 20
+    ) -> list[ChatMessage]:
+        with get_connection(self._settings) as conn, conn.cursor() as cur:
+            if cursor is None:
+                cur.execute(
+                    """
+                    SELECT id, session_id, user_id, role, content, reply_metadata, created_at
+                    FROM chat_message
+                    WHERE session_id = %s
+                    ORDER BY id DESC
+                    LIMIT %s
+                    """,
+                    (session_id, limit),
+                )
+            else:
+                cur.execute(
+                    """
+                    SELECT id, session_id, user_id, role, content, reply_metadata, created_at
+                    FROM chat_message
+                    WHERE session_id = %s AND id < %s
+                    ORDER BY id DESC
+                    LIMIT %s
+                    """,
+                    (session_id, cursor, limit),
+                )
+            rows = cur.fetchall()
+            messages = [
+                ChatMessage(
+                    id=r[0],
+                    session_id=r[1],
+                    user_id=r[2],
+                    role=r[3],
+                    content=r[4],
+                    reply_metadata=r[5],
+                    created_at=r[6],
+                )
+                for r in rows
+            ]
+            # API 응답은 오래된 메시지 -> 최신 메시지 순으로 반환한다.
+            return list(reversed(messages))
 
     def append(
         self,
@@ -108,14 +166,15 @@ class ChatHistoryStore:
         tokens_in: Optional[int] = None,
         tokens_out: Optional[int] = None,
         ontology_ref: Optional[dict[str, Any]] = None,
+        reply_metadata: Optional[dict[str, Any]] = None,
     ) -> int:
         with get_connection(self._settings) as conn, conn.cursor() as cur:
             cur.execute(
                 """
                 INSERT INTO chat_message
                   (session_id, user_id, role, content, tool_name,
-                   tokens_in, tokens_out, ontology_ref)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                   tokens_in, tokens_out, ontology_ref, reply_metadata)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
                 """,
                 (
@@ -127,6 +186,7 @@ class ChatHistoryStore:
                     tokens_in,
                     tokens_out,
                     json.dumps(ontology_ref) if ontology_ref else None,
+                    json.dumps(reply_metadata) if reply_metadata else None,
                 ),
             )
             (msg_id,) = cur.fetchone()
@@ -156,4 +216,4 @@ class ChatHistoryStore:
             ]
 
 
-__all__ = ["ChatHistoryStore", "ChatSession"]
+__all__ = ["ChatHistoryStore", "ChatSession", "ChatSessionList", "ChatMessage"]

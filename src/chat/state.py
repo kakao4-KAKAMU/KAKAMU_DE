@@ -8,8 +8,12 @@ SOLID
 
 from __future__ import annotations
 
-from typing import Any, TypedDict
+from typing import Any, Literal, Optional, TypedDict
 
+
+class ChatMetadata(TypedDict, total=False):
+    type: Literal["movie"]
+    id: str
 
 class ChatState(TypedDict, total=False):
     """LangGraph 노드 간 공유 상태.
@@ -34,6 +38,8 @@ class ChatState(TypedDict, total=False):
 
     retrieved: list[dict[str, Any]]
     reply: str
+
+    reply_metadata: Optional[ChatMetadata]
 
     ontology_ref: dict[str, Any]
 

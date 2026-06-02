@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Any, Literal, Optional
 from uuid import uuid4
 
+from src.persistence.chat_history import ChatMessage
 from pydantic import BaseModel, Field
 
 
@@ -35,6 +36,21 @@ class ChatResponse(BaseModel):
     arm_id: str
     movies: list[dict[str, Any]] = Field(default_factory=list)
     ontology_ref: dict[str, Any] = Field(default_factory=dict)
+
+
+# ---------------------------------------------------------------------------
+# /chat/session
+# ---------------------------------------------------------------------------
+
+class ChatSessionResponse(BaseModel):
+    next_cursor: Optional[int]
+    has_more: bool
+    messages: list[ChatMessage]
+
+
+class ChatSessionRequest(BaseModel):
+    cursor: Optional[int] = None
+    limit: int = 20
 
 
 # ---------------------------------------------------------------------------
@@ -96,6 +112,8 @@ __all__ = [
     "Action",
     "ChatRequest",
     "ChatResponse",
+    "ChatSessionRequest",
+    "ChatSessionResponse",
     "FeedbackRequest",
     "FeedbackResponse",
     "IngestEnvelope",

@@ -12,13 +12,14 @@ import json
 import logging
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sse_starlette.sse import EventSourceResponse
 
 from src.api.dependencies import AppContainer, get_container
 from src.api.schemas import (
     ChatRequest,
     ChatResponse,
+    ChatSessionResponse,
     FeedbackRequest,
     FeedbackResponse,
     IngestEnvelope,
@@ -64,11 +65,30 @@ def _initial_chat_state(req: ChatRequest, session_id: str) -> ChatState:
     )
 
 
-@router.get("/chat/list")
+@router.get("/chat/list", response_model=list[ChatSession])
 def chat_list(
     container: AppContainer = Depends(get_app_container),
 ) -> list[ChatSession]:
     return container.chat_history.list_sessions()
+
+# 채팅 세션 히스토리 조회
+@router.get("/chat/history/{session_id}", response_model=ChatSessionResponse)
+def chat_session(
+    session_id: str,
+    cursor: int | None = Query(default=None, ge=1),
+    limit: int = Query(default=20, ge=1, le=200),
+    container: AppContainer = Depends(get_app_container),
+) -> ChatSessionResponse:
+    messages = container.chat_history.get_session_history(
+        session_id=session_id,
+        cursor=cursor,
+        limit=limit,
+    )
+    return ChatSessionResponse(
+        next_cursor=messages[0].id if messages else None,
+        has_more=len(messages) == limit,
+        messages=messages,
+    )
 
 @router.post("/chat", response_model=ChatResponse)
 def chat(
@@ -109,10 +129,21 @@ async def chat_stream(
 ):
     """노드 단위 SSE 스트리밍 (디버깅/관측용)."""
     session_id = req.ensure_session_id()
+    try:
+        container.chat_history.open_session(session_id=session_id, user_id=req.user_id)
+        container.chat_history.append(
+            session_id=session_id,
+            user_id=req.user_id,
+            role="user",
+            content=req.message,
+        )
+    except Exception:
+        logger.exception("Failed to persist user message; continuing")
     state = _initial_chat_state(req, session_id)
     config = {"configurable": {"thread_id": session_id}}
 
     async def event_gen():
+        yield {"event": "open", "data": json.dumps({"session_id": session_id})}
         try:
             async for chunk in container.chat_graph.astream(state, config=config):
                 yield {

@@ -128,11 +128,12 @@ def retrieve_movies(state: ChatState, deps: ChatGraphDependencies) -> ChatState:
 
 
 _REPLY_SYSTEM_PROMPT = dedent(
-    """
+    f"""
     너는 한국어 영화 추천 도우미다.
     아래 추천 후보 목록(JSON)을 근거로 사용자의 요청에 1~3 문장으로 답하라.
     추천된 영화가 없다면 다른 키워드를 제시하라.
-    출력은 단일 JSON 객체: {"reply": "<문장>"}.
+    출력은 단일 JSON 객체: {{"reply": "문장", "metadata": {{ "type": "movie", "id": "<영화 ID>" }}}}.
+    metadata 는 추천 결과의 타입과 ID를 나타낸다.
     """
 ).strip()
 
@@ -146,6 +147,13 @@ _REPLY_RESPONSE_FORMAT = {
             "type": "object",
             "properties": {
                 "reply": {"type": "string"},
+                "metadata": {
+                    "type": "object",
+                    "properties": {
+                        "type": { "type": "string", "enum": ["movie"] },
+                        "id": {"type": "string"},
+                    },
+                }
             },
         },
     },
@@ -180,7 +188,7 @@ def generate_reply(state: ChatState, deps: ChatGraphDependencies) -> ChatState:
         reply = _fallback_reply(retrieved)
     if not reply:
         reply = _fallback_reply(retrieved)
-    return {"reply": reply}
+    return {"reply": reply, "reply_metadata": raw.get("metadata")}
 
 
 def _fallback_reply(retrieved: list[dict[str, Any]]) -> str:
@@ -198,6 +206,7 @@ def persist_history(state: ChatState, deps: ChatGraphDependencies) -> ChatState:
         "themes": state.get("themes") or [],
         "moods": state.get("moods") or [],
     }
+    
     if deps.history is not None and state.get("session_id"):
         try:
             deps.history.append(
@@ -206,6 +215,7 @@ def persist_history(state: ChatState, deps: ChatGraphDependencies) -> ChatState:
                 role="assistant",
                 content=str(state.get("reply") or ""),
                 ontology_ref=ontology_ref,
+                reply_metadata=state.get("reply_metadata"),
             )
         except Exception:
             logger.exception("Chat history persistence failed")
