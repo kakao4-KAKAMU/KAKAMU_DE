@@ -23,6 +23,10 @@ from src.api.schemas import (
     FeedbackRequest,
     FeedbackResponse,
     IngestEnvelope,
+    IngestFeedEnvelope,
+    IngestMovieEnvelope,
+    IngestCommentEnvelope,
+    IngestFeedLikeEnvelope,
     IngestResponse,
     RecommendRequest,
     RecommendResponse,
@@ -200,7 +204,6 @@ def _enqueue(
     try:
         outbox_id = container.outbox.enqueue(
             aggregate_type=aggregate_type,
-            aggregate_id=env.aggregate_id,
             payload=env.payload,
         )
     except Exception as exc:
@@ -211,7 +214,7 @@ def _enqueue(
 
 @router.post("/ingest/movie", response_model=IngestResponse)
 def ingest_movie(
-    env: IngestEnvelope,
+    env: IngestMovieEnvelope,
     container: AppContainer = Depends(get_app_container),
 ) -> IngestResponse:
     return _enqueue(container, aggregate_type="movie", env=env)
@@ -219,15 +222,39 @@ def ingest_movie(
 
 @router.post("/ingest/feed", response_model=IngestResponse)
 def ingest_feed(
-    env: IngestEnvelope,
+    env: IngestFeedEnvelope,
     container: AppContainer = Depends(get_app_container),
 ) -> IngestResponse:
     return _enqueue(container, aggregate_type="feed", env=env)
 
 
+@router.post("/ingest/feed/modify", response_model=IngestResponse)
+def ingest_feed_modify(
+    env: IngestFeedEnvelope,
+    container: AppContainer = Depends(get_app_container),
+) -> IngestResponse:
+    return _enqueue(container, aggregate_type="feed_modify", env=env)
+
+
+@router.post("/ingest/feed/delete", response_model=IngestResponse)
+def ingest_feed_modify(
+    env: IngestFeedEnvelope,
+    container: AppContainer = Depends(get_app_container),
+) -> IngestResponse:
+    return _enqueue(container, aggregate_type="feed_delete", env=env)
+
+
+@router.post("/ingest/feed/like", response_model=IngestResponse)
+def ingest_feed_like(
+    env: IngestFeedLikeEnvelope,
+    container: AppContainer = Depends(get_app_container),
+) -> IngestResponse:
+    return _enqueue(container, aggregate_type="feed_like", env=env)
+
+
 @router.post("/ingest/comment", response_model=IngestResponse)
 def ingest_comment(
-    env: IngestEnvelope,
+    env: IngestCommentEnvelope,
     container: AppContainer = Depends(get_app_container),
 ) -> IngestResponse:
     return _enqueue(container, aggregate_type="comment", env=env)

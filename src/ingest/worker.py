@@ -59,7 +59,7 @@ class IngestWorker:
                 SET status = 'processing', updated_at = NOW()
                 FROM cte
                 WHERE o.id = cte.id
-                RETURNING o.id, o.aggregate_type, o.aggregate_id, o.op, o.payload,
+                RETURNING o.id, o.aggregate_type, o.op, o.payload,
                           o.prompt_version, o.model_name, o.attempts
                 """,
                 (BATCH_SIZE,),
@@ -70,12 +70,11 @@ class IngestWorker:
                 {
                     "id": r[0],
                     "aggregate_type": r[1],
-                    "aggregate_id": r[2],
-                    "op": r[3],
-                    "payload": r[4] if isinstance(r[4], dict) else json.loads(r[4]),
-                    "prompt_version": r[5],
-                    "model_name": r[6],
-                    "attempts": r[7],
+                    "op": r[2],
+                    "payload": r[3] if isinstance(r[3], dict) else json.loads(r[3]),
+                    "prompt_version": r[4],
+                    "model_name": r[5],
+                    "attempts": r[6],
                 }
                 for r in rows
             ]
@@ -95,14 +94,13 @@ class IngestWorker:
                 cur.execute(
                     """
                     INSERT INTO ingest_dlq
-                      (outbox_id, aggregate_type, aggregate_id, payload,
+                      (outbox_id, aggregate_type, payload,
                        prompt_version, model_name, last_error)
-                    VALUES (%s, %s, %s, %s::jsonb, %s, %s, %s)
+                    VALUES (%s, %s, %s::jsonb, %s, %s, %s)
                     """,
                     (
                         row["id"],
                         row["aggregate_type"],
-                        row["aggregate_id"],
                         json.dumps(row["payload"]),
                         row["prompt_version"],
                         row["model_name"],
@@ -139,7 +137,6 @@ class IngestWorker:
     def reenqueue(self, row: dict[str, Any]) -> int:
         new_id = self._outbox.enqueue(
             aggregate_type=row["aggregate_type"],
-            aggregate_id=row["aggregate_id"],
             op=row.get("op", "upsert"),
             payload=row["payload"],
         )

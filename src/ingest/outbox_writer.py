@@ -23,7 +23,6 @@ class OutboxWriter:
         self,
         *,
         aggregate_type: str,
-        aggregate_id: str,
         payload: Mapping[str, Any],
         op: str = "upsert",
         prompt_version: Optional[str] = None,
@@ -37,13 +36,12 @@ class OutboxWriter:
             cur.execute(
                 """
                 INSERT INTO ingest_outbox
-                  (aggregate_type, aggregate_id, op, payload, prompt_version, model_name, content_hash)
-                VALUES (%s, %s, %s, %s::jsonb, %s, %s, %s)
+                  (aggregate_type, op, payload, prompt_version, model_name, content_hash)
+                VALUES (%s, %s, %s::jsonb, %s, %s, %s)
                 RETURNING id
                 """,
                 (
                     aggregate_type,
-                    aggregate_id,
                     op,
                     json.dumps(payload),
                     pv,

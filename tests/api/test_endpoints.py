@@ -116,7 +116,7 @@ def test_recommend_uses_intent_and_template(
 def test_ingest_movie_enqueues(client: TestClient, _override_container) -> None:
     resp = client.post(
         "/ingest/movie",
-        json={"aggregate_id": "m1", "payload": {"title": "Inception"}},
+        json={"payload": {"title": "Inception"}},
     )
     assert resp.status_code == 200
     assert resp.json() == {"outbox_id": 7}

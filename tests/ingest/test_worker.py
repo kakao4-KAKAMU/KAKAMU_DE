@@ -21,7 +21,6 @@ def test_nack_moves_to_dlq_after_max_attempts() -> None:
     row = {
         "id": 1,
         "aggregate_type": "movie",
-        "aggregate_id": "m1",
         "op": "upsert",
         "payload": {},
         "prompt_version": "1.0",
@@ -45,7 +44,6 @@ def test_nack_exponential_backoff_before_dlq() -> None:
     row = {
         "id": 2,
         "aggregate_type": "feed",
-        "aggregate_id": "f1",
         "op": "upsert",
         "payload": {},
         "prompt_version": "1.0",
@@ -71,7 +69,6 @@ def test_needs_reprocess_when_payload_prompt_version_stale() -> None:
     row = {
         "id": 3,
         "aggregate_type": "movie",
-        "aggregate_id": "m1",
         "op": "upsert",
         "payload": {"prompt_version": "0.9"},
         "prompt_version": "1.0",
@@ -91,7 +88,6 @@ def test_process_row_reenqueue_on_prompt_version_mismatch() -> None:
     row = {
         "id": 4,
         "aggregate_type": "comment",
-        "aggregate_id": "c1",
         "op": "upsert",
         "payload": {"prompt_version": "0.9", "text": "hi"},
         "prompt_version": "0.9",
@@ -114,7 +110,6 @@ def test_process_row_dispatches_when_versions_match() -> None:
     row = {
         "id": 5,
         "aggregate_type": "movie",
-        "aggregate_id": "m2",
         "op": "upsert",
         "payload": {"title": "Inception"},
         "prompt_version": "1.0",

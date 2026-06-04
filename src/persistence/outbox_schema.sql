@@ -1,7 +1,6 @@
 CREATE TABLE IF NOT EXISTS ingest_outbox (
     id              BIGSERIAL PRIMARY KEY,
     aggregate_type  TEXT NOT NULL,
-    aggregate_id    TEXT NOT NULL,
     op              TEXT NOT NULL DEFAULT 'upsert',
     payload         JSONB NOT NULL DEFAULT '{}'::jsonb,
     prompt_version  TEXT NOT NULL,
@@ -23,7 +22,6 @@ CREATE TABLE IF NOT EXISTS ingest_dlq (
     id              BIGSERIAL PRIMARY KEY,
     outbox_id       BIGINT,
     aggregate_type  TEXT NOT NULL,
-    aggregate_id    TEXT NOT NULL,
     payload         JSONB NOT NULL,
     prompt_version  TEXT NOT NULL,
     model_name      TEXT NOT NULL,
