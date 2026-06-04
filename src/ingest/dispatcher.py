@@ -94,6 +94,7 @@ def build_movie_handler(
 ) -> Handler:
 
     def _handler(payload: IngestMoviePayload) -> None:
+        payload = IngestMoviePayload.model_validate(payload)
         movie_id = str(payload.movie_id)
         title = str(payload.title)
         plot = str(payload.plot or "")
@@ -128,6 +129,7 @@ def build_feed_handler(
 ) -> Handler:
 
     def _handler(payload: IngestFeedPayload) -> None:
+        payload = IngestFeedPayload.model_validate(payload)
         feed_id = str(payload.feed_id)
         author_id = str(payload.author_id)
         content = str(payload.content or "")
@@ -160,6 +162,7 @@ def build_comment_handler(
 ) -> Handler:
 
     def _handler(payload: IngestCommentPayload) -> None:
+        payload = IngestCommentPayload.model_validate(payload)
         comment_id = str(payload.comment_id)
         feed_id = str(payload.feed_id)
         author_id = str(payload.author_id)
