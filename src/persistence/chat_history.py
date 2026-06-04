@@ -93,14 +93,17 @@ class ChatHistoryStore:
             )
             conn.commit()
 
-    def list_sessions(self) -> list[ChatSession]:
+    def list_sessions(self, *, user_id: str, cursor: Optional[int] = None, limit: int = 20) -> list[ChatSession]:
         with get_connection(self._settings) as conn, conn.cursor() as cur:
             cur.execute(
                 """
                 SELECT session_id, user_id, started_at, last_active, metadata
                 FROM chat_session
+                WHERE user_id = %s
                 ORDER BY started_at DESC
-            """)
+                LIMIT %s
+                OFFSET %s
+            """, (user_id, limit, cursor))
             rows = cur.fetchall()
             return [
                 ChatSession(
@@ -114,7 +117,7 @@ class ChatHistoryStore:
             ]
 
     def get_session_history(
-        self, *, session_id: str, cursor: Optional[int] = None, limit: int = 20
+        self, *, session_id: str, user_id: str, cursor: Optional[int] = None, limit: int = 20
     ) -> list[ChatMessage]:
         with get_connection(self._settings) as conn, conn.cursor() as cur:
             if cursor is None:
@@ -123,10 +126,11 @@ class ChatHistoryStore:
                     SELECT id, session_id, user_id, role, content, reply_metadata, created_at
                     FROM chat_message
                     WHERE session_id = %s
+                    AND user_id = %s
                     ORDER BY id DESC
                     LIMIT %s
                     """,
-                    (session_id, limit),
+                    (session_id, user_id, limit),
                 )
             else:
                 cur.execute(

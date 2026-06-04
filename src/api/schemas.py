@@ -30,14 +30,6 @@ class ChatRequest(BaseModel):
         return self.session_id or str(uuid4())
 
 
-class ChatResponse(BaseModel):
-    session_id: str
-    reply: str
-    arm_id: str
-    movies: list[dict[str, Any]] = Field(default_factory=list)
-    ontology_ref: dict[str, Any] = Field(default_factory=dict)
-
-
 # ---------------------------------------------------------------------------
 # /chat/session
 # ---------------------------------------------------------------------------

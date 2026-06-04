@@ -10,15 +10,15 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
+import asyncio
+from typing import Any, Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Header
 from sse_starlette.sse import EventSourceResponse
 
 from src.api.dependencies import AppContainer, get_container
 from src.api.schemas import (
     ChatRequest,
-    ChatResponse,
     ChatSessionResponse,
     FeedbackRequest,
     FeedbackResponse,
@@ -55,9 +55,9 @@ def healthz() -> dict[str, str]:
 # ---------------------------------------------------------------------------
 
 
-def _initial_chat_state(req: ChatRequest, session_id: str) -> ChatState:
+def _initial_chat_state(req: ChatRequest, user_id: str, session_id: str) -> ChatState:
     return ChatState(
-        user_id=req.user_id,
+        user_id=user_id,
         session_id=session_id,
         query=req.message,
         top_k=req.top_k,
@@ -67,13 +67,22 @@ def _initial_chat_state(req: ChatRequest, session_id: str) -> ChatState:
 
 @router.get("/chat/list", response_model=list[ChatSession])
 def chat_list(
+    x_persona_id: Annotated[str, Header(alias="X-Persona-Id")],
+    cursor: int | None = Query(default=None, ge=1),
+    limit: int = Query(default=20, ge=1, le=200),
     container: AppContainer = Depends(get_app_container),
 ) -> list[ChatSession]:
-    return container.chat_history.list_sessions()
+    return container.chat_history.list_sessions(
+        user_id=x_persona_id,
+        cursor=cursor,
+        limit=limit,
+    )
+
 
 # 채팅 세션 히스토리 조회
 @router.get("/chat/history/{session_id}", response_model=ChatSessionResponse)
 def chat_session(
+    x_persona_id: Annotated[str, Header(alias="X-Persona-Id")],
     session_id: str,
     cursor: int | None = Query(default=None, ge=1),
     limit: int = Query(default=20, ge=1, le=200),
@@ -81,69 +90,42 @@ def chat_session(
 ) -> ChatSessionResponse:
     messages = container.chat_history.get_session_history(
         session_id=session_id,
+        user_id=x_persona_id,
         cursor=cursor,
         limit=limit,
     )
     return ChatSessionResponse(
         next_cursor=messages[0].id if messages else None,
         has_more=len(messages) == limit,
-        messages=messages,
+        messages=list(reversed(messages)),
     )
-
-@router.post("/chat", response_model=ChatResponse)
-def chat(
-    req: ChatRequest,
-    container: AppContainer = Depends(get_app_container),
-) -> ChatResponse:
-    session_id = req.ensure_session_id()
-    try:
-        container.chat_history.open_session(
-            session_id=session_id, user_id=req.user_id
-        )
-        container.chat_history.append(
-            session_id=session_id,
-            user_id=req.user_id,
-            role="user",
-            content=req.message,
-        )
-    except Exception:
-        logger.exception("Failed to persist user message; continuing")
-
-    state = _initial_chat_state(req, session_id)
-    config = {"configurable": {"thread_id": session_id}}
-    final: dict[str, Any] = container.chat_graph.invoke(state, config=config)
-
-    return ChatResponse(
-        session_id=session_id,
-        reply=str(final.get("reply") or ""),
-        arm_id=str(final.get("arm_id") or ""),
-        movies=list(final.get("retrieved") or []),
-        ontology_ref=dict(final.get("ontology_ref") or {}),
-    )
-
 
 @router.post("/chat/stream")
 async def chat_stream(
     req: ChatRequest,
+    x_persona_id: Annotated[str, Header(alias="X-Persona-Id")],
     container: AppContainer = Depends(get_app_container),
 ):
     """노드 단위 SSE 스트리밍 (디버깅/관측용)."""
     session_id = req.ensure_session_id()
     try:
-        container.chat_history.open_session(session_id=session_id, user_id=req.user_id)
-        container.chat_history.append(
+        container.chat_history.open_session(session_id=session_id, user_id=x_persona_id)
+        msg_id = container.chat_history.append(
             session_id=session_id,
-            user_id=req.user_id,
+            user_id=x_persona_id,
             role="user",
             content=req.message,
         )
     except Exception:
         logger.exception("Failed to persist user message; continuing")
-    state = _initial_chat_state(req, session_id)
+    state = _initial_chat_state(req, x_persona_id, session_id)
     config = {"configurable": {"thread_id": session_id}}
 
     async def event_gen():
-        yield {"event": "open", "data": json.dumps({"session_id": session_id})}
+        yield {
+            "event": "open",
+            "data": json.dumps({"session_id": session_id, "message_id": msg_id}),
+        }
         try:
             async for chunk in container.chat_graph.astream(state, config=config):
                 yield {
@@ -156,7 +138,8 @@ async def chat_stream(
                 "event": "error",
                 "data": json.dumps({"detail": str(exc)}),
             }
-        yield {"event": "done", "data": json.dumps({"session_id": session_id})}
+        await asyncio.sleep(0.1)
+        yield {"event": "done", "data": json.dumps({"session_id": session_id })}
 
     return EventSourceResponse(event_gen())
 
