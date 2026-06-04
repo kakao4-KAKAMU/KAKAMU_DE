@@ -17,16 +17,20 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Header
 from sse_starlette.sse import EventSourceResponse
 
 from src.api.dependencies import AppContainer, get_container
-from src.api.schemas import (
+from src.api.schemas.schemas import (
     ChatRequest,
     ChatSessionResponse,
     FeedbackRequest,
     FeedbackResponse,
     IngestEnvelope,
-    IngestFeedEnvelope,
     IngestMovieEnvelope,
-    IngestCommentEnvelope,
+    IngestMovieJudgeEnvelope,
+    IngestFeedEnvelope,
+    IngestFeedDeleteEnvelope,
     IngestFeedLikeEnvelope,
+    IngestCommentEnvelope,
+    IngestCommentLikeEnvelope,
+    IngestCommentDeleteEnvelope,
     IngestResponse,
     RecommendRequest,
     RecommendResponse,
@@ -212,7 +216,7 @@ def _enqueue(
     return IngestResponse(outbox_id=outbox_id)
 
 
-@router.post("/ingest/movie", response_model=IngestResponse)
+@router.post("/ingest/movie/regist", response_model=IngestResponse)
 def ingest_movie(
     env: IngestMovieEnvelope,
     container: AppContainer = Depends(get_app_container),
@@ -220,7 +224,14 @@ def ingest_movie(
     return _enqueue(container, aggregate_type="movie", env=env)
 
 
-@router.post("/ingest/feed", response_model=IngestResponse)
+@router.post("/ingest/movie/judge", response_model=IngestResponse)
+def ingest_movie_judge(
+    env: IngestMovieJudgeEnvelope,
+    container: AppContainer = Depends(get_app_container),
+) -> IngestResponse:
+    return _enqueue(container, aggregate_type="movie_judge", env=env)
+
+@router.post("/ingest/feed/create", response_model=IngestResponse)
 def ingest_feed(
     env: IngestFeedEnvelope,
     container: AppContainer = Depends(get_app_container),
@@ -238,7 +249,7 @@ def ingest_feed_modify(
 
 @router.post("/ingest/feed/delete", response_model=IngestResponse)
 def ingest_feed_modify(
-    env: IngestFeedEnvelope,
+    env: IngestFeedDeleteEnvelope,
     container: AppContainer = Depends(get_app_container),
 ) -> IngestResponse:
     return _enqueue(container, aggregate_type="feed_delete", env=env)
@@ -252,13 +263,33 @@ def ingest_feed_like(
     return _enqueue(container, aggregate_type="feed_like", env=env)
 
 
-@router.post("/ingest/comment", response_model=IngestResponse)
+@router.post("/ingest/comment/create", response_model=IngestResponse)
 def ingest_comment(
     env: IngestCommentEnvelope,
     container: AppContainer = Depends(get_app_container),
 ) -> IngestResponse:
     return _enqueue(container, aggregate_type="comment", env=env)
 
+@router.post("/ingest/comment/modify", response_model=IngestResponse)
+def ingest_comment_modify(
+    env: IngestCommentEnvelope,
+    container: AppContainer = Depends(get_app_container),
+) -> IngestResponse:
+    return _enqueue(container, aggregate_type="comment_modify", env=env)
+
+@router.post("/ingest/comment/delete", response_model=IngestResponse)
+def ingest_comment_delete(
+    env: IngestCommentDeleteEnvelope,
+    container: AppContainer = Depends(get_app_container),
+) -> IngestResponse:
+    return _enqueue(container, aggregate_type="comment_delete", env=env)
+
+@router.post("/ingest/comment/like", response_model=IngestResponse)
+def ingest_comment_like(
+    env: IngestCommentLikeEnvelope,
+    container: AppContainer = Depends(get_app_container),
+) -> IngestResponse:
+    return _enqueue(container, aggregate_type="comment_like", env=env)
 
 # ---------------------------------------------------------------------------
 # /feedback

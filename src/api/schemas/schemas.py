@@ -11,10 +11,16 @@ from typing import Any, Literal, Optional
 from uuid import uuid4
 
 from src.persistence.chat_history import ChatMessage
+from src.api.schemas.movie import IngestMoviePayload, IngestMovieJudgePayload
 from src.api.schemas.feed import (
     IngestFeedPayload,
-    IngestFeedLikePayload,
     IngestFeedDeletePayload,
+    IngestFeedLikePayload,
+)
+from src.api.schemas.comment import (
+    IngestCommentPayload,
+    IngestCommentLikePayload,
+    IngestCommentDeletePayload,
 )
 from pydantic import BaseModel, Field
 
@@ -80,42 +86,36 @@ class IngestEnvelope(BaseModel):
     payload: dict[str, Any]
 
 
-class IngestMoviePayload(BaseModel):
-    movie_id: str = Field(min_length=1)
-    title: str = Field(min_length=1)
-    producing_year: int = Field(default=None)
-    country: str = Field(default=None)
-    genres: list[str] = Field(default=[])
-    plot: str = Field(default=None)
-
-
+# ------- MOVIE -------
 class IngestMovieEnvelope(IngestEnvelope):
     payload: IngestMoviePayload
 
+class IngestMovieJudgeEnvelope(IngestEnvelope):
+    payload: IngestMovieJudgePayload
+
+# ------- FEED -------
 class IngestFeedEnvelope(IngestEnvelope):
     payload: IngestFeedPayload
-
-class IngestFeedLikeEnvelope(IngestEnvelope):
-    payload: IngestFeedLikePayload
 
 class IngestFeedDeleteEnvelope(IngestEnvelope):
     payload: IngestFeedDeletePayload
 
+class IngestFeedLikeEnvelope(IngestEnvelope):
+    payload: IngestFeedLikePayload
 
 
-class IngestCommentPayload(BaseModel):
-    comment_id: str = Field(min_length=1)
-    feed_id: str = Field(min_length=1)
-    author_id: str = Field(min_length=1)
-    mentioned_user_ids: list[str] = Field(default=[])
-    parent_comment_id: str = Field(default=None)
-    content: str = Field(min_length=1)
-    created_at: str = Field(default=None)
-
+# ------- COMMENT -------
 class IngestCommentEnvelope(IngestEnvelope):
     payload: IngestCommentPayload
 
+class IngestCommentDeleteEnvelope(IngestEnvelope):
+    payload: IngestCommentDeletePayload
 
+class IngestCommentLikeEnvelope(IngestEnvelope):
+    payload: IngestCommentLikePayload
+
+
+# ------- RESPONSE -------
 class IngestResponse(BaseModel):
     outbox_id: int
 
@@ -126,12 +126,13 @@ class IngestResponse(BaseModel):
 
 
 Action = Literal["click", "dwell", "like", "skip", "dislike"]
-
+ContentType = Literal["feed", "comment", "movie"]
 
 class FeedbackRequest(BaseModel):
     user_id: str = Field(min_length=1)
     arm_id: str = Field(min_length=1)
     action: Action
+    content_type: ContentType
     dwell_seconds: float = Field(default=0.0, ge=0.0)
 
 

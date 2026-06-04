@@ -10,9 +10,12 @@ SOLID
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any, Callable, Mapping, Optional, Protocol
 
+from src.api.schemas.feed import IngestFeedPayload
+from src.api.schemas.movie import IngestMoviePayload
+from src.api.schemas.comment import IngestCommentPayload
 from src.extractor.comment_extractor import CommentExtractor
 from src.extractor.feed_extractor import FeedExtractor
 from src.extractor.movie_extractor import MoviePlotExtractor
@@ -89,27 +92,26 @@ def build_movie_handler(
     embedder: Embedder,
     loader: OntologyLoader,
 ) -> Handler:
-    """payload: {movie_id, title, producing_year?, country?, genres?, plot, toxicity_score?}"""
 
-    def _handler(payload: Mapping[str, Any]) -> None:
-        movie_id = str(payload["movie_id"])
-        title = str(payload["title"])
-        plot = str(payload.get("plot") or "")
+    def _handler(payload: IngestMoviePayload) -> None:
+        movie_id = str(payload.movie_id)
+        title = str(payload.title)
+        plot = str(payload.plot or "")
         ontology = extractor.extract(
             movie_id=movie_id,
             title=title,
-            producing_year=payload.get("producing_year"),
-            country=payload.get("country"),
-            genres=list(payload.get("genres") or []),
+            producing_year=payload.producing_year,
+            country=payload.country,
+            genres=list(payload.genres or []),
             plot=plot,
         )
         embedding = embedder.embed(ontology.summary or plot)
         loader.upsert_movie(
             movie_id=movie_id,
             title=title,
-            producing_year=payload.get("producing_year"),
-            country=payload.get("country"),
-            genres=list(payload.get("genres") or []),
+            producing_year=payload.producing_year,
+            country=payload.country,
+            genres=list(payload.genres or []),
             plot_raw=plot,
             ontology=ontology,
             plot_embedding=embedding,
@@ -124,28 +126,27 @@ def build_feed_handler(
     embedder: Embedder,
     loader: OntologyLoader,
 ) -> Handler:
-    """payload: {feed_id, author_id, related_movie_id?, known_movie_ids?, content, created_at?}"""
 
-    def _handler(payload: Mapping[str, Any]) -> None:
-        feed_id = str(payload["feed_id"])
-        author_id = str(payload["author_id"])
-        content = str(payload.get("content") or "")
+    def _handler(payload: IngestFeedPayload) -> None:
+        feed_id = str(payload.feed_id)
+        author_id = str(payload.author_id)
+        content = str(payload.content or "")
         ontology = extractor.extract(
             feed_id=feed_id,
             author_id=author_id,
-            related_movie_id=payload.get("related_movie_id"),
-            known_movie_ids=list(payload.get("known_movie_ids") or []),
+            related_movie_id=payload.related_movie_id,
+            known_movie_ids=list(payload.known_movie_ids or []),
             content=content,
         )
         embedding = embedder.embed(ontology.summary or content)
         loader.upsert_feed(
             feed_id=feed_id,
             author_id=author_id,
-            related_movie_id=payload.get("related_movie_id"),
+            related_movie_id=payload.related_movie_id,
             content_raw=content,
             ontology=ontology,
             summary_embedding=embedding,
-            created_at=_parse_dt(payload.get("created_at")),
+            created_at=_parse_dt(payload.created_at),
         )
 
     return _handler
@@ -157,19 +158,18 @@ def build_comment_handler(
     embedder: Embedder,
     loader: OntologyLoader,
 ) -> Handler:
-    """payload: {comment_id, feed_id, author_id, mentioned_user_ids?, parent_feed_summary?, content}"""
 
-    def _handler(payload: Mapping[str, Any]) -> None:
-        comment_id = str(payload["comment_id"])
-        feed_id = str(payload["feed_id"])
-        author_id = str(payload["author_id"])
-        content = str(payload.get("content") or "")
+    def _handler(payload: IngestCommentPayload) -> None:
+        comment_id = str(payload.comment_id)
+        feed_id = str(payload.feed_id)
+        author_id = str(payload.author_id)
+        content = str(payload.content or "")
         ontology = extractor.extract(
             comment_id=comment_id,
             feed_id=feed_id,
             author_id=author_id,
-            mentioned_user_ids=list(payload.get("mentioned_user_ids") or []),
-            parent_feed_summary=payload.get("parent_feed_summary"),
+            mentioned_user_ids=list(payload.mentioned_user_ids or []),
+            parent_comment_id=payload.parent_comment_id,
             content=content,
         )
         embedding = embedder.embed(ontology.summary or content)
@@ -180,7 +180,7 @@ def build_comment_handler(
             content_raw=content,
             ontology=ontology,
             summary_embedding=embedding,
-            created_at=_parse_dt(payload.get("created_at")),
+            created_at=_parse_dt(payload.created_at),
         )
 
     return _handler

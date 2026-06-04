@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pydantic import BaseModel
 import hashlib
 import json
 from typing import Any, Mapping, Optional
@@ -10,8 +11,13 @@ from src.config.settings import PostgresSettings, get_settings
 from src.persistence.db import get_connection
 
 
+def json_dumps(payload: Mapping[str, Any]) -> str:
+    if isinstance(payload, BaseModel):
+        return payload.model_dump_json(ensure_ascii=False)
+    return json.dumps(payload, sort_keys=True, ensure_ascii=False)
+
 def content_hash(payload: Mapping[str, Any]) -> str:
-    raw = json.dumps(payload, sort_keys=True, ensure_ascii=False)
+    raw = json_dumps(payload)
     return hashlib.sha256(raw.encode()).hexdigest()
 
 
@@ -32,7 +38,9 @@ class OutboxWriter:
         pv = prompt_version or app.ontology.prompt_version
         mn = model_name or app.ontology.model_name
         ch = content_hash(payload)
+        raw = json_dumps(payload)
         with get_connection(self._settings) as conn, conn.cursor() as cur:
+
             cur.execute(
                 """
                 INSERT INTO ingest_outbox
@@ -43,7 +51,7 @@ class OutboxWriter:
                 (
                     aggregate_type,
                     op,
-                    json.dumps(payload),
+                    raw,
                     pv,
                     mn,
                     ch,
