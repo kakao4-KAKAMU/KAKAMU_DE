@@ -91,6 +91,7 @@ class IngestWorker:
         attempts = int(row["attempts"]) + 1
         with self._connect() as conn, conn.cursor() as cur:
             if attempts >= MAX_ATTEMPTS:
+                print(row["payload"], type(row["payload"]))
                 cur.execute(
                     """
                     INSERT INTO ingest_dlq
@@ -174,7 +175,10 @@ class IngestWorker:
                 await asyncio.to_thread(self.run_once)
 
         while True:
-            await asyncio.gather(*[_tick() for _ in range(concurrency)])
+            try:
+                await asyncio.gather(*[_tick() for _ in range(concurrency)])
+            except Exception as exc:
+                logger.exception("Ingest loop failed", exc_info=True)
             await asyncio.sleep(poll_interval)
 
 

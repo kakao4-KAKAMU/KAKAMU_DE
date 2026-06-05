@@ -110,7 +110,7 @@ class VLLMChatClient:
         except json.JSONDecodeError:
             logger.warning(
                 "vLLM returned non-JSON content; attempting recovery. head=%s",
-                content[:200],
+                content,
             )
             start = content.find("{")
             end = content.rfind("}")
