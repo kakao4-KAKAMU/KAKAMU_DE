@@ -24,10 +24,6 @@ neo4j>=5.24.0
 psycopg[binary]>=3.2.0
 psycopg-pool>=3.2.0
 
-# --- Embeddings / NLP ---
-sentence-transformers>=3.0.0
-tiktoken>=0.7.0
-
 # --- Resilience / observability ---
 httpx>=0.27.0
 tenacity>=8.5.0

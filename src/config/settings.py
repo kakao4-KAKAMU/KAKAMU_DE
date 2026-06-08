@@ -88,9 +88,6 @@ class EmbeddingSettings(BaseSettings):
     model_name: str = Field(default="BAAI/bge-m3")
     dimension: int = Field(default=1024)
     normalize: bool = Field(default=True)
-    fallback_provider: Literal["sentence_transformers", "none"] = Field(
-        default="sentence_transformers"
-    )
 
     model_config = SettingsConfigDict(
         env_file=".env", env_prefix="EMBED_", extra="ignore"

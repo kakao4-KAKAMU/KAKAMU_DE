@@ -36,3 +36,5 @@ def build_movie_handler(
         )
 
     return _handler
+
+__all__ = ["build_movie_handler"]

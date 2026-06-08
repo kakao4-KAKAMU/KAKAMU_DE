@@ -78,15 +78,11 @@ class VLLMEmbeddingClient:
         if cached is not None:
             return cached
 
-        try:
-            resp = self._client.embeddings.create(
-                model=self._embed.model_name,
-                input=text,
-            )
-            vec = list(resp.data[0].embedding)
-        except Exception:
-            logger.warning("vLLM embedding failed; using fallback", exc_info=True)
-            vec = self._fallback_embed(text)
+        resp = self._client.embeddings.create(
+            model=self._embed.model_name,
+            input=text,
+        )
+        vec = list(resp.data[0].embedding)
 
         if self._meta.normalize:
             vec = _l2_normalize(vec)
@@ -97,17 +93,6 @@ class VLLMEmbeddingClient:
     def embed_batch(self, texts: list[str]) -> list[list[float]]:
         return [self.embed(t) for t in texts]
 
-    def _fallback_embed(self, text: str) -> list[float]:
-        if self._meta.fallback_provider == "none":
-            raise RuntimeError("Embedding unavailable and fallback disabled")
-
-        if self._st_model is None:
-            from sentence_transformers import SentenceTransformer
-
-            self._st_model = SentenceTransformer(self._meta.model_name)
-
-        vec = self._st_model.encode(text, normalize_embeddings=False)
-        return list(vec)
 
 
 __all__ = ["VLLMEmbeddingClient"]

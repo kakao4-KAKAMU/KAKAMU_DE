@@ -25,7 +25,6 @@ from src.ingest.dispatcher.comment import build_comment_handler
 logger = logging.getLogger(__name__)
 
 
-
 # ---------------------------------------------------------------------------
 # Mock (테스트/스텁용)
 # ---------------------------------------------------------------------------
@@ -113,13 +112,7 @@ def build_production_dispatcher(
 
 
 __all__ = [
-    "Embedder",
-    "Handler",
     "IngestDispatcher",
-    "LLMClient",
-    "build_comment_handler",
-    "build_feed_handler",
-    "build_movie_handler",
     "build_production_dispatcher",
     "default_dispatcher",
     "mock_extract",

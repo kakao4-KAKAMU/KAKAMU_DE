@@ -34,3 +34,5 @@ def build_feed_handler(
         )
 
     return _handler
+
+__all__ = ["build_feed_handler"]

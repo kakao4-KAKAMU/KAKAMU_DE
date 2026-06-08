@@ -36,3 +36,5 @@ def build_comment_handler(
         )
 
     return _handler
+
+__all__ = ["build_comment_handler"]
