@@ -10,41 +10,20 @@ SOLID
 from __future__ import annotations
 
 import logging
-from datetime import datetime
-from typing import Any, Callable, Mapping, Optional, Protocol
+from typing import Any, Mapping, Optional
 
-from src.api.schemas.feed import IngestFeedPayload
-from src.api.schemas.movie import IngestMoviePayload
-from src.api.schemas.comment import IngestCommentPayload
 from src.extractor.comment_extractor import CommentExtractor
 from src.extractor.feed_extractor import FeedExtractor
 from src.extractor.movie_extractor import MoviePlotExtractor
 from src.graph.client import Neo4jClient
 from src.graph.loader import OntologyLoader
+from src.ingest.dispatcher.utils import Embedder, Handler, LLMClient
+from src.ingest.dispatcher.movie import build_movie_handler
+from src.ingest.dispatcher.feed import build_feed_handler
+from src.ingest.dispatcher.comment import build_comment_handler
 
 logger = logging.getLogger(__name__)
 
-Handler = Callable[[Mapping[str, Any]], None]
-
-
-class Embedder(Protocol):
-    """경량 임베딩 추상화. 실제 구현은 VLLMEmbeddingClient."""
-
-    def embed(self, text: str) -> list[float]: ...
-
-
-class LLMClient(Protocol):
-    def chat_json(
-        self,
-        messages: list[dict[str, str]],
-        *,
-        user_id: str | None = None,
-        max_tokens: int | None = None,
-        temperature: float | None = None,
-        response_format: dict[str, Any] | None = None,
-        cache_salt: str | None = None,
-        guided_json_schema: dict[str, Any] | None = None,
-    ) -> dict[str, Any]: ...
 
 
 # ---------------------------------------------------------------------------
@@ -66,125 +45,6 @@ def mock_extract_load_handler(aggregate_type: str) -> Handler:
     def _handler(payload: Mapping[str, Any]) -> None:
         extracted = mock_extract(aggregate_type, payload)
         mock_load(aggregate_type, extracted)
-
-    return _handler
-
-
-# ---------------------------------------------------------------------------
-# Production handlers (extract + embed + upsert)
-# ---------------------------------------------------------------------------
-
-
-def _parse_dt(value: Any) -> Optional[datetime]:
-    if value is None:
-        return None
-    if isinstance(value, datetime):
-        return value
-    try:
-        return datetime.fromisoformat(str(value))
-    except ValueError:
-        return None
-
-
-def build_movie_handler(
-    *,
-    extractor: MoviePlotExtractor,
-    embedder: Embedder,
-    loader: OntologyLoader,
-) -> Handler:
-
-    def _handler(payload: IngestMoviePayload) -> None:
-        payload = IngestMoviePayload.model_validate(payload)
-        movie_id = str(payload.movie_id)
-        title = str(payload.title)
-        plot = str(payload.plot or "")
-        ontology = extractor.extract(
-            movie_id=movie_id,
-            title=title,
-            producing_year=payload.producing_year,
-            country=payload.country,
-            genres=list(payload.genres or []),
-            plot=plot,
-        )
-        embedding = embedder.embed(ontology.summary or plot)
-        loader.upsert_movie(
-            movie_id=movie_id,
-            title=title,
-            producing_year=payload.producing_year,
-            country=payload.country,
-            genres=list(payload.genres or []),
-            plot_raw=plot,
-            ontology=ontology,
-            plot_embedding=embedding,
-        )
-
-    return _handler
-
-
-def build_feed_handler(
-    *,
-    extractor: FeedExtractor,
-    embedder: Embedder,
-    loader: OntologyLoader,
-) -> Handler:
-
-    def _handler(payload: IngestFeedPayload) -> None:
-        payload = IngestFeedPayload.model_validate(payload)
-        feed_id = str(payload.feed_id)
-        author_id = str(payload.author_id)
-        content = str(payload.content or "")
-        ontology = extractor.extract(
-            feed_id=feed_id,
-            author_id=author_id,
-            related_movie_id=payload.related_movie_id,
-            known_movie_ids=list(payload.known_movie_ids or []),
-            content=content,
-        )
-        embedding = embedder.embed(ontology.summary or content)
-        loader.upsert_feed(
-            feed_id=feed_id,
-            author_id=author_id,
-            related_movie_id=payload.related_movie_id,
-            content_raw=content,
-            ontology=ontology,
-            summary_embedding=embedding,
-            created_at=_parse_dt(payload.created_at),
-        )
-
-    return _handler
-
-
-def build_comment_handler(
-    *,
-    extractor: CommentExtractor,
-    embedder: Embedder,
-    loader: OntologyLoader,
-) -> Handler:
-
-    def _handler(payload: IngestCommentPayload) -> None:
-        payload = IngestCommentPayload.model_validate(payload)
-        comment_id = str(payload.comment_id)
-        feed_id = str(payload.feed_id)
-        author_id = str(payload.author_id)
-        content = str(payload.content or "")
-        ontology = extractor.extract(
-            comment_id=comment_id,
-            feed_id=feed_id,
-            author_id=author_id,
-            mentioned_user_ids=list(payload.mentioned_user_ids or []),
-            parent_comment_id=payload.parent_comment_id,
-            content=content,
-        )
-        embedding = embedder.embed(ontology.summary or content)
-        loader.upsert_comment(
-            comment_id=comment_id,
-            feed_id=feed_id,
-            author_id=author_id,
-            content_raw=content,
-            ontology=ontology,
-            summary_embedding=embedding,
-            created_at=_parse_dt(payload.created_at),
-        )
 
     return _handler
 
