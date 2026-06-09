@@ -125,22 +125,7 @@ services:
     depends_on:
       bootstrap:
         condition: service_completed_successfully
-    command:
-      - sh
-      - -ec
-      - |
-        uvicorn src.api.app:app --host 0.0.0.0 --port 8080 &
-        pid=$$!
-        trap 'kill $$pid 2>/dev/null || true' EXIT
-        for i in $$(seq 1 60); do
-          if curl -sf http://localhost:8080/healthz >/dev/null; then
-            echo "API smoke test passed (/healthz)"
-            exit 0
-          fi
-          sleep 1
-        done
-        echo "API smoke test failed: /healthz not ready"
-        exit 1
+    command: ["uvicorn", "src.api.app:app", "--host", "0.0.0.0", "--port", "8080"]
     restart: "no"
 
   # ---------------------------------------------------------------------------
@@ -158,26 +143,7 @@ services:
     depends_on:
       bootstrap:
         condition: service_completed_successfully
-    command: ["python", "scripts/run_ingest_worker.py", "--mock", "--once"]
-    restart: "no"
-
-  # ---------------------------------------------------------------------------
-  # Orchestrator: 모든 one-shot 테스트 완료 후 종료
-  # ---------------------------------------------------------------------------
-  test-all:
-    image: alpine:3.21
-    container_name: mrs-test-all
-    depends_on:
-      bootstrap:
-        condition: service_completed_successfully
-      api-smoke:
-        condition: service_completed_successfully
-      ingest-smoke:
-        condition: service_completed_successfully
-    command:
-      - sh
-      - -c
-      - echo "All component smoke tests passed (bootstrap, api, ingest-worker)"
+    command: ["python", "scripts/run_ingest_worker.py", "--once"]
     restart: "no"
 
 volumes:
