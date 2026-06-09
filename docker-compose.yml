@@ -1,28 +1,36 @@
 # Movie Recommend System — Docker 이미지 통합 테스트용 Compose
 #
-# Neo4j + Postgres 기동 후 bootstrap → api smoke → ingest smoke 를
-# 단일 명령으로 순차·단발 실행합니다.
+# 컨테이너 간 통신은 호스트 localhost 가 아닌 Docker DNS(서비스명)를 사용합니다.
+# Linux / macOS / Windows Docker Desktop 에서 동일하게 동작합니다.
 #
 # 사용법
 # ------
 #   cp docker-compose.env.example docker-compose.env
 #
-#   # (선택) 로컬 빌드 — CI/레지스트리 이미지 사용 시 생략
 #   docker build -f docker-image/base.Dockerfile -t movie-recommend-system-base:latest .
 #   docker compose build
+#   docker compose up -d neo4j postgres
+#   docker compose up -d api-smoke ingest-smoke
 #
-#   # 빌드된 이미지 또는 레지스트리 이미지로 전체 smoke 테스트
-#   docker compose up --abort-on-container-exit --exit-code-from test-all
-#
-#   # 레지스트리 이미지 지정 예시
+#   # 레지스트리 이미지 지정
 #   IMAGE_BOOTSTRAP=myuser/movie-recommend-system-bootstrap:1.42 \
 #   IMAGE_API=myuser/movie-recommend-system-api:1.42 \
 #   IMAGE_INGEST=myuser/movie-recommend-system-ingest-worker:1.42 \
 #   docker compose up --abort-on-container-exit --exit-code-from test-all
 #
-# 종료 코드: test-all 컨테이너 exit code (0 = 전 구성요소 성공)
+# 네트워크
+# --------
+#   - mrs-test (bridge): 모든 서비스가 동일 네트워크에 연결
+#   - 앱 → DB: bolt://neo4j:7687, postgres:5432 (서비스명 DNS)
+#   - 호스트 포트 충돌 시 docker-compose.env 에서 *_TEST_PORT 변경
 
 name: movie-recommend-system-test
+
+x-service-defaults: &service-defaults
+  init: true
+  restart: "no"
+  networks:
+    - mrs-test
 
 x-app-env: &app-env
   env_file:
@@ -30,19 +38,30 @@ x-app-env: &app-env
   environment:
     NEO4J_URI: bolt://neo4j:7687
     PG_HOST: postgres
+    PG_PORT: "5432"
     EMBED_FALLBACK_PROVIDER: none
+
+x-app-service: &app-service
+  init: true
+  restart: "no"
+  networks:
+    - mrs-test
+  <<: *app-env
 
 x-app-image-args: &app-image-args
   BASE_IMAGE: ${DOCKER_BASE_IMAGE:-movie-recommend-system-base:latest}
 
 services:
   # ---------------------------------------------------------------------------
-  # Storage (테스트 전용 ephemeral volume)
+  # Storage
   # ---------------------------------------------------------------------------
   neo4j:
+    <<: *service-defaults
     image: neo4j:2026.04.0-community
-    container_name: mrs-test-neo4j
-    restart: "no"
+    hostname: neo4j
+    expose:
+      - "7474"
+      - "7687"
     ports:
       - "${NEO4J_TEST_PORT:-7474}:7474"
       - "${NEO4J_BOLT_TEST_PORT:-7687}:7687"
@@ -55,23 +74,31 @@ services:
       NEO4J_server_memory_heap_initial__size: 512m
       NEO4J_server_memory_heap_max__size: 512m
       NEO4J_server_memory_pagecache_size: 256m
+      NEO4J_server_default__listen__address: 0.0.0.0
     volumes:
       - neo4j-test-data:/data
     healthcheck:
       test:
         [
           "CMD-SHELL",
-          "wget --no-verbose --tries=1 --spider http://localhost:7474 || exit 1",
+          "wget --no-verbose --tries=1 --spider http://127.0.0.1:7474 || exit 1",
         ]
       interval: 5s
       timeout: 5s
       retries: 24
       start_period: 30s
+    networks:
+      mrs-test:
+        aliases:
+          - neo4j
+          - graphdb
 
   postgres:
+    <<: *service-defaults
     image: postgres:16-alpine
-    container_name: mrs-test-postgres
-    restart: "no"
+    hostname: postgres
+    expose:
+      - "5432"
     ports:
       - "${PG_TEST_PORT:-5432}:5432"
     environment:
@@ -84,24 +111,28 @@ services:
       test:
         [
           "CMD-SHELL",
-          "pg_isready -U ${PG_USER:-postgres} -d ${PG_DATABASE:-chatbot}",
+          "pg_isready -h 127.0.0.1 -p 5432 -U ${PG_USER:-postgres} -d ${PG_DATABASE:-chatbot}",
         ]
       interval: 3s
       timeout: 5s
       retries: 20
+    networks:
+      mrs-test:
+        aliases:
+          - postgres
+          - db
 
   # ---------------------------------------------------------------------------
   # One-shot: schema bootstrap
   # ---------------------------------------------------------------------------
   bootstrap:
+    <<: *app-service
     image: ${IMAGE_BOOTSTRAP:-movie-recommend-system-bootstrap:latest}
     build:
       context: .
       dockerfile: docker-image/bootstrap.Dockerfile
       args:
         <<: *app-image-args
-    container_name: mrs-test-bootstrap
-    <<: *app-env
     depends_on:
       neo4j:
         condition: service_healthy
@@ -114,38 +145,61 @@ services:
   # One-shot: API smoke (기동 + /healthz 확인 후 종료)
   # ---------------------------------------------------------------------------
   api-smoke:
+    <<: *app-service
     image: ${IMAGE_API:-movie-recommend-system-api:latest}
     build:
       context: .
       dockerfile: docker-image/api.Dockerfile
       args:
         <<: *app-image-args
-    container_name: mrs-test-api-smoke
-    <<: *app-env
+    expose:
+      - "8080"
+    ports:
+      - "${API_TEST_PORT:-8080}:8080"
     depends_on:
       bootstrap:
         condition: service_completed_successfully
     command: ["uvicorn", "src.api.app:app", "--host", "0.0.0.0", "--port", "8080"]
-    restart: "no"
 
   # ---------------------------------------------------------------------------
   # One-shot: ingest worker smoke (mock dispatcher, 1회 처리 후 종료)
   # ---------------------------------------------------------------------------
   ingest-smoke:
+    <<: *app-service
     image: ${IMAGE_INGEST:-movie-recommend-system-ingest-worker:latest}
     build:
       context: .
       dockerfile: docker-image/ingest-worker.Dockerfile
       args:
         <<: *app-image-args
-    container_name: mrs-test-ingest-smoke
-    <<: *app-env
     depends_on:
       bootstrap:
         condition: service_completed_successfully
-    command: ["python", "scripts/run_ingest_worker.py", "--once"]
-    restart: "no"
+    command: ["python", "scripts/run_ingest_worker.py", "--concurrency", "1"]
+
+  # ---------------------------------------------------------------------------
+  # Orchestrator
+  # ---------------------------------------------------------------------------
+  test-all:
+    <<: *service-defaults
+    image: alpine:3.21
+    depends_on:
+      bootstrap:
+        condition: service_completed_successfully
+      api-smoke:
+        condition: service_completed_successfully
+      ingest-smoke:
+        condition: service_completed_successfully
+    command:
+      - sh
+      - -c
+      - echo "All component smoke tests passed (bootstrap, api, ingest-worker)"
 
 volumes:
   neo4j-test-data:
   postgres-test-data:
+
+networks:
+  mrs-test:
+    driver: bridge
+    enable_ipv6: false
