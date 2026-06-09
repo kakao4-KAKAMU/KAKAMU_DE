@@ -64,7 +64,7 @@ jobs:
           repository: kakao4-KAKAMU/kakamu_helm
           token: ${{ secrets.HELM_REPO_TOKEN }}
           path: helm-charts
-          ref: dev
+          ref: main
 
       - name: Update Helm Values
         run: |
