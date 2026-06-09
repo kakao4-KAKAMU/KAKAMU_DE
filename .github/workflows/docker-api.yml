@@ -80,7 +80,7 @@ jobs:
 
           if ! git diff --cached --quiet; then
             git commit -m "update ${{ env.SERVICE }} image tag to 1.${{ github.run_number }}"
-            git push origin HEAD:dev
+            git push origin HEAD:main
           else
             echo "No changes to commit"
           fi
