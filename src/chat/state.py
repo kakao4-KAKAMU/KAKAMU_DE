@@ -22,6 +22,7 @@ class ChatState(TypedDict, total=False):
     """
 
     user_id: str
+    persona_id: str
     session_id: str
     query: str
 
