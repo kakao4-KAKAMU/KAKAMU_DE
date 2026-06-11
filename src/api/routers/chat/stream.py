@@ -9,7 +9,7 @@ from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, Header
 from sse_starlette.sse import EventSourceResponse
-
+from fastapi import HTTPException
 from src.api.dependencies import AppContainer
 from src.api.routers.chat.utils import initial_chat_state, jsonify
 from src.api.routers.deps import get_app_container
@@ -20,7 +20,11 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.post("/chat/stream")
+@router.post("/chat/stream", responses={
+    404: {
+        "description": "Session not found",
+    }
+})
 async def chat_stream(
     req: ChatRequest,
     persona_id: Annotated[Optional[str], Header(alias="X-Persona-Id")] = None,
@@ -41,7 +45,12 @@ async def chat_stream(
         )
     except Exception:
         logger.exception("Failed to persist user message; continuing")
-    state = initial_chat_state(req, req.user_id, session_id, persona_id)
+
+    session = container.chat_history.get_session_by_id(session_id=session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    state = initial_chat_state(req, req.user_id, session_id, session.persona_id)
     config = {"configurable": {"thread_id": session_id}}
 
     async def event_gen():
