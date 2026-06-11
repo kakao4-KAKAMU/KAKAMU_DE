@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 import logging
 import asyncio
-from typing import Any, Annotated
+from typing import Any, Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Header
 from sse_starlette.sse import EventSourceResponse
@@ -63,9 +63,12 @@ def healthz() -> dict[str, str]:
 # ---------------------------------------------------------------------------
 
 
-def _initial_chat_state(req: ChatRequest, user_id: str, session_id: str) -> ChatState:
+def _initial_chat_state(
+    req: ChatRequest, user_id: str, session_id: str, persona_id: Optional[str] = None
+) -> ChatState:
     return ChatState(
         user_id=user_id,
+        persona_id=persona_id,
         session_id=session_id,
         query=req.message,
         top_k=req.top_k,
@@ -75,13 +78,15 @@ def _initial_chat_state(req: ChatRequest, user_id: str, session_id: str) -> Chat
 
 @router.get("/chat/list", response_model=list[ChatSession])
 def chat_list(
-    x_persona_id: Annotated[str, Header(alias="X-Persona-Id")],
+    persona_id: Annotated[Optional[str], Header(alias="X-Persona-Id")] = None,
+    user_id: str = Query(min_length=1),
     cursor: int | None = Query(default=None, ge=1),
     limit: int = Query(default=20, ge=1, le=200),
     container: AppContainer = Depends(get_app_container),
 ) -> list[ChatSession]:
     return container.chat_history.list_sessions(
-        user_id=x_persona_id,
+        user_id=user_id,
+        persona_id=persona_id,
         cursor=cursor,
         limit=limit,
     )
@@ -90,15 +95,17 @@ def chat_list(
 # 채팅 세션 히스토리 조회
 @router.get("/chat/history/{session_id}", response_model=ChatSessionResponse)
 def chat_session(
-    x_persona_id: Annotated[str, Header(alias="X-Persona-Id")],
     session_id: str,
+    persona_id: Annotated[Optional[str], Header(alias="X-Persona-Id")] = None,
+    user_id: str = Query(min_length=1),
     cursor: int | None = Query(default=None, ge=1),
     limit: int = Query(default=20, ge=1, le=200),
     container: AppContainer = Depends(get_app_container),
 ) -> ChatSessionResponse:
     messages = container.chat_history.get_session_history(
         session_id=session_id,
-        user_id=x_persona_id,
+        user_id=user_id,
+        persona_id=persona_id,
         cursor=cursor,
         limit=limit,
     )
@@ -108,25 +115,26 @@ def chat_session(
         messages=list(reversed(messages)),
     )
 
+
 @router.post("/chat/stream")
 async def chat_stream(
     req: ChatRequest,
-    x_persona_id: Annotated[str, Header(alias="X-Persona-Id")],
+    persona_id: Annotated[Optional[str], Header(alias="X-Persona-Id")] = None,
     container: AppContainer = Depends(get_app_container),
 ):
     """노드 단위 SSE 스트리밍 (디버깅/관측용)."""
     session_id = req.ensure_session_id()
     try:
-        container.chat_history.open_session(session_id=session_id, user_id=x_persona_id)
+        container.chat_history.open_session(session_id=session_id, user_id=req.user_id, persona_id=persona_id)
         msg_id = container.chat_history.append(
             session_id=session_id,
-            user_id=x_persona_id,
+            user_id=req.user_id,
             role="user",
             content=req.message,
         )
     except Exception:
         logger.exception("Failed to persist user message; continuing")
-    state = _initial_chat_state(req, x_persona_id, session_id)
+    state = _initial_chat_state(req, req.user_id, persona_id, session_id)
     config = {"configurable": {"thread_id": session_id}}
 
     async def event_gen():
@@ -171,6 +179,7 @@ def _jsonify(value: Any) -> Any:
 @router.post("/recommend", response_model=RecommendResponse)
 def recommend(
     req: RecommendRequest,
+    persona_id: Annotated[Optional[str], Header(alias="X-Persona-Id")] = None,
     container: AppContainer = Depends(get_app_container),
 ) -> RecommendResponse:
     intent = container.intent_resolver.resolve(req.query)
