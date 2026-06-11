@@ -7,7 +7,7 @@ import logging
 from fastapi import HTTPException
 
 from src.api.dependencies import AppContainer
-from src.api.schemas.schemas import IngestEnvelope, IngestResponse
+from src.api.schemas import IngestEnvelope, IngestResponse
 
 logger = logging.getLogger(__name__)
 

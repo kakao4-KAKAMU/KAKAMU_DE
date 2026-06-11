@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from src.api.schemas.schemas import ChatRequest
+from src.api.schemas import ChatRequest
 from src.chat.state import ChatState
 
 

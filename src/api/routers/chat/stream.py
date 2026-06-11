@@ -13,7 +13,7 @@ from sse_starlette.sse import EventSourceResponse
 from src.api.dependencies import AppContainer
 from src.api.routers.chat.utils import initial_chat_state, jsonify
 from src.api.routers.deps import get_app_container
-from src.api.schemas.schemas import ChatRequest
+from src.api.schemas import ChatRequest
 
 logger = logging.getLogger(__name__)
 

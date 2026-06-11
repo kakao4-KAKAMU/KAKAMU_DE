@@ -13,6 +13,4 @@ class IngestPersonJudgePayload(BaseModel):
     judge_type: JudgeType = Field(default="like")
     created_at: str = Field(default=None)
 
-__all__ = [
-    "IngestPersonPayload",
-]
+__all__ = ["IngestPersonPayload", "IngestPersonJudgePayload"]

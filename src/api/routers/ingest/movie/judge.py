@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends
 from src.api.dependencies import AppContainer
 from src.api.routers.deps import get_app_container
 from src.api.routers.ingest.utils import enqueue
-from src.api.schemas.schemas import IngestMovieJudgeEnvelope, IngestResponse
+from src.api.schemas import IngestMovieJudgeEnvelope, IngestResponse
 
 router = APIRouter()
 

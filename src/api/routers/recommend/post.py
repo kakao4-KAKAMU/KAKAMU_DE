@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, Header
 
 from src.api.dependencies import AppContainer
 from src.api.routers.deps import get_app_container
-from src.api.schemas.schemas import RecommendRequest, RecommendResponse
+from src.api.schemas import RecommendRequest, RecommendResponse
 
 router = APIRouter()
 
