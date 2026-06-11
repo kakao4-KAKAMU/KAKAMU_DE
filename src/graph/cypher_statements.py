@@ -171,6 +171,31 @@ ON CREATE SET e.created_at = datetime()
 # 5. Upsert (MERGE) statements - 온톨로지 적재용
 # ---------------------------------------------------------------------------
 
+_MOVIE_ONTOLOGY_RELATIONS_TAIL: Final[str] = """
+// Person (director, actor, etc.)
+WITH m
+CALL {
+  WITH m
+  UNWIND $persons AS pr
+  MERGE (p:Person {person_id: pr.person_id})
+    SET p.name = pr.name
+  MERGE (m)-[hp:HAS_PERSON]->(p)
+    SET hp.job = pr.job
+  RETURN count(*) AS _
+}
+
+// Country node (optional)
+WITH m
+CALL {
+  WITH m
+  WITH m WHERE $country IS NOT NULL AND trim(toString($country)) <> ''
+  MERGE (c:Country {code: $country})
+    ON CREATE SET c.name = $country
+  MERGE (m)-[:PRODUCED_IN]->(c)
+  RETURN count(*) AS _
+}
+"""
+
 # 영화 본체 + 줄거리 온톨로지 적재 (legacy: 단일 plot_embedding 컬럼).
 # 신규 ingest 경로는 ``build_upsert_movie_with_ontology(embedding_props=...)``
 # 로 active+shadow 컬럼을 동시에 SET 한다.
@@ -210,7 +235,7 @@ UNWIND $keywords AS kw
     ON CREATE SET k.kind = kw.kind, k.term = kw.term
   MERGE (m)-[r:MENTIONS]->(k)
     SET r.weight = kw.weight
-"""
+""" + _MOVIE_ONTOLOGY_RELATIONS_TAIL
 
 
 def build_upsert_movie_with_ontology(
@@ -266,7 +291,7 @@ UNWIND $keywords AS kw
     ON CREATE SET k.kind = kw.kind, k.term = kw.term
   MERGE (m)-[r:MENTIONS]->(k)
     SET r.weight = kw.weight
-"""
+""" + _MOVIE_ONTOLOGY_RELATIONS_TAIL
 
 
 UPSERT_FEED_WITH_ONTOLOGY: Final[str] = """

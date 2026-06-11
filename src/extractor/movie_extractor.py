@@ -22,6 +22,8 @@ class MoviePlotExtractor(OntologyExtractor[MoviePlotOntology]):
         country: str | None,
         genres: list[str] | None,
         plot: str,
+        persons: list[dict[str, str]] | None = None,
+        reviews: list[str] | None = None,
     ) -> OntologyChatPayload:
         return build_movie_plot_messages(
             movie_id=movie_id,
@@ -30,6 +32,8 @@ class MoviePlotExtractor(OntologyExtractor[MoviePlotOntology]):
             country=country,
             genres=genres,
             plot=plot,
+            persons=persons,
+            reviews=reviews,
         )
 
 

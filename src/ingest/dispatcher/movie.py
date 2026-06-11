@@ -15,6 +15,8 @@ def build_movie_handler(
         movie_id = str(payload.movie_id)
         title = str(payload.title)
         plot = str(payload.plot or "")
+        persons = [p.model_dump() for p in (payload.persons or [])]
+        reviews = [str(r) for r in (payload.reviews or []) if str(r).strip()]
         ontology = extractor.extract(
             movie_id=movie_id,
             title=title,
@@ -22,6 +24,8 @@ def build_movie_handler(
             country=payload.country,
             genres=list(payload.genres or []),
             plot=plot,
+            persons=persons,
+            reviews=reviews,
         )
         embedding = embedder.embed(ontology.summary or plot)
         loader.upsert_movie(
@@ -33,6 +37,7 @@ def build_movie_handler(
             plot_raw=plot,
             ontology=ontology,
             plot_embedding=embedding,
+            persons=persons,
         )
 
     return _handler

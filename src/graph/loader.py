@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from typing import Optional, Sequence
+from typing import Mapping, Optional, Sequence
 
 from src.embedding.version_registry import EmbeddingVersionRegistry
 from src.graph.client import Neo4jClient
@@ -77,6 +77,7 @@ class OntologyLoader:
         plot_raw: str,
         ontology: MoviePlotOntology,
         plot_embedding: Sequence[float],
+        persons: Sequence[Mapping[str, str]] | None = None,
     ) -> None:
         themes = ontology.themes
         moods = ontology.moods
@@ -99,13 +100,22 @@ class OntologyLoader:
             "moods": moods,
             "toxicity_score": ontology.toxicity_score,
             "keywords": [k.model_dump() for k in keywords],
+            "persons": [
+                {
+                    "person_id": str(p["person_id"]),
+                    "name": str(p["name"]),
+                    "job": str(p["job"]),
+                }
+                for p in (persons or [])
+            ],
         }
         self._neo4j.execute_write(self._movie_upsert_cypher(), params)
         logger.info(
-            "Upserted movie %s (themes=%d, keywords=%d)",
+            "Upserted movie %s (themes=%d, keywords=%d, persons=%d)",
             movie_id,
             len(ontology.themes),
             len(ontology.keywords),
+            len(persons or []),
         )
 
     # ------------------------------------------------------------------

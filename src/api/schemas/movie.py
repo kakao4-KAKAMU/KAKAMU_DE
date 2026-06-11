@@ -10,6 +10,10 @@ class IngestMoviePayload(BaseModel):
     genres: list[str] = Field(default=[])
     plot: str = Field(default=None)
     persons: list[IngestPersonPayload] = Field(default=[])
+    reviews: list[str] = Field(
+        default=[],
+        description="관객 리뷰 샘플. 온톨로지 추출 시 themes/moods 보강 컨텍스트로 사용.",
+    )
 
 
 
