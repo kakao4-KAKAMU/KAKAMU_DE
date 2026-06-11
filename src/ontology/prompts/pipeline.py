@@ -38,7 +38,7 @@ class OntologyPromptSpec:
             _SCHEMA_CACHE[self.name] = cached
         return cached
 
-    def build_payload(self, *, user_payload: str) -> OntologyChatPayload:
+    def build_payload(self, *, user_payload: str, frequency_penalty: float | None = None) -> OntologyChatPayload:
         return {
             "messages": [
                 {"role": "system", "content": ONTOLOGY_SYSTEM_PROMPT},
@@ -51,6 +51,7 @@ class OntologyPromptSpec:
                 "json_schema": self.schema_json(),
             },
             "cache_salt": with_vocab_cache_salt(self.cache_salt),
+            "frequency_penalty": frequency_penalty,
         }
 
 

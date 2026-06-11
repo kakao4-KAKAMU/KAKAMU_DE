@@ -41,6 +41,7 @@ class LLMClient(Protocol):
         user_id: str | None = None,
         max_tokens: int = 1024,
         temperature: float = 0.2,
+        frequency_penalty: float | None = None,
         response_format: dict[str, Any] | None = None,
         cache_salt: str | None = None,
         guided_json_schema: dict[str, Any] | None = None,
@@ -66,9 +67,10 @@ class OntologyExtractor(ABC, Generic[T]):
 
         cache_salt = kwargs.get("cache_salt") or payload.get("cache_salt")
         raw = self._llm.chat_json(
-            messages=payload["messages"],
+            messages=payload.get("messages", []),
             user_id=user_id,
-            response_format=payload["response_format"],
+            frequency_penalty=payload.get("frequency_penalty"),
+            response_format=payload.get("response_format"),
             cache_salt=cache_salt,
         )
 

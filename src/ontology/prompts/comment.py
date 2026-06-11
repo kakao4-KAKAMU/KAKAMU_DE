@@ -144,7 +144,7 @@ def build_comment_messages(
         """
     ).strip()
 
-    return _SPEC.build_payload(user_payload=user_payload)
+    return _SPEC.build_payload(user_payload=user_payload, frequency_penalty=0.5)
 
 
 __all__ = [

@@ -111,7 +111,7 @@ def build_movie_plot_messages(
     plot: str,
     persons: list[dict[str, str]] | None = None,
     reviews: list[str] | None = None,
-) -> dict[str, Any]:
+):
     """영화 줄거리 → MoviePlotOntology 매핑용 messages + response_format 생성.
 
     Args:
@@ -161,7 +161,7 @@ def build_movie_plot_messages(
         """
     ).strip()
 
-    return _SPEC.build_payload(user_payload=user_payload)
+    return _SPEC.build_payload(user_payload=user_payload, frequency_penalty=0.5)
 
 
 __all__ = [
