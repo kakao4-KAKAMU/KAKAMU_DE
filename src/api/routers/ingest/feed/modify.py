@@ -17,4 +17,9 @@ def ingest_feed_modify(
     env: IngestFeedEnvelope,
     container: AppContainer = Depends(get_app_container),
 ) -> IngestResponse:
-    return enqueue(container, aggregate_type="feed_modify", env=env)
+    return enqueue(
+        container,
+        aggregate_type="feed_modify",
+        aggregate_id=env.payload.feed_id,
+        env=env,
+    )

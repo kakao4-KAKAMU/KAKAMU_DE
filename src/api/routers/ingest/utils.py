@@ -13,11 +13,12 @@ logger = logging.getLogger(__name__)
 
 
 def enqueue(
-    container: AppContainer, *, aggregate_type: str, env: IngestEnvelope
+    container: AppContainer,*, aggregate_type: str, aggregate_id: str, env: IngestEnvelope
 ) -> IngestResponse:
     try:
         outbox_id = container.outbox.enqueue(
             aggregate_type=aggregate_type,
+            aggregate_id=aggregate_id,
             payload=env.payload,
         )
     except Exception as exc:

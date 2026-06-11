@@ -17,4 +17,6 @@ def ingest_feed(
     env: IngestFeedEnvelope,
     container: AppContainer = Depends(get_app_container),
 ) -> IngestResponse:
-    return enqueue(container, aggregate_type="feed", env=env)
+    return enqueue(
+        container, aggregate_type="feed", aggregate_id=env.payload.feed_id, env=env
+    )

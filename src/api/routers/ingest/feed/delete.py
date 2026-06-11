@@ -17,4 +17,9 @@ def ingest_feed_delete(
     env: IngestFeedDeleteEnvelope,
     container: AppContainer = Depends(get_app_container),
 ) -> IngestResponse:
-    return enqueue(container, aggregate_type="feed_delete", env=env)
+    return enqueue(
+        container,
+        aggregate_type="feed_delete",
+        aggregate_id=env.payload.feed_id,
+        env=env,
+    )
