@@ -32,7 +32,10 @@ def create_app() -> FastAPI:
         title="movie-recommend-system",
         version="0.1.0",
         description="Knowledge-graph based movie recommendation + LLM chat",
-        openapi_url="openapi.json",
+        docs_url="/docs",
+        redoc_url="/redoc",
+        openapi_url="/openapi.json",
+        root_path="/chat",
     )
     app.add_middleware(
         CORSMiddleware,
