@@ -1,13 +1,13 @@
 from __future__ import annotations
 from typing import Any, Final
 from textwrap import dedent
-from .base import ONTOLOGY_SYSTEM_PROMPT
+from .pipeline import OntologyPromptSpec
 
 ONTOLOGY_MOVIE_CACHE_SALT: Final[str] = "ontology:movie_plot:v1"
 
-_MOVIE_PLOT_SCHEMA_JSON: Final[dict[str, Any]] = {
+_MOVIE_PLOT_SCHEMA_BASE: Final[dict[str, Any]] = {
     "name": "movie_knowledge_ontology",
-    "strict": True,  # 스키마를 엄격하게 준수하도록 강제
+    "strict": True,
     "schema": {
         "type": "object",
         "properties": {
@@ -15,34 +15,13 @@ _MOVIE_PLOT_SCHEMA_JSON: Final[dict[str, Any]] = {
             "source_id": {"type": "string"},
             "language": {"type": "string"},
             "summary": {"type": "string"},
+            "genres": {"type": "array", "items": {"type": "string"}},
             "themes": {"type": "array", "items": {"type": "string"}},
             "moods": {"type": "array", "items": {"type": "string"}},
             "tropes": {"type": "array", "items": {"type": "string"}},
             "keywords": {
                 "type": "array",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "term": {"type": "string"},
-                        "normalized": {"type": "string"},
-                        "weight": {"type": "number"},
-                        "kind": {
-                            "type": "string",
-                            "enum": [
-                                "entity",
-                                "concept",
-                                "theme",
-                                "mood",
-                                "trope",
-                                "object",
-                                "location",
-                                "other",
-                            ],
-                        },
-                    },
-                    "required": ["term", "normalized", "weight", "kind"],
-                    "additionalProperties": False,
-                },
+                "items": {"type": "object"},
             },
             "characters": {"type": "array", "items": {"type": "string"}},
             "locations": {"type": "array", "items": {"type": "string"}},
@@ -54,6 +33,7 @@ _MOVIE_PLOT_SCHEMA_JSON: Final[dict[str, Any]] = {
             "source_id",
             "language",
             "summary",
+            "genres",
             "themes",
             "moods",
             "tropes",
@@ -67,23 +47,36 @@ _MOVIE_PLOT_SCHEMA_JSON: Final[dict[str, Any]] = {
     },
 }
 
+
 _MOVIE_PLOT_GUIDE: Final[str] = dedent(
     """
     [Movie Plot 전용 가이드]
     - summary 는 줄거리의 인과(원인→사건→결말) 가 드러나도록 작성한다.
     - 단, 영화의 결말 spoiler 라 판단되는 경우 결말 표현은 추상화한다.
-    - themes 는 인간 보편 주제(예: 복수/성장/사랑/구원/정체성/가족/계급).
-    - moods 는 정서적 톤(예: 잔잔한/긴장감/몽환적/유머러스/비극적/희망적).
+    - genres 는 메타 장르와 줄거리 근거를 종합해 폐쇄형 vocabulary 에서만 선택한다.
+    - themes 는 폐쇄형 vocabulary (snake_case) 에서만 선택한다.
+    - moods 는 폐쇄형 vocabulary (snake_case) 에서만 선택한다.
     - tropes 는 영화/장르 클리셰의 식별자. snake_case 로 통일.
       (예: time_loop, anti_hero, found_family, redemption_arc)
     - keywords.kind 분포 가이드:
-        theme/mood 합쳐 30~40%,
+        theme/mood/genre 합쳐 30~40%,
         entity(인물/단체)/location/object 합쳐 40~50%,
         나머지는 concept/other
         이외 다른 kind는 사용할 수 없다.
     - toxicity_score 는 욕설/공격성/혐오표현 수위(0.1~1.0).
     """
 ).strip()
+
+_SPEC = OntologyPromptSpec(
+    name="movie_plot",
+    base_schema=_MOVIE_PLOT_SCHEMA_BASE,
+    guide=_MOVIE_PLOT_GUIDE,
+    cache_salt=ONTOLOGY_MOVIE_CACHE_SALT,
+)
+
+
+def get_movie_plot_schema_json() -> dict[str, Any]:
+    return _SPEC.schema_json()
 
 
 def build_movie_plot_messages(
@@ -125,20 +118,11 @@ def build_movie_plot_messages(
         """
     ).strip()
 
-    return {
-        "messages": [
-            {"role": "system", "content": ONTOLOGY_SYSTEM_PROMPT},
-            {"role": "system", "content": _MOVIE_PLOT_GUIDE},
-            {"role": "user", "content": user_payload},
-        ],
-        "response_format": {
-            "type": "json_schema",
-            "json_schema": _MOVIE_PLOT_SCHEMA_JSON,
-        },
-        "cache_salt": ONTOLOGY_MOVIE_CACHE_SALT,
-    }
+    return _SPEC.build_payload(user_payload=user_payload)
 
 
 __all__ = [
-  "build_movie_plot_messages",
+    "ONTOLOGY_MOVIE_CACHE_SALT",
+    "build_movie_plot_messages",
+    "get_movie_plot_schema_json",
 ]
