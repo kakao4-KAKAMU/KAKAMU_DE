@@ -35,6 +35,7 @@ def create_app() -> FastAPI:
         docs_url="/docs",
         redoc_url="/redoc",
         openapi_url="/openapi.json",
+        root_path="/chat",
     )
     app.add_middleware(
         CORSMiddleware,
