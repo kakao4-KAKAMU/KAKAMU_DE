@@ -174,26 +174,24 @@ ON CREATE SET e.created_at = datetime()
 _MOVIE_ONTOLOGY_RELATIONS_TAIL: Final[str] = """
 // Person (director, actor, etc.)
 WITH m
-CALL {
-  WITH m
+CALL (m) {
   UNWIND $persons AS pr
   MERGE (p:Person {person_id: pr.person_id})
     SET p.name = pr.name
   MERGE (m)-[hp:HAS_PERSON]->(p)
     SET hp.job = pr.job
-  RETURN count(*) AS _
 }
 
 // Country node (optional)
 WITH m
-CALL {
-  WITH m
+CALL (m) {
   WITH m WHERE $country IS NOT NULL AND trim(toString($country)) <> ''
   MERGE (c:Country {code: $country})
     ON CREATE SET c.name = $country
   MERGE (m)-[:PRODUCED_IN]->(c)
-  RETURN count(*) AS _
 }
+
+RETURN count(*) AS _
 """
 
 # 영화 본체 + 줄거리 온톨로지 적재 (legacy: 단일 plot_embedding 컬럼).
@@ -310,12 +308,10 @@ MERGE (f)-[:WRITTEN_BY]->(u)
 
 // related movie (optional)
 WITH f
-CALL {
-  WITH f
+CALL (f) {
   WITH f WHERE $related_movie_id IS NOT NULL
   MATCH (m:Movie {movie_id: $related_movie_id})
   MERGE (f)-[:ABOUT_MOVIE]->(m)
-  RETURN count(*) AS _
 }
 
 // categories

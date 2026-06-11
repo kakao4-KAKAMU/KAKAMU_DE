@@ -135,9 +135,6 @@ def build_vocab_guide_lines() -> str:
         f"{', '.join(themes)}\n"
         f"- moods (snake_case, {len(moods)}종): "
         f"{', '.join(moods)}\n"
-        "- keywords.kind=theme 이면 normalized 는 themes 목록에서만 선택.\n"
-        "- keywords.kind=mood 이면 normalized 는 moods 목록에서만 선택.\n"
-        "- keywords.kind=genre 이면 normalized 는 genres 목록에서만 선택."
     )
 
 
