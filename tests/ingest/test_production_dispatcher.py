@@ -85,7 +85,7 @@ def test_feed_handler_parses_created_at_iso() -> None:
     handler(
         {
             "feed_id": "f-1",
-            "author_id": "u-1",
+            "user_id": "u-1",
             "content": "재밌었어요",
             "created_at": "2026-05-23T10:00:00+00:00",
         }
@@ -107,7 +107,7 @@ def test_comment_handler_routes_to_upsert_comment() -> None:
         {
             "comment_id": "c-1",
             "feed_id": "f-1",
-            "author_id": "u-2",
+            "user_id": "u-2",
             "content": "동의합니다",
         }
     )

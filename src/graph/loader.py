@@ -115,7 +115,7 @@ class OntologyLoader:
         self,
         *,
         feed_id: str,
-        author_id: str,
+        user_id: str,
         related_movie_id: Optional[str],
         content_raw: str,
         ontology: FeedOntology,
@@ -124,7 +124,7 @@ class OntologyLoader:
     ) -> None:
         params = {
             "feed_id": feed_id,
-            "author_id": author_id,
+            "user_id": user_id,
             "related_movie_id": related_movie_id,
             "content_raw": content_raw,
             "summary": ontology.summary,
@@ -156,7 +156,7 @@ class OntologyLoader:
         *,
         comment_id: str,
         feed_id: str,
-        author_id: str,
+        user_id: str,
         content_raw: str,
         ontology: CommentOntology,
         summary_embedding: Sequence[float],
@@ -165,7 +165,7 @@ class OntologyLoader:
         params = {
             "comment_id": comment_id,
             "feed_id": feed_id,
-            "author_id": author_id,
+            "user_id": user_id,
             "content_raw": content_raw,
             "summary": ontology.summary,
             "summary_embedding": list(summary_embedding),

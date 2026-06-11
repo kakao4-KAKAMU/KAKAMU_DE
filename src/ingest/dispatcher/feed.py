@@ -13,11 +13,11 @@ def build_feed_handler(
     def _handler(payload: IngestFeedPayload) -> None:
         payload = IngestFeedPayload.model_validate(payload)
         feed_id = str(payload.feed_id)
-        author_id = str(payload.author_id)
+        user_id = str(payload.user_id)
         content = str(payload.content or "")
         ontology = extractor.extract(
             feed_id=feed_id,
-            author_id=author_id,
+            user_id=user_id,
             related_movie_id=payload.related_movie_id,
             known_movie_ids=list(payload.known_movie_ids or []),
             content=content,
@@ -25,7 +25,7 @@ def build_feed_handler(
         embedding = embedder.embed(ontology.summary or content)
         loader.upsert_feed(
             feed_id=feed_id,
-            author_id=author_id,
+            user_id=user_id,
             related_movie_id=payload.related_movie_id,
             content_raw=content,
             ontology=ontology,

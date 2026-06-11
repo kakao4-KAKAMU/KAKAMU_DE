@@ -61,7 +61,7 @@ classDiagram
     }
     class build_feed_messages {
         +feed_id
-        +author_id
+        +user_id
         +related_movie_id
         +known_movie_ids
         +content
@@ -69,7 +69,7 @@ classDiagram
     class build_comment_messages {
         +comment_id
         +feed_id
-        +author_id
+        +user_id
         +mentioned_user_ids
         +parent_feed_summary
         +content

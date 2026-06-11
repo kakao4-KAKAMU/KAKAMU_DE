@@ -270,7 +270,7 @@ UNWIND $keywords AS kw
 
 
 UPSERT_FEED_WITH_ONTOLOGY: Final[str] = """
-MERGE (u:User {user_id: $author_id})
+MERGE (u:User {user_id: $user_id})
 MERGE (f:Feed {feed_id: $feed_id})
 SET f.content_raw       = $content_raw,
     f.summary           = $summary,
@@ -317,7 +317,7 @@ UNWIND $keywords AS kw
 
 
 UPSERT_COMMENT_WITH_ONTOLOGY: Final[str] = """
-MERGE (u:User {user_id: $author_id})
+MERGE (u:User {user_id: $user_id})
 MERGE (parent:Feed {feed_id: $feed_id})
 MERGE (c:Comment {comment_id: $comment_id})
 SET c.content_raw       = $content_raw,

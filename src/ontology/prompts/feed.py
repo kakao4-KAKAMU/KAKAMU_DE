@@ -148,7 +148,7 @@ _FEED_GUIDE: Final[str] = dedent(
 def build_feed_messages(
     *,
     feed_id: str,
-    author_id: str,
+    user_id: str,
     related_movie_id: str | None,
     known_movie_ids: list[str] | None,
     content: str,
@@ -157,7 +157,7 @@ def build_feed_messages(
 
     Args:
         feed_id: 피드 고유 ID.
-        author_id: 작성자 user_id.
+        user_id: 작성자 user_id.
         related_movie_id: 피드가 명시적으로 연결한 영화 ID (있으면).
         known_movie_ids: 본문에서 참조 가능한 후보 movie_id 들(검색기로 사전 매칭한 결과).
         content: 정제 대상 피드 본문.
@@ -167,7 +167,7 @@ def build_feed_messages(
         f"""
         [피드 메타]
         - feed_id          : {feed_id}
-        - author_id        : {author_id}
+        - user_id        : {user_id}
         - related_movie_id : {related_movie_id or "none"}
         - known_movie_ids  : {", ".join(known_movie_ids) if known_movie_ids else "none"}
 

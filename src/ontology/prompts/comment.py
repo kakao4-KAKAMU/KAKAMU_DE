@@ -122,7 +122,7 @@ def build_comment_messages(
     *,
     comment_id: str,
     feed_id: str,
-    author_id: str,
+    user_id: str,
     mentioned_user_ids: list[str] | None,
     parent_feed_summary: str | None,
     content: str,
@@ -132,7 +132,7 @@ def build_comment_messages(
     Args:
         comment_id: 댓글 ID.
         feed_id: 부모 피드 ID.
-        author_id: 댓글 작성자.
+        user_id: 댓글 작성자.
         mentioned_user_ids: @멘션된 후보 user_id 목록.
         parent_feed_summary: 부모 피드의 정제 요약(맥락 보강용). 없으면 None.
         content: 댓글 원문.
@@ -143,7 +143,7 @@ def build_comment_messages(
         [댓글 메타]
         - comment_id        : {comment_id}
         - feed_id           : {feed_id}
-        - author_id         : {author_id}
+        - user_id           : {user_id}
         - mentioned_user_ids: {", ".join(mentioned_user_ids) if mentioned_user_ids else "none"}
 
         [부모 피드 요약(맥락)]
@@ -176,6 +176,7 @@ def build_comment_messages(
         },
         "cache_salt": ONTOLOGY_COMMENT_CACHE_SALT,
     }
+
 
 __all__ = [
   "build_comment_messages",

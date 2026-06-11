@@ -65,6 +65,7 @@ class ChatMessage(BaseModel):
     id: int
     session_id: UUID
     user_id: str
+    persona_id: str
     role: str
     content: str
     created_at: datetime
@@ -80,30 +81,31 @@ class ChatHistoryStore:
             cur.execute(DDL)
             conn.commit()
 
-    def open_session(self, *, session_id: str, user_id: str, metadata: dict | None = None) -> None:
+    def open_session(self, *, session_id: str, user_id: str, persona_id: str, metadata: dict | None = None) -> None:
         with get_connection(self._settings) as conn, conn.cursor() as cur:
             cur.execute(
                 """
-                INSERT INTO chat_session (session_id, user_id, metadata)
-                VALUES (%s, %s, %s)
+                INSERT INTO chat_session (session_id, user_id, persona_id, metadata)
+                VALUES (%s, %s, %s, %s)
                 ON CONFLICT (session_id) DO UPDATE
                     SET last_active = NOW()
                 """,
-                (session_id, user_id, json.dumps(metadata or {})),
+                (session_id, user_id, persona_id, json.dumps(metadata or {})),
             )
             conn.commit()
 
-    def list_sessions(self, *, user_id: str, cursor: Optional[int] = None, limit: int = 20) -> list[ChatSession]:
+    def list_sessions(self, *, user_id: str, persona_id: str, cursor: Optional[int] = None, limit: int = 20) -> list[ChatSession]:
         with get_connection(self._settings) as conn, conn.cursor() as cur:
             cur.execute(
                 """
                 SELECT session_id, user_id, started_at, last_active, metadata
                 FROM chat_session
                 WHERE user_id = %s
+                AND persona_id = %s
                 ORDER BY started_at DESC
                 LIMIT %s
                 OFFSET %s
-            """, (user_id, limit, cursor))
+            """, (user_id, persona_id, limit, cursor))
             rows = cur.fetchall()
             return [
                 ChatSession(
@@ -117,7 +119,7 @@ class ChatHistoryStore:
             ]
 
     def get_session_history(
-        self, *, session_id: str, user_id: str, cursor: Optional[int] = None, limit: int = 20
+        self, *, session_id: str, user_id: str, persona_id: str, cursor: Optional[int] = None, limit: int = 20
     ) -> list[ChatMessage]:
         with get_connection(self._settings) as conn, conn.cursor() as cur:
             if cursor is None:
@@ -127,21 +129,22 @@ class ChatHistoryStore:
                     FROM chat_message
                     WHERE session_id = %s
                     AND user_id = %s
+                    AND persona_id = %s
                     ORDER BY id DESC
                     LIMIT %s
                     """,
-                    (session_id, user_id, limit),
+                    (session_id, user_id, persona_id, limit),
                 )
             else:
                 cur.execute(
                     """
                     SELECT id, session_id, user_id, role, content, reply_metadata, created_at
                     FROM chat_message
-                    WHERE session_id = %s AND id < %s
+                    WHERE session_id = %s AND id < %s AND user_id = %s AND persona_id = %s
                     ORDER BY id DESC
                     LIMIT %s
                     """,
-                    (session_id, cursor, limit),
+                    (session_id, cursor, user_id, persona_id, limit),
                 )
             rows = cur.fetchall()
             messages = [
