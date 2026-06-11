@@ -13,6 +13,11 @@
 | 피드 본문   | `feed.content` (비정형) | 카테고리 + 감정 + 키워드 + 참조 영화 | `FeedOntology` |
 | 댓글 본문   | `comment.content` (비정형, 짧음) | 의도 + 감정 + 키워드 | `CommentOntology` |
 
+> Ingest 시 `persona_id` 는 온톨로지 스키마가 아닌 **적재 메타** 로 전달되며,
+> Neo4j 에서 `(:Persona)` 와 `WRITTEN_BY` 관계를 형성한다.
+> 추천은 `(user_id, persona_id)` 기준으로 Persona 선호를 사용한다.
+> 상세: [persona_recommendation.md](persona_recommendation.md)
+
 > 세 결과는 모두 `OntologyResult` 를 상속해 동일한 메타(`source_id`, `language`, `schema_version`)를 가진다.
 
 ---
@@ -62,6 +67,7 @@ classDiagram
     class build_feed_messages {
         +feed_id
         +user_id
+        +persona_id
         +related_movie_id
         +known_movie_ids
         +content
@@ -70,12 +76,14 @@ classDiagram
         +comment_id
         +feed_id
         +user_id
+        +persona_id
         +mentioned_user_ids
         +parent_feed_summary
         +content
     }
     class build_user_intent_messages {
         +user_id
+        +persona_id
         +user_query
         +top_k
     }

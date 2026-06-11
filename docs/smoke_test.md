@@ -49,6 +49,7 @@ with Neo4jClient() as neo:
         "hybrid_recommend",
         {
             "user_id": "u-demo",
+            "persona_id": "movie_buff",  # Persona-scoped 선호 조회
             "query_embedding": [0.0] * 1024,
             "query_keywords": [],
             "query_themes": [],
@@ -64,6 +65,15 @@ with Neo4jClient() as neo:
         fallback=False,
     )
     print(rows)
+```
+
+## 4-1. Persona Chat smoke
+
+```bash
+curl -s http://localhost:8080/chat \
+  -H 'content-type: application/json' \
+  -H 'X-Persona-Id: movie_buff' \
+  -d '{"user_id":"u-demo","message":"공포 영화 추천"}' | jq
 ```
 
 ## 5. Judge 1회 실행
