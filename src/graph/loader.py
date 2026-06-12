@@ -143,7 +143,7 @@ class OntologyLoader:
             "sentiment_score": ontology.sentiment_score,
             "contains_spoiler": ontology.contains_spoiler,
             "toxicity_score": ontology.toxicity_score,
-            "categories": [c.value for c in ontology.categories],
+            "categories": [ontology.category.value],
             "emotions": [
                 {"tag": e.tag.value, "score": e.score} for e in ontology.emotions
             ],
@@ -154,7 +154,7 @@ class OntologyLoader:
         logger.info(
             "Upserted feed %s (cats=%d, keywords=%d)",
             feed_id,
-            len(ontology.categories),
+            1,
             len(ontology.keywords),
         )
 

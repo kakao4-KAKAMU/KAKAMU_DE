@@ -3,7 +3,15 @@ from typing import Any, Final
 from textwrap import dedent
 from .pipeline import OntologyPromptSpec
 
-ONTOLOGY_COMMENT_CACHE_SALT: Final[str] = "ontology:comment:v1"
+from src.ontology.schema import (
+    COMMENT_REACTION_VALUES,
+    COMMENT_TARGET_VALUES,
+    EMOTION_TAG_VALUES,
+    SCHEMA_VERSION_VALUES,
+    SENTIMENT_VALUES,
+)
+
+ONTOLOGY_COMMENT_CACHE_SALT: Final[str] = "ontology:comment:v3"
 
 _COMMENT_SCHEMA_BASE: Final[dict[str, Any]] = {
     "name": "comment_knowledge_ontology",
@@ -11,54 +19,29 @@ _COMMENT_SCHEMA_BASE: Final[dict[str, Any]] = {
     "schema": {
         "type": "object",
         "properties": {
-            "schema_version": {"type": "string", "enum": ["1.0"]},
+            "schema_version": {"type": "string", "enum": SCHEMA_VERSION_VALUES},
             "source_id": {"type": "string"},
             "language": {"type": "string"},
             "summary": {"type": "string"},
-            "intents": {
-                "type": "array",
-                "items": {
-                    "type": "string",
-                    "enum": [
-                        "agree",
-                        "disagree",
-                        "question",
-                        "answer",
-                        "recommend",
-                        "critique",
-                        "appreciation",
-                        "joke",
-                        "spoiler_warning",
-                        "off_topic",
-                    ],
-                },
-            },
-            "sentiment": {
-                "type": "string",
-                "enum": [
-                    "very_negative",
-                    "negative",
-                    "neutral",
-                    "positive",
-                    "very_positive",
-                ],
-            },
+            "target": {"type": "string", "enum": COMMENT_TARGET_VALUES},
+            "reaction": {"type": "string", "enum": COMMENT_REACTION_VALUES},
+            "sentiment": {"type": "string", "enum": SENTIMENT_VALUES},
             "sentiment_score": {"type": "number"},
             "emotions": {
                 "type": "array",
                 "items": {
                     "type": "object",
                     "properties": {
-                        "tag": {"type": "string"},
+                        "tag": {
+                            "type": "string",
+                            "enum": EMOTION_TAG_VALUES,
+                        },
                         "score": {"type": "number"},
                     },
                     "required": ["tag", "score"],
                     "additionalProperties": False,
                 },
             },
-            "genres": {"type": "array", "items": {"type": "string"}},
-            "themes": {"type": "array", "items": {"type": "string"}},
-            "moods": {"type": "array", "items": {"type": "string"}},
             "keywords": {
                 "type": "array",
                 "items": {"type": "object"},
@@ -72,13 +55,11 @@ _COMMENT_SCHEMA_BASE: Final[dict[str, Any]] = {
             "source_id",
             "language",
             "summary",
-            "intents",
+            "target",
+            "reaction",
             "sentiment",
             "sentiment_score",
             "emotions",
-            "genres",
-            "themes",
-            "moods",
             "keywords",
             "targets_user_id",
             "contains_spoiler",
@@ -91,15 +72,14 @@ _COMMENT_SCHEMA_BASE: Final[dict[str, Any]] = {
 
 _COMMENT_GUIDE: Final[str] = dedent(
     """
-    [Comment 전용 가이드]
-    - 댓글은 짧을 수 있으므로 summary 는 원문이 1문장이면 원문을 그대로 사용해도 된다.
-    - intents 다중 선택 가능. 의문문이면 question, "동의/공감" 표현이면 agree.
-    - genres/themes/moods 는 본문에서 드러난 경우에만 폐쇄형 vocabulary 에서 선택.
-      근거 없으면 빈 배열.
-    - 다른 사용자(@언급/대댓글) 를 향한 경우 targets_user_id 를 채운다.
-      mentioned_user_ids 메타에 후보가 있는 경우 그 중에서만 선택.
-    - keywords 는 5개를 넘기지 않는다(짧은 텍스트에 과추출 금지).
-    - toxicity_score: 욕설/공격성/혐오표현 수위(0.1~1.0).
+    [Comment]
+    - target: feed=피드에 대한 댓글, parent_comment=부모 댓글에 대한 대댓글.
+    - reaction: positive/negative/empathy=판단·공감, supplement=보충 설명.
+    - summary: 1문장. 짧으면 원문 그대로 가능.
+    - sentiment/sentiment_score 일관 유지.
+    - keywords: 5개 이하. 구체 표현만.
+    - targets_user_id: @언급/대댓글 시 mentioned_user_ids 중에서만 선택.
+    - toxicity_score: 욕설/공격성/혐오 수위(0.0~1.0).
     """
 ).strip()
 
@@ -108,6 +88,7 @@ _SPEC = OntologyPromptSpec(
     base_schema=_COMMENT_SCHEMA_BASE,
     guide=_COMMENT_GUIDE,
     cache_salt=ONTOLOGY_COMMENT_CACHE_SALT,
+    include_vocab_guide=False,
 )
 
 
@@ -122,9 +103,21 @@ def build_comment_messages(
     user_id: str,
     mentioned_user_ids: list[str] | None,
     parent_feed_summary: str | None,
+    parent_comment_summary: str | None = None,
     content: str,
 ) -> dict[str, Any]:
     """댓글 본문 → CommentOntology 매핑용 messages."""
+
+    parent_comment_section = (
+        dedent(
+            f"""
+            [부모 댓글 요약(맥락)]
+            {parent_comment_summary.strip()}
+            """
+        ).strip()
+        if parent_comment_summary
+        else ""
+    )
 
     user_payload = dedent(
         f"""
@@ -136,6 +129,7 @@ def build_comment_messages(
 
         [부모 피드 요약(맥락)]
         {parent_feed_summary or "(none)"}
+        {parent_comment_section}
 
         [원문 댓글]
         \"\"\"

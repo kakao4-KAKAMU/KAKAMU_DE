@@ -16,6 +16,8 @@ from __future__ import annotations
 
 from typing import Final, List, Sequence
 
+from src.ontology.schema import EMOTION_TAG_VALUES, FEED_CATEGORY_VALUES
+
 # ---------------------------------------------------------------------------
 # 1. Node uniqueness constraints (Neo4j 5.x 문법)
 # ---------------------------------------------------------------------------
@@ -144,15 +146,8 @@ def vector_index_statements(embedding_dim: int) -> List[str]:
 # 4. 시드 데이터 (선택): 분류 체계의 standard label set
 #    - LLM 출력이 free-text 으로 흔들리지 않도록 표준 노드를 미리 심는다.
 # ---------------------------------------------------------------------------
-SEED_CATEGORIES: Final[List[str]] = [
-    "review", "recommendation", "question", "discussion",
-    "news", "spoiler", "theory", "comparison", "meta", "off_topic",
-]
-
-SEED_EMOTIONS: Final[List[str]] = [
-    "joy", "sadness", "anger", "fear", "disgust", "surprise",
-    "nostalgia", "empathy", "excitement", "boredom", "confusion", "admiration",
-]
+SEED_CATEGORIES: Final[List[str]] = FEED_CATEGORY_VALUES
+SEED_EMOTIONS: Final[List[str]] = EMOTION_TAG_VALUES
 
 SEED_MERGE_CATEGORY: Final[str] = """
 UNWIND $categories AS name

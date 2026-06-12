@@ -30,6 +30,7 @@ class OntologyPromptSpec:
     base_schema: dict[str, Any]
     guide: str
     cache_salt: str
+    include_vocab_guide: bool = False
 
     def schema_json(self) -> dict[str, Any]:
         cached = _SCHEMA_CACHE.get(self.name)
@@ -39,13 +40,19 @@ class OntologyPromptSpec:
         return cached
 
     def build_payload(self, *, user_payload: str, frequency_penalty: float | None = None) -> OntologyChatPayload:
-        return {
-            "messages": [
-                {"role": "system", "content": ONTOLOGY_SYSTEM_PROMPT},
-                {"role": "system", "content": build_vocab_guide_lines()},
+        messages: list[dict[str, str]] = [
+            {"role": "system", "content": ONTOLOGY_SYSTEM_PROMPT},
+        ]
+        if self.include_vocab_guide:
+            messages.append({"role": "system", "content": build_vocab_guide_lines()})
+        messages.extend(
+            [
                 {"role": "system", "content": self.guide},
                 {"role": "user", "content": user_payload},
-            ],
+            ]
+        )
+        return {
+            "messages": messages,
             "response_format": {
                 "type": "json_schema",
                 "json_schema": self.schema_json(),
