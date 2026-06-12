@@ -3,7 +3,14 @@ from typing import Any, Final
 from textwrap import dedent
 from .pipeline import OntologyPromptSpec
 
-ONTOLOGY_FEED_CACHE_SALT: Final[str] = "ontology:feed:v1"
+from src.ontology.schema import (
+    EMOTION_TAG_VALUES,
+    FEED_CATEGORY_VALUES,
+    SCHEMA_VERSION_VALUES,
+    SENTIMENT_VALUES,
+)
+
+ONTOLOGY_FEED_CACHE_SALT: Final[str] = "ontology:feed:v3"
 
 _FEED_SCHEMA_BASE: Final[dict[str, Any]] = {
     "name": "feed_knowledge_ontology",
@@ -11,38 +18,12 @@ _FEED_SCHEMA_BASE: Final[dict[str, Any]] = {
     "schema": {
         "type": "object",
         "properties": {
-            "schema_version": {"type": "string", "enum": ["1.0"]},
+            "schema_version": {"type": "string", "enum": SCHEMA_VERSION_VALUES},
             "source_id": {"type": "string"},
             "language": {"type": "string"},
             "summary": {"type": "string"},
-            "categories": {
-                "type": "array",
-                "items": {
-                    "type": "string",
-                    "enum": [
-                        "review",
-                        "recommendation",
-                        "question",
-                        "discussion",
-                        "news",
-                        "spoiler",
-                        "theory",
-                        "comparison",
-                        "meta",
-                        "off_topic",
-                    ],
-                },
-            },
-            "sentiment": {
-                "type": "string",
-                "enum": [
-                    "very_negative",
-                    "negative",
-                    "neutral",
-                    "positive",
-                    "very_positive",
-                ],
-            },
+            "category": {"type": "string", "enum": FEED_CATEGORY_VALUES},
+            "sentiment": {"type": "string", "enum": SENTIMENT_VALUES},
             "sentiment_score": {"type": "number"},
             "emotions": {
                 "type": "array",
@@ -51,20 +32,7 @@ _FEED_SCHEMA_BASE: Final[dict[str, Any]] = {
                     "properties": {
                         "tag": {
                             "type": "string",
-                            "enum": [
-                                "joy",
-                                "sadness",
-                                "anger",
-                                "fear",
-                                "disgust",
-                                "surprise",
-                                "nostalgia",
-                                "empathy",
-                                "excitement",
-                                "boredom",
-                                "confusion",
-                                "admiration",
-                            ],
+                            "enum": EMOTION_TAG_VALUES,
                         },
                         "score": {"type": "number"},
                     },
@@ -72,9 +40,6 @@ _FEED_SCHEMA_BASE: Final[dict[str, Any]] = {
                     "additionalProperties": False,
                 },
             },
-            "genres": {"type": "array", "items": {"type": "string"}},
-            "themes": {"type": "array", "items": {"type": "string"}},
-            "moods": {"type": "array", "items": {"type": "string"}},
             "keywords": {
                 "type": "array",
                 "items": {"type": "object"},
@@ -92,13 +57,10 @@ _FEED_SCHEMA_BASE: Final[dict[str, Any]] = {
             "source_id",
             "language",
             "summary",
-            "categories",
+            "category",
             "sentiment",
             "sentiment_score",
             "emotions",
-            "genres",
-            "themes",
-            "moods",
             "keywords",
             "referenced_movie_ids",
             "referenced_person_names",
@@ -112,21 +74,24 @@ _FEED_SCHEMA_BASE: Final[dict[str, Any]] = {
 
 _FEED_GUIDE: Final[str] = dedent(
     """
-    [Feed 전용 가이드]
-    - categories 는 다중 선택 가능. 명백히 1개라면 1개만 선택.
-    - sentiment_score 와 sentiment 는 일관되어야 한다.
-        very_negative ≈ -1.0 ~ -0.6
-        negative      ≈ -0.6 ~ -0.2
-        neutral       ≈ -0.2 ~ +0.2
-        positive      ≈ +0.2 ~ +0.6
-        very_positive ≈ +0.6 ~ +1.0
-    - emotions 는 본문에서 명확히 드러난 감정 1~5개만 선택. 점수는 강도.
-    - genres/themes/moods 는 본문에서 드러난 경우에만 폐쇄형 vocabulary 에서 선택.
-      근거 없으면 빈 배열.
-    - referenced_movie_ids 는 입력 메타의 known_movie_ids 에 포함된 ID 만 사용한다.
-      메타에 없는 영화는 referenced_person_names 또는 keywords 로 처리.
-    - contains_spoiler: 결말/반전을 직접 서술하면 true.
-    - toxicity_score: 욕설/공격성/혐오표현 수위(0.1~1.0).
+    [Feed]
+    - category: 글 특성 1개만 선택.
+        - review: 감상평
+        - recommendation: 추천
+        - question: 질문
+        - discussion: 토론
+        - news: 뉴스/정보
+        - spoiler: 스포일러 포함
+        - theory: 해석/이론
+        - comparison: 비교
+        - meta: 메타(촬영기법/감독/배우)
+        - off_topic: 관련 없음
+    - sentiment/sentiment_score 일관 유지.
+    - emotions: 본문에서 드러난 감정 1~5개.
+    - keywords: 본문의 구체 표현(인물·작품·소재 등). 5~10개 권장.
+    - referenced_movie_ids: known_movie_ids 에 있는 ID 만.
+    - contains_spoiler: 결말/반전 직접 서술 시 true.
+    - toxicity_score: 욕설/공격성/혐오 수위(0.0~1.0).
     """
 ).strip()
 
@@ -135,6 +100,7 @@ _SPEC = OntologyPromptSpec(
     base_schema=_FEED_SCHEMA_BASE,
     guide=_FEED_GUIDE,
     cache_salt=ONTOLOGY_FEED_CACHE_SALT,
+    include_vocab_guide=False,
 )
 
 
@@ -156,7 +122,7 @@ def build_feed_messages(
         f"""
         [피드 메타]
         - feed_id          : {feed_id}
-        - user_id        : {user_id}
+        - user_id          : {user_id}
         - related_movie_id : {related_movie_id or "none"}
         - known_movie_ids  : {", ".join(known_movie_ids) if known_movie_ids else "none"}
 

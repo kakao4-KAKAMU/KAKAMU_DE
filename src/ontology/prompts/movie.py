@@ -2,8 +2,9 @@ from __future__ import annotations
 from typing import Any, Final
 from textwrap import dedent
 from .pipeline import OntologyPromptSpec
+from src.ontology.schema import SCHEMA_VERSION_VALUES
 
-ONTOLOGY_MOVIE_CACHE_SALT: Final[str] = "ontology:movie_plot:v1.4"
+ONTOLOGY_MOVIE_CACHE_SALT: Final[str] = "ontology:movie_plot:v1.5"
 
 _MOVIE_PLOT_SCHEMA_BASE: Final[dict[str, Any]] = {
     "name": "movie_knowledge_ontology",
@@ -11,8 +12,9 @@ _MOVIE_PLOT_SCHEMA_BASE: Final[dict[str, Any]] = {
     "schema": {
         "type": "object",
         "properties": {
-            "schema_version": {"type": "string", "enum": ["1.0"]},
+            "schema_version": {"type": "string", "enum": SCHEMA_VERSION_VALUES},
             "source_id": {"type": "string"},
+            "language": {"type": "string"},
             "summary": {"type": "string"},
             "themes": {"type": "array", "items": {"type": "string"}},
             "moods": {"type": "array", "items": {"type": "string"}},
@@ -25,6 +27,7 @@ _MOVIE_PLOT_SCHEMA_BASE: Final[dict[str, Any]] = {
         "required": [
             "schema_version",
             "source_id",
+            "language",
             "summary",
             "themes",
             "moods",
@@ -38,21 +41,25 @@ _MOVIE_PLOT_SCHEMA_BASE: Final[dict[str, Any]] = {
 
 _MOVIE_PLOT_GUIDE: Final[str] = dedent(
     """
-    [Movie Plot 전용 가이드]
-    - summary 는 줄거리의 인과(원인→사건→결말) 가 드러나도록 작성한다.
-    - 단, 영화의 결말 spoiler 라 판단되는 경우 결말 표현은 추상화한다.
-    - themes 는 폐쇄형 vocabulary (snake_case) 에서만 선택한다.
-    - moods 는 폐쇄형 vocabulary (snake_case) 에서만 선택한다.
-      (예: time_loop, anti_hero, found_family, redemption_arc)
-    - keywords 는 검색 anchor 가 되는 구체 표현만 담는다.
-      장르/테마/무드는 themes/moods 로만 추출하고 keywords 에 중복 금지.
-    - keywords.kind 분포 가이드(허용 kind: entity/object/concept/location/other):
-        entity(인물/단체)/object 합쳐 40~50%, 나머지는 concept/location/other.
-        이외 다른 kind 는 사용할 수 없다.
-    - 입력 메타의 제작진(persons: 감독/배우 등)은 사실로 간주한다.
-    - 관객 리뷰(reviews)가 제공되면 themes/moods/keywords 추출에 반영하되,
-      리뷰 의견을 줄거리 사실로 혼동하지 않는다.
-    - toxicity_score 는 욕설/공격성/혐오표현 수위(0.1~1.0).
+    [keywords — 영화 지표]
+    keywords.kind 는 아래 7종 중 하나만 사용:
+    - era          : 시대적 배경 (예: 1980년대, 조선시대)
+    - environment  : 환경/공간 (예: 우주, 교도소, 어촌 마을)
+    - key_object   : 핵심 소재 (예: 타임머신, 복권, 일기장)
+    - source_form  : 원작 형태 (예: 웹툰 원작, 소설 원작, 리메이크)
+    - culture_code : 문화 코드 (예: 홍콩 느와르, 한국 군대 문화)
+    - entity       : 인물/단체/작품명
+    - other        : 위에 해당하지 않는 지표
+    - term: 원문 표면형. normalized: 영어 snake_case 표제어(필수).
+    - themes/moods 등 전용 필드 값은 keywords 에 중복 금지.
+
+    [Movie Plot]
+    - summary: 줄거리 인과(원인→사건→결말). 결말 스포일러는 추상화.
+    - themes/moods: 폐쇄형 vocabulary 에서만 선택. 근거 없으면 [].
+    - keywords: 영화 지표(era/environment/key_object/source_form/culture_code/entity/other).
+      themes/moods 와 중복 금지. 5~15개 권장.
+    - 관객 리뷰는 themes/moods/keywords 보강에만 사용. 리뷰 의견을 사실로 혼동 금지.
+    - toxicity_score: 욕설/공격성/혐오 수위(0.0~1.0).
     """
 ).strip()
 
@@ -61,18 +68,12 @@ _SPEC = OntologyPromptSpec(
     base_schema=_MOVIE_PLOT_SCHEMA_BASE,
     guide=_MOVIE_PLOT_GUIDE,
     cache_salt=ONTOLOGY_MOVIE_CACHE_SALT,
+    include_vocab_guide=True,
 )
 
 
 def get_movie_plot_schema_json() -> dict[str, Any]:
     return _SPEC.schema_json()
-
-
-def _format_persons(persons: list[dict[str, str]] | None) -> str:
-    if not persons:
-        return "없음"
-    lines = [f"  - {p['name']} ({p['job']}, id={p['person_id']})" for p in persons]
-    return "\n".join(lines)
 
 
 def _format_reviews(reviews: list[str] | None) -> str:
@@ -97,21 +98,7 @@ def build_movie_plot_messages(
     persons: list[dict[str, str]] | None = None,
     reviews: list[str] | None = None,
 ):
-    """영화 줄거리 → MoviePlotOntology 매핑용 messages + response_format 생성.
-
-    Args:
-        movie_id: 영화 고유 ID. 결과 JSON 의 source_id 로 들어간다.
-        title: 영화 제목.
-        producing_year: 제작연도(없으면 None).
-        country: 제작국가(없으면 None).
-        genres: TMDB/KMDB 의 장르명 리스트.
-        plot: 정제 대상이 되는 짧은 줄거리 원문.
-        persons: 감독/배우 등 제작진 메타 (person_id, name, job).
-        reviews: 관객 리뷰 샘플. themes/moods 추출 보강용.
-
-    Returns:
-        OpenAI/vLLM Chat Completions 호환 messages 리스트.
-    """
+    """영화 줄거리 → MoviePlotOntology 매핑용 messages + response_format 생성."""
     review_block = _format_reviews(reviews)
     review_section = (
         dedent(
@@ -143,7 +130,7 @@ def build_movie_plot_messages(
         """
     ).strip()
 
-    return _SPEC.build_payload(user_payload=user_payload, frequency_penalty=0.5)
+    return _SPEC.build_payload(user_payload=user_payload)
 
 
 __all__ = [

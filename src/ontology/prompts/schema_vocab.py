@@ -15,21 +15,15 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
+from src.ontology.schema import KEYWORD_KIND_VALUES
 from src.vocab.normalizer import VocabularyNormalizer
 
 LIBRARY_PATH: Path = (
     Path(__file__).resolve().parents[3] / "docs" / "genre_theme_mood_library.md"
 )
 
-# genres/themes/moods/tropes 는 폐쇄형 vocabulary 전용 필드로 따로 추출되므로
-# keywords.kind 에서는 제외한다(중복 추출 방지 → 추출 성공률/토큰 효율 향상).
-KEYWORD_KINDS: tuple[str, ...] = (
-    "entity",
-    "concept",
-    "object",
-    "location",
-    "other",
-)
+# themes/moods 는 movie 전용 폐쇄형 필드. keywords.kind 는 schema.KeywordKind 기준.
+KEYWORD_KINDS: tuple[str, ...] = tuple(KEYWORD_KIND_VALUES)
 
 
 @lru_cache(maxsize=1)

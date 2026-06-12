@@ -19,9 +19,19 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from enum import Enum
-from typing import List, Literal, Optional
+from typing import List, Literal, Optional, TypeVar
 
 from pydantic import BaseModel, Field, field_validator
+
+_E = TypeVar("_E", bound=Enum)
+
+SCHEMA_VERSION: Literal["1.1"] = "1.1"
+SCHEMA_VERSION_VALUES: list[str] = [SCHEMA_VERSION]
+
+
+def enum_values(enum_cls: type[_E]) -> list[str]:
+    """str Enum 의 value 목록을 정의 순서대로 반환한다."""
+    return [member.value for member in enum_cls]
 
 
 def _utcnow() -> datetime:
@@ -43,6 +53,9 @@ class Sentiment(str, Enum):
     VERY_POSITIVE = "very_positive"
 
 
+SENTIMENT_VALUES: list[str] = enum_values(Sentiment)
+
+
 class EmotionTag(str, Enum):
     """세부 감정 태그 (Ekman 기반 + 영화 도메인 보강)."""
 
@@ -60,52 +73,78 @@ class EmotionTag(str, Enum):
     ADMIRATION = "admiration"
 
 
+EMOTION_TAG_VALUES: list[str] = enum_values(EmotionTag)
+
+
 class FeedCategory(str, Enum):
-    """피드 카테고리(주제) 분류."""
+    """피드 글 특성 분류."""
 
-    REVIEW = "review"                 # 감상평
-    RECOMMENDATION = "recommendation" # 추천
-    QUESTION = "question"             # 질문
-    DISCUSSION = "discussion"         # 토론
-    NEWS = "news"                     # 뉴스/정보
-    SPOILER = "spoiler"               # 스포일러 포함
-    THEORY = "theory"                 # 해석/이론
-    COMPARISON = "comparison"         # 비교
-    META = "meta"                     # 메타(촬영기법/감독/배우)
+    REVIEW = "review"  # 감상평
+    RECOMMENDATION = "recommendation"  # 추천
+    QUESTION = "question"  # 질문
+    DISCUSSION = "discussion"  # 토론
+    NEWS = "news"  # 뉴스/정보
+    SPOILER = "spoiler"  # 스포일러 포함
+    THEORY = "theory"  # 해석/이론
+    COMPARISON = "comparison"  # 비교
+    META = "meta"  # 메타(촬영기법/감독/배우)
     OFF_TOPIC = "off_topic"
 
 
-class CommentIntent(str, Enum):
-    """댓글 의도 분류."""
+FEED_CATEGORY_VALUES: list[str] = enum_values(FeedCategory)
 
-    AGREE = "agree"
-    DISAGREE = "disagree"
-    QUESTION = "question"
-    ANSWER = "answer"
-    RECOMMEND = "recommend"
-    CRITIQUE = "critique"
-    APPRECIATION = "appreciation"
-    JOKE = "joke"
-    SPOILER_WARNING = "spoiler_warning"
-    OFF_TOPIC = "off_topic"
+
+class CommentTarget(str, Enum):
+    """댓글이 향하는 대상."""
+
+    FEED = "feed"
+    PARENT_COMMENT = "parent_comment"
+
+
+COMMENT_TARGET_VALUES: list[str] = enum_values(CommentTarget)
+
+
+class CommentReaction(str, Enum):
+    """댓글의 반응 유형."""
+
+    POSITIVE = "positive"
+    NEGATIVE = "negative"
+    EMPATHY = "empathy"
+    SUPPLEMENT = "supplement"
+
+
+COMMENT_REACTION_VALUES: list[str] = enum_values(CommentReaction)
+
+
+class KeywordKind(str, Enum):
+    """영화 지표 키워드 분류."""
+
+    ERA = "era"
+    ENVIRONMENT = "environment"
+    KEY_OBJECT = "key_object"
+    SOURCE_FORM = "source_form"
+    CULTURE_CODE = "culture_code"
+    ENTITY = "entity"
+    OTHER = "other"
+
+
+KEYWORD_KIND_VALUES: list[str] = enum_values(KeywordKind)
 
 
 class Keyword(BaseModel):
-    """semantic / keyword 양쪽에서 anchor 가 되는 표준 키워드."""
+    """영화 지표·검색 anchor 가 되는 표준 키워드."""
 
     term: str = Field(..., description="원문에서 추출된 표면형(surface form)")
     normalized: str = Field(
-        ..., description="정규화된 표제어. 동의어/표기 통일 후의 lemma."
+        ..., description="정규화된 표제어. 영어 snake_case 또는 고유명 표기."
     )
     weight: float = Field(
         default=1.0,
         ge=0.0,
         le=1.0,
-        description="해당 문서 내 중요도(0~1). TF-IDF 또는 LLM 판단치.",
+        description="해당 문서 내 중요도(0~1).",
     )
-    kind: Literal[
-        "entity", "concept", "theme", "mood", "trope", "object", "location", "other", "genre"
-    ] = Field(default="concept", description="키워드의 종류(상위 분류).")
+    kind: KeywordKind = Field(default=KeywordKind.OTHER, description="키워드의 종류(상위 분류).")
 
     @field_validator("term", "normalized")
     @classmethod
@@ -126,7 +165,7 @@ class EmotionScore(BaseModel):
 class OntologyResult(BaseModel):
     """모든 온톨로지 출력의 공통 베이스."""
 
-    schema_version: Literal["1.0"] = "1.0"
+    schema_version: Literal["1.1"] = SCHEMA_VERSION
     created_at: datetime = Field(default_factory=_utcnow)
     source_id: str = Field(..., description="원본 문서의 고유 ID (movie_id/feed_id/comment_id)")
     language: str = Field(default="ko", description="원문 언어 (ISO 639-1).")
@@ -145,28 +184,14 @@ class MoviePlotOntology(OntologyResult):
     )
     themes: List[str] = Field(
         default_factory=list,
-        description="영화의 주제(예: '복수', '성장', '구원'). 정규화된 표제어.",
+        description="영화의 주제. 폐쇄형 vocabulary (snake_case).",
     )
     moods: List[str] = Field(
         default_factory=list,
-        description="영화의 분위기(예: '잔잔한', '긴장감', '몽환적'). 정규화 표제어.",
-    )
-    tropes: List[str] = Field(
-        default_factory=list,
-        description="장르 클리셰/트로프(예: 'time_loop', 'anti_hero').",
+        description="영화의 분위기. 폐쇄형 vocabulary (snake_case).",
     )
     keywords: List[Keyword] = Field(
-        default_factory=list, description="검색 anchor 가 되는 핵심 키워드."
-    )
-    characters: List[str] = Field(
-        default_factory=list, description="주요 등장인물의 역할/이름."
-    )
-    locations: List[str] = Field(
-        default_factory=list, description="주요 배경(시대/공간)."
-    )
-    target_audience: List[str] = Field(
-        default_factory=list,
-        description="추정 타겟 관객층 태그(예: 'family', 'cinephile', 'teen').",
+        default_factory=list, description="영화 지표 키워드."
     )
     toxicity_score: float = Field(
         default=0.0, ge=0.0, le=1.0, description="유해/공격성 점수(0~1)."
@@ -182,9 +207,7 @@ class FeedOntology(OntologyResult):
     """피드 본문 정제 결과."""
 
     summary: str = Field(..., description="피드 본문의 1~2문장 요약.")
-    categories: List[FeedCategory] = Field(
-        default_factory=list, description="피드의 카테고리(다중 선택 가능)."
-    )
+    category: FeedCategory = Field(..., description="피드 글 특성.")
     sentiment: Sentiment = Field(..., description="전체 감정 극성.")
     sentiment_score: float = Field(
         ..., ge=-1.0, le=1.0, description="감정 점수. -1(매우 부정) ~ +1(매우 긍정)."
@@ -220,9 +243,8 @@ class CommentOntology(OntologyResult):
     """댓글 본문 정제 결과."""
 
     summary: str = Field(..., description="댓글의 1문장 요약(짧으면 원문 그대로 가능).")
-    intents: List[CommentIntent] = Field(
-        default_factory=list, description="댓글의 의도(다중 가능)."
-    )
+    target: CommentTarget = Field(..., description="댓글이 향하는 대상.")
+    reaction: CommentReaction = Field(..., description="댓글의 반응 유형.")
     sentiment: Sentiment = Field(..., description="전체 감정 극성.")
     sentiment_score: float = Field(..., ge=-1.0, le=1.0)
     emotions: List[EmotionScore] = Field(default_factory=list)
@@ -245,14 +267,25 @@ class CommentOntology(OntologyResult):
 
 
 __all__ = [
+    "SCHEMA_VERSION",
+    "SCHEMA_VERSION_VALUES",
     "Sentiment",
+    "SENTIMENT_VALUES",
     "EmotionTag",
+    "EMOTION_TAG_VALUES",
     "FeedCategory",
-    "CommentIntent",
+    "FEED_CATEGORY_VALUES",
+    "CommentTarget",
+    "COMMENT_TARGET_VALUES",
+    "CommentReaction",
+    "COMMENT_REACTION_VALUES",
     "Keyword",
+    "KeywordKind",
+    "KEYWORD_KIND_VALUES",
     "EmotionScore",
     "OntologyResult",
     "MoviePlotOntology",
     "FeedOntology",
     "CommentOntology",
+    "enum_values",
 ]
