@@ -23,7 +23,7 @@ ONTOLOGY_SYSTEM_PROMPT: Final[str] = dedent(
 
     [정규화 규칙]
     - keywords[*].term      : 원문 표면형 그대로(띄어쓰기 정리만).
-    - keywords[*].normalized: 표제어. 동의어/표기 통일(예: "느와르"/"누아르" → "noir").
+    - keywords[*].normalized: term이 의미하는 것을 영어로 표기하여 정규화한다(예: "느와르"/"누아르" → "noir").
     - genres 는 한국어 폐쇄형 vocabulary, themes/moods 는 snake_case 폐쇄형 vocabulary 를 사용한다.
     - 인물명은 "성+이름" 한국식 표기 우선. 영어 원어가 명확하면 영어 그대로.
 
