@@ -19,6 +19,7 @@ class CommentExtractor(OntologyExtractor[CommentOntology]):
         user_id: str,
         mentioned_user_ids: list[str] | None,
         parent_feed_summary: str | None,
+        parent_comment_summary: str | None = None,
         content: str,
     ) -> OntologyChatPayload:
         return build_comment_messages(
@@ -27,6 +28,7 @@ class CommentExtractor(OntologyExtractor[CommentOntology]):
             user_id=user_id,
             mentioned_user_ids=mentioned_user_ids,
             parent_feed_summary=parent_feed_summary,
+            parent_comment_summary=parent_comment_summary,
             content=content,
         )
 
