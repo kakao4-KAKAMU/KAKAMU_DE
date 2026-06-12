@@ -92,7 +92,6 @@ class IngestWorker:
         attempts = int(row["attempts"]) + 1
         with self._connect() as conn, conn.cursor() as cur:
             if attempts >= MAX_ATTEMPTS:
-                print(row["payload"], type(row["payload"]))
                 cur.execute(
                     """
                     INSERT INTO ingest_dlq
