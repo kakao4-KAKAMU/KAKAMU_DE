@@ -21,13 +21,11 @@ LIBRARY_PATH: Path = (
     Path(__file__).resolve().parents[3] / "docs" / "genre_theme_mood_library.md"
 )
 
+# genres/themes/moods/tropes 는 폐쇄형 vocabulary 전용 필드로 따로 추출되므로
+# keywords.kind 에서는 제외한다(중복 추출 방지 → 추출 성공률/토큰 효율 향상).
 KEYWORD_KINDS: tuple[str, ...] = (
     "entity",
     "concept",
-    "theme",
-    "mood",
-    "genre",
-    "trope",
     "object",
     "location",
     "other",
@@ -118,6 +116,7 @@ def apply_vocab_enums(
     if "keywords" in properties:
         properties["keywords"] = {
             "type": "array",
+            "maxItems": 10,
             "items": build_keyword_item_schema(),
         }
     return result
@@ -129,8 +128,8 @@ def build_vocab_guide_lines() -> str:
     moods = vocab_moods()
     return (
         "[폐쇄형 vocabulary — 반드시 아래 표제어만 사용]\n"
-        f"- genres (한국어, {len(genres)}종): "
-        f"{', '.join(genres)}\n"
+        # f"- genres (한국어, {len(genres)}종): "
+        # f"{', '.join(genres)}\n"
         f"- themes (snake_case, {len(themes)}종): "
         f"{', '.join(themes)}\n"
         f"- moods (snake_case, {len(moods)}종): "
