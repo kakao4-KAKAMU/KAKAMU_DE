@@ -1,11 +1,11 @@
 from __future__ import annotations
 from typing import Any, Final
 from textwrap import dedent
-from .base import ONTOLOGY_SYSTEM_PROMPT
+from .pipeline import OntologyPromptSpec
 
 ONTOLOGY_FEED_CACHE_SALT: Final[str] = "ontology:feed:v1"
 
-_FEED_SCHEMA_JSON: Final[dict[str, Any]] = {
+_FEED_SCHEMA_BASE: Final[dict[str, Any]] = {
     "name": "feed_knowledge_ontology",
     "strict": True,
     "schema": {
@@ -72,31 +72,12 @@ _FEED_SCHEMA_JSON: Final[dict[str, Any]] = {
                     "additionalProperties": False,
                 },
             },
+            "genres": {"type": "array", "items": {"type": "string"}},
+            "themes": {"type": "array", "items": {"type": "string"}},
+            "moods": {"type": "array", "items": {"type": "string"}},
             "keywords": {
                 "type": "array",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "term": {"type": "string"},
-                        "normalized": {"type": "string"},
-                        "weight": {"type": "number"},
-                        "kind": {
-                            "type": "string",
-                            "enum": [
-                                "entity",
-                                "concept",
-                                "theme",
-                                "mood",
-                                "trope",
-                                "object",
-                                "location",
-                                "other",
-                            ],
-                        },
-                    },
-                    "required": ["term", "normalized", "weight", "kind"],
-                    "additionalProperties": False,
-                },
+                "items": {"type": "object"},
             },
             "referenced_movie_ids": {"type": "array", "items": {"type": "string"}},
             "referenced_person_names": {
@@ -115,6 +96,9 @@ _FEED_SCHEMA_JSON: Final[dict[str, Any]] = {
             "sentiment",
             "sentiment_score",
             "emotions",
+            "genres",
+            "themes",
+            "moods",
             "keywords",
             "referenced_movie_ids",
             "referenced_person_names",
@@ -137,6 +121,8 @@ _FEED_GUIDE: Final[str] = dedent(
         positive      ≈ +0.2 ~ +0.6
         very_positive ≈ +0.6 ~ +1.0
     - emotions 는 본문에서 명확히 드러난 감정 1~5개만 선택. 점수는 강도.
+    - genres/themes/moods 는 본문에서 드러난 경우에만 폐쇄형 vocabulary 에서 선택.
+      근거 없으면 빈 배열.
     - referenced_movie_ids 는 입력 메타의 known_movie_ids 에 포함된 ID 만 사용한다.
       메타에 없는 영화는 referenced_person_names 또는 keywords 로 처리.
     - contains_spoiler: 결말/반전을 직접 서술하면 true.
@@ -144,30 +130,33 @@ _FEED_GUIDE: Final[str] = dedent(
     """
 ).strip()
 
+_SPEC = OntologyPromptSpec(
+    name="feed",
+    base_schema=_FEED_SCHEMA_BASE,
+    guide=_FEED_GUIDE,
+    cache_salt=ONTOLOGY_FEED_CACHE_SALT,
+)
+
+
+def get_feed_schema_json() -> dict[str, Any]:
+    return _SPEC.schema_json()
+
 
 def build_feed_messages(
     *,
     feed_id: str,
-    author_id: str,
+    user_id: str,
     related_movie_id: str | None,
     known_movie_ids: list[str] | None,
     content: str,
 ) -> dict[str, Any]:
-    """피드 본문 → FeedOntology 매핑용 messages.
-
-    Args:
-        feed_id: 피드 고유 ID.
-        author_id: 작성자 user_id.
-        related_movie_id: 피드가 명시적으로 연결한 영화 ID (있으면).
-        known_movie_ids: 본문에서 참조 가능한 후보 movie_id 들(검색기로 사전 매칭한 결과).
-        content: 정제 대상 피드 본문.
-    """
+    """피드 본문 → FeedOntology 매핑용 messages."""
 
     user_payload = dedent(
         f"""
         [피드 메타]
         - feed_id          : {feed_id}
-        - author_id        : {author_id}
+        - user_id        : {user_id}
         - related_movie_id : {related_movie_id or "none"}
         - known_movie_ids  : {", ".join(known_movie_ids) if known_movie_ids else "none"}
 
@@ -178,27 +167,11 @@ def build_feed_messages(
         """
     ).strip()
 
-    system_rules = dedent(
-        f"""
-        {_FEED_GUIDE}
+    return _SPEC.build_payload(user_payload=user_payload, frequency_penalty=0.5)
 
-        위 스키마에 정확히 맞춘 JSON 만 출력하라.
-        """
-    ).strip()
-
-    return {
-        "messages": [
-            {"role": "system", "content": ONTOLOGY_SYSTEM_PROMPT},
-            {"role": "system", "content": system_rules},
-            {"role": "user", "content": user_payload},
-        ],
-        "response_format": {
-            "type": "json_schema",
-            "json_schema": _FEED_SCHEMA_JSON,
-        },
-        "cache_salt": ONTOLOGY_FEED_CACHE_SALT,
-    }
 
 __all__ = [
-  "build_feed_messages",
+    "ONTOLOGY_FEED_CACHE_SALT",
+    "build_feed_messages",
+    "get_feed_schema_json",
 ]

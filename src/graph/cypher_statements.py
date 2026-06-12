@@ -171,6 +171,29 @@ ON CREATE SET e.created_at = datetime()
 # 5. Upsert (MERGE) statements - 온톨로지 적재용
 # ---------------------------------------------------------------------------
 
+_MOVIE_ONTOLOGY_RELATIONS_TAIL: Final[str] = """
+// Person (director, actor, etc.)
+WITH m
+CALL (m) {
+  UNWIND $persons AS pr
+  MERGE (p:Person {person_id: pr.person_id})
+    SET p.name = pr.name
+  MERGE (m)-[hp:HAS_PERSON]->(p)
+    SET hp.job = pr.job
+}
+
+// Country node (optional)
+WITH m
+CALL (m) {
+  WITH m WHERE $country IS NOT NULL AND trim(toString($country)) <> ''
+  MERGE (c:Country {code: $country})
+    ON CREATE SET c.name = $country
+  MERGE (m)-[:PRODUCED_IN]->(c)
+}
+
+RETURN count(*) AS _
+"""
+
 # 영화 본체 + 줄거리 온톨로지 적재 (legacy: 단일 plot_embedding 컬럼).
 # 신규 ingest 경로는 ``build_upsert_movie_with_ontology(embedding_props=...)``
 # 로 active+shadow 컬럼을 동시에 SET 한다.
@@ -210,7 +233,7 @@ UNWIND $keywords AS kw
     ON CREATE SET k.kind = kw.kind, k.term = kw.term
   MERGE (m)-[r:MENTIONS]->(k)
     SET r.weight = kw.weight
-"""
+""" + _MOVIE_ONTOLOGY_RELATIONS_TAIL
 
 
 def build_upsert_movie_with_ontology(
@@ -266,11 +289,11 @@ UNWIND $keywords AS kw
     ON CREATE SET k.kind = kw.kind, k.term = kw.term
   MERGE (m)-[r:MENTIONS]->(k)
     SET r.weight = kw.weight
-"""
+""" + _MOVIE_ONTOLOGY_RELATIONS_TAIL
 
 
 UPSERT_FEED_WITH_ONTOLOGY: Final[str] = """
-MERGE (u:User {user_id: $author_id})
+MERGE (u:User {user_id: $user_id})
 MERGE (f:Feed {feed_id: $feed_id})
 SET f.content_raw       = $content_raw,
     f.summary           = $summary,
@@ -285,12 +308,10 @@ MERGE (f)-[:WRITTEN_BY]->(u)
 
 // related movie (optional)
 WITH f
-CALL {
-  WITH f
+CALL (f) {
   WITH f WHERE $related_movie_id IS NOT NULL
   MATCH (m:Movie {movie_id: $related_movie_id})
   MERGE (f)-[:ABOUT_MOVIE]->(m)
-  RETURN count(*) AS _
 }
 
 // categories
@@ -317,7 +338,7 @@ UNWIND $keywords AS kw
 
 
 UPSERT_COMMENT_WITH_ONTOLOGY: Final[str] = """
-MERGE (u:User {user_id: $author_id})
+MERGE (u:User {user_id: $user_id})
 MERGE (parent:Feed {feed_id: $feed_id})
 MERGE (c:Comment {comment_id: $comment_id})
 SET c.content_raw       = $content_raw,

@@ -47,6 +47,38 @@ def _comment_ontology() -> CommentOntology:
     )
 
 
+def test_movie_handler_passes_persons_and_reviews_to_extract() -> None:
+    extractor = MagicMock()
+    extractor.extract.return_value = _movie_ontology()
+    embedder = MagicMock()
+    embedder.embed.return_value = [0.1, 0.2]
+    loader = MagicMock()
+
+    handler = build_movie_handler(extractor=extractor, embedder=embedder, loader=loader)
+    handler(
+        {
+            "movie_id": "m-1",
+            "title": "기생충",
+            "plot": "...",
+            "persons": [
+                {"person_id": "p-dir-1", "name": "봉준호", "job": "director"},
+                {"person_id": "p-act-1", "name": "송강호", "job": "actor"},
+            ],
+            "reviews": ["계급 대비가 인상적", "반전이 서늘하다"],
+        }
+    )
+
+    extract_kwargs = extractor.extract.call_args.kwargs
+    assert extract_kwargs["persons"] == [
+        {"person_id": "p-dir-1", "name": "봉준호", "job": "director"},
+        {"person_id": "p-act-1", "name": "송강호", "job": "actor"},
+    ]
+    assert extract_kwargs["reviews"] == ["계급 대비가 인상적", "반전이 서늘하다"]
+
+    upsert_kwargs = loader.upsert_movie.call_args.kwargs
+    assert upsert_kwargs["persons"] == extract_kwargs["persons"]
+
+
 def test_movie_handler_invokes_extract_embed_upsert() -> None:
     extractor = MagicMock()
     extractor.extract.return_value = _movie_ontology()
@@ -85,7 +117,7 @@ def test_feed_handler_parses_created_at_iso() -> None:
     handler(
         {
             "feed_id": "f-1",
-            "author_id": "u-1",
+            "user_id": "u-1",
             "content": "재밌었어요",
             "created_at": "2026-05-23T10:00:00+00:00",
         }
@@ -107,7 +139,7 @@ def test_comment_handler_routes_to_upsert_comment() -> None:
         {
             "comment_id": "c-1",
             "feed_id": "f-1",
-            "author_id": "u-2",
+            "user_id": "u-2",
             "content": "동의합니다",
         }
     )

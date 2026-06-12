@@ -1,11 +1,11 @@
 from __future__ import annotations
 from typing import Any, Final
 from textwrap import dedent
-from .base import ONTOLOGY_SYSTEM_PROMPT
+from .pipeline import OntologyPromptSpec
 
 ONTOLOGY_COMMENT_CACHE_SALT: Final[str] = "ontology:comment:v1"
 
-_COMMENT_SCHEMA_JSON: Final[dict[str, Any]] = {
+_COMMENT_SCHEMA_BASE: Final[dict[str, Any]] = {
     "name": "comment_knowledge_ontology",
     "strict": True,
     "schema": {
@@ -56,31 +56,12 @@ _COMMENT_SCHEMA_JSON: Final[dict[str, Any]] = {
                     "additionalProperties": False,
                 },
             },
+            "genres": {"type": "array", "items": {"type": "string"}},
+            "themes": {"type": "array", "items": {"type": "string"}},
+            "moods": {"type": "array", "items": {"type": "string"}},
             "keywords": {
                 "type": "array",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "term": {"type": "string"},
-                        "normalized": {"type": "string"},
-                        "weight": {"type": "number"},
-                        "kind": {
-                            "type": "string",
-                            "enum": [
-                                "entity",
-                                "concept",
-                                "theme",
-                                "mood",
-                                "trope",
-                                "object",
-                                "location",
-                                "other",
-                            ],
-                        },
-                    },
-                    "required": ["term", "normalized", "weight", "kind"],
-                    "additionalProperties": False,
-                },
+                "items": {"type": "object"},
             },
             "targets_user_id": {"type": ["string", "null"]},
             "contains_spoiler": {"type": "boolean"},
@@ -95,6 +76,9 @@ _COMMENT_SCHEMA_JSON: Final[dict[str, Any]] = {
             "sentiment",
             "sentiment_score",
             "emotions",
+            "genres",
+            "themes",
+            "moods",
             "keywords",
             "targets_user_id",
             "contains_spoiler",
@@ -110,6 +94,8 @@ _COMMENT_GUIDE: Final[str] = dedent(
     [Comment 전용 가이드]
     - 댓글은 짧을 수 있으므로 summary 는 원문이 1문장이면 원문을 그대로 사용해도 된다.
     - intents 다중 선택 가능. 의문문이면 question, "동의/공감" 표현이면 agree.
+    - genres/themes/moods 는 본문에서 드러난 경우에만 폐쇄형 vocabulary 에서 선택.
+      근거 없으면 빈 배열.
     - 다른 사용자(@언급/대댓글) 를 향한 경우 targets_user_id 를 채운다.
       mentioned_user_ids 메타에 후보가 있는 경우 그 중에서만 선택.
     - keywords 는 5개를 넘기지 않는다(짧은 텍스트에 과추출 금지).
@@ -117,33 +103,35 @@ _COMMENT_GUIDE: Final[str] = dedent(
     """
 ).strip()
 
+_SPEC = OntologyPromptSpec(
+    name="comment",
+    base_schema=_COMMENT_SCHEMA_BASE,
+    guide=_COMMENT_GUIDE,
+    cache_salt=ONTOLOGY_COMMENT_CACHE_SALT,
+)
+
+
+def get_comment_schema_json() -> dict[str, Any]:
+    return _SPEC.schema_json()
+
 
 def build_comment_messages(
     *,
     comment_id: str,
     feed_id: str,
-    author_id: str,
+    user_id: str,
     mentioned_user_ids: list[str] | None,
     parent_feed_summary: str | None,
     content: str,
 ) -> dict[str, Any]:
-    """댓글 본문 → CommentOntology 매핑용 messages.
-
-    Args:
-        comment_id: 댓글 ID.
-        feed_id: 부모 피드 ID.
-        author_id: 댓글 작성자.
-        mentioned_user_ids: @멘션된 후보 user_id 목록.
-        parent_feed_summary: 부모 피드의 정제 요약(맥락 보강용). 없으면 None.
-        content: 댓글 원문.
-    """
+    """댓글 본문 → CommentOntology 매핑용 messages."""
 
     user_payload = dedent(
         f"""
         [댓글 메타]
         - comment_id        : {comment_id}
         - feed_id           : {feed_id}
-        - author_id         : {author_id}
+        - user_id           : {user_id}
         - mentioned_user_ids: {", ".join(mentioned_user_ids) if mentioned_user_ids else "none"}
 
         [부모 피드 요약(맥락)]
@@ -156,27 +144,11 @@ def build_comment_messages(
         """
     ).strip()
 
-    system_rules = dedent(
-        f"""
-        {_COMMENT_GUIDE}
+    return _SPEC.build_payload(user_payload=user_payload, frequency_penalty=0.5)
 
-        위 스키마에 정확히 맞춘 JSON 만 출력하라.
-        """
-    ).strip()
-
-    return {
-        "messages": [
-            {"role": "system", "content": ONTOLOGY_SYSTEM_PROMPT},
-            {"role": "system", "content": system_rules},
-            {"role": "user", "content": user_payload},
-        ],
-        "response_format": {
-            "type": "json_schema",
-            "json_schema": _COMMENT_SCHEMA_JSON,
-        },
-        "cache_salt": ONTOLOGY_COMMENT_CACHE_SALT,
-    }
 
 __all__ = [
-  "build_comment_messages",
+    "ONTOLOGY_COMMENT_CACHE_SALT",
+    "build_comment_messages",
+    "get_comment_schema_json",
 ]

@@ -14,12 +14,12 @@ def build_comment_handler(
         payload = IngestCommentPayload.model_validate(payload)
         comment_id = str(payload.comment_id)
         feed_id = str(payload.feed_id)
-        author_id = str(payload.author_id)
+        user_id = str(payload.user_id)
         content = str(payload.content or "")
         ontology = extractor.extract(
             comment_id=comment_id,
             feed_id=feed_id,
-            author_id=author_id,
+            user_id=user_id,
             mentioned_user_ids=list(payload.mentioned_user_ids or []),
             parent_comment_id=payload.parent_comment_id,
             content=content,
@@ -28,7 +28,7 @@ def build_comment_handler(
         loader.upsert_comment(
             comment_id=comment_id,
             feed_id=feed_id,
-            author_id=author_id,
+            user_id=user_id,
             content_raw=content,
             ontology=ontology,
             summary_embedding=embedding,

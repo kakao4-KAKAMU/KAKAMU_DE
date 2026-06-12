@@ -25,16 +25,35 @@ vLLM prefix-cache 친화 설계
 """
 
 from src.ontology.prompts.base import ONTOLOGY_SYSTEM_PROMPT
-from src.ontology.prompts.movie import build_movie_plot_messages
-from src.ontology.prompts.feed import build_feed_messages
-from src.ontology.prompts.comment import build_comment_messages
+from src.ontology.prompts.movie import build_movie_plot_messages, get_movie_plot_schema_json
+from src.ontology.prompts.feed import build_feed_messages, get_feed_schema_json
+from src.ontology.prompts.comment import build_comment_messages, get_comment_schema_json
 from src.ontology.prompts.user_intent import build_user_intent_messages
+from src.ontology.prompts.schema_vocab import (
+    apply_vocab_enums,
+    build_vocab_guide_lines,
+    get_vocab_normalizer,
+    vocab_fingerprint,
+    vocab_genres,
+    vocab_moods,
+    vocab_themes,
+)
 
 
 __all__ = [
   "ONTOLOGY_SYSTEM_PROMPT",
-  "build_movie_plot_messages",
-  "build_feed_messages",
+  "apply_vocab_enums",
   "build_comment_messages",
+  "build_feed_messages",
+  "build_movie_plot_messages",
   "build_user_intent_messages",
+  "build_vocab_guide_lines",
+  "get_comment_schema_json",
+  "get_feed_schema_json",
+  "get_movie_plot_schema_json",
+  "get_vocab_normalizer",
+  "vocab_fingerprint",
+  "vocab_genres",
+  "vocab_moods",
+  "vocab_themes",
 ]

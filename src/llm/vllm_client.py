@@ -66,6 +66,7 @@ class VLLMChatClient:
         user_id: str | None = None,
         max_tokens: int | None = None,
         temperature: float | None = None,
+        frequency_penalty: float | None = None,
         response_format: dict[str, Any] | None = None,
         cache_salt: str | None = None,
         guided_json_schema: dict[str, Any] | None = None,
@@ -96,6 +97,8 @@ class VLLMChatClient:
             kwargs["response_format"] = {"type": "json_object"}
 
         extra_body: dict[str, Any] = {}
+        if frequency_penalty:
+            extra_body["frequency_penalty"] = frequency_penalty
         if cache_salt:
             extra_body["cache_salt"] = cache_salt
         if guided_json_schema is not None and response_format is None:
@@ -109,8 +112,7 @@ class VLLMChatClient:
             return json.loads(content)
         except json.JSONDecodeError:
             logger.warning(
-                "vLLM returned non-JSON content; attempting recovery. head=%s",
-                content,
+                "vLLM returned non-JSON content; attempting recovery. requestContent = %s", kwargs["messages"]
             )
             start = content.find("{")
             end = content.rfind("}")

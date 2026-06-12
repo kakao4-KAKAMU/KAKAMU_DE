@@ -17,11 +17,9 @@ ON MATCH SET c.count = c.count + 1,
              c.last_seen = datetime(),
              c.term = coalesce(c.term, $term)
 WITH c
-CALL {
-  WITH c
+CALL (c) {
   WITH c WHERE $embedding IS NOT NULL
   SET c.embedding = $embedding
-  RETURN 1 AS _
 }
 RETURN c.normalized AS normalized, c.count AS count
 """
