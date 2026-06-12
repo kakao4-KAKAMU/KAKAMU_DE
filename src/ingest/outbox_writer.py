@@ -11,12 +11,12 @@ from src.config.settings import PostgresSettings, get_settings
 from src.persistence.db import get_connection
 
 
-def json_dumps(payload: Mapping[str, Any]) -> str:
+def json_dumps(payload: Mapping[str, Any] | BaseModel) -> str:
     if isinstance(payload, BaseModel):
-        return payload.model_dump_json(ensure_ascii=False)
+        payload = payload.model_dump(mode="json")
     return json.dumps(payload, sort_keys=True, ensure_ascii=False)
 
-def content_hash(payload: Mapping[str, Any]) -> str:
+def content_hash(payload: Mapping[str, Any] | BaseModel) -> str:
     raw = json_dumps(payload)
     return hashlib.sha256(raw.encode()).hexdigest()
 
@@ -30,7 +30,7 @@ class OutboxWriter:
         *,
         aggregate_type: str,
         aggregate_id: str,
-        payload: Mapping[str, Any],
+        payload: Mapping[str, Any] | BaseModel,
         op: str = "upsert",
         prompt_version: Optional[str] = None,
         model_name: Optional[str] = None,

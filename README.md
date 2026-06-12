@@ -154,6 +154,8 @@ EMBED_DIMENSION=1024
 
 ## 5. 추천 알고리즘 한눈에
 
+> **Persona** `(user_id, persona_id)` 가 추천의 최소 단위이다. 상세: [docs/persona_recommendation.md](docs/persona_recommendation.md)
+
 `HYBRID_MOVIE_RECOMMEND` (`src/graph/cypher_statements.py`) 의 가중합:
 
 ```
@@ -161,12 +163,12 @@ score = 0.55 · vector_similarity
       + 0.15 · (1 - exp(-keyword_hits))
       + 0.10 · (1 - exp(-theme_hits))
       + 0.05 · (1 - exp(-mood_hits))
-      + 0.15 · tanh(user_pref_score)
+      + 0.15 · tanh(persona_pref_score)   // persona_id 존재 시
 ```
 
 - **vector_similarity** : `plot_embedding` 의 cosine 유사도 → semantic
 - **keyword/theme/mood** : 사용자 질의에서 추출된 정규화 표제어 매칭 → keyword
-- **user_pref_score** : `(:User)-[:PREFERS]->(:Genre|:Theme|:Keyword)` 누적치
+- **persona_pref_score** : `(:Persona)-[:PREFERS]->(:Genre|:Theme|:Keyword)` 누적치 (`persona_id` 없으면 User fallback)
 
 상세는 `docs/architecture.md` §5 참고.
 

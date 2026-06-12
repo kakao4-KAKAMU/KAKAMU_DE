@@ -1,0 +1,20 @@
+"""POST /ingest/person/judge"""
+
+from __future__ import annotations
+
+from fastapi import APIRouter, Depends
+
+from src.api.dependencies import AppContainer
+from src.api.routers.deps import get_app_container
+from src.api.routers.ingest.utils import enqueue
+from src.api.schemas import IngestPersonJudgeEnvelope, IngestResponse
+
+router = APIRouter()
+
+
+@router.post("/ingest/person/judge", response_model=IngestResponse)
+def ingest_person_judge(
+    env: IngestPersonJudgeEnvelope,
+    container: AppContainer = Depends(get_app_container),
+) -> IngestResponse:
+    return enqueue(container, aggregate_type="person_judge", env=env)

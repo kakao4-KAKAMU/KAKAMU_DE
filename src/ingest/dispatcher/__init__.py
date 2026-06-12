@@ -1,7 +1,7 @@
 from src.ingest.dispatcher.feed import build_feed_handler
 from src.ingest.dispatcher.comment import build_comment_handler
 from src.ingest.dispatcher.movie import build_movie_handler
-from src.ingest.dispatcher.utils import Embedder, Handler, _parse_dt
+from src.ingest.dispatcher.utils import Embedder, Handler
 from src.ingest.dispatcher.index import (
     IngestDispatcher,
     mock_extract,
@@ -22,6 +22,5 @@ __all__ = [
     "default_dispatcher",
     "Embedder",
     "Handler",
-    "_parse_dt",
     "IngestDispatcher",
 ]

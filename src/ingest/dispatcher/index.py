@@ -10,12 +10,13 @@ SOLID
 from __future__ import annotations
 
 import logging
-from typing import Any, Mapping, Optional
+from typing import Any, Mapping
 
 from src.extractor.comment_extractor import CommentExtractor
 from src.extractor.feed_extractor import FeedExtractor
 from src.extractor.movie_extractor import MoviePlotExtractor
 from src.graph.client import Neo4jClient
+from src.graph.context_reader import Neo4jCommentContextReader
 from src.graph.loader import OntologyLoader
 from src.ingest.dispatcher.utils import Embedder, Handler, LLMClient
 from src.ingest.dispatcher.movie import build_movie_handler
@@ -80,9 +81,10 @@ def build_production_dispatcher(
     llm: LLMClient,
     embedder: Embedder,
     loader: OntologyLoader,
-    neo4j: Optional[Neo4jClient] = None,  # noqa: ARG001 - 향후 확장용 hook
+    neo4j: Neo4jClient,
 ) -> IngestDispatcher:
     """실 Extractor + Embedder + Loader 를 묶은 production dispatcher."""
+    context_reader = Neo4jCommentContextReader(neo4j)
     d = IngestDispatcher()
     d.register(
         "movie",
@@ -106,6 +108,7 @@ def build_production_dispatcher(
             extractor=CommentExtractor(llm),
             embedder=embedder,
             loader=loader,
+            context_reader=context_reader,
         ),
     )
     return d

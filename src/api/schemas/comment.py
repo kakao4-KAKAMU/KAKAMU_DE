@@ -1,28 +1,55 @@
-from pydantic import BaseModel, Field
-from typing import Optional
+"""댓글(Comment) ingest payload 스키마.
 
-class IngestCommentPayload(BaseModel):
+온톨로지 댓글 추출 시 부모 맥락(parent_feed_summary, parent_comment_summary)은
+payload 가 아니라 feed_id / parent_comment_id 로 Neo4j 에서 조회한다.
+"""
+
+from __future__ import annotations
+
+from datetime import datetime
+from typing import List, Optional
+
+from pydantic import Field
+
+from src.api.schemas.shared import IngestPayload
+
+
+class IngestCommentPayload(IngestPayload):
+    """댓글 등록/수정."""
+
+    comment_id: str = Field(min_length=1, description="댓글 고유 ID.")
+    feed_id: str = Field(min_length=1, description="댓글이 달린 피드 ID.")
+    user_id: str = Field(min_length=1, description="작성자 ID.")
+    persona_id: Optional[str] = Field(default=None, description="작성 페르소나 ID.")
+    mentioned_user_ids: List[str] = Field(
+        default_factory=list,
+        description="@언급된 사용자 ID. targets_user_id 는 이 목록 내에서만 선택된다.",
+    )
+    parent_comment_id: Optional[str] = Field(
+        default=None, description="대댓글인 경우 부모 댓글 ID."
+    )
+    content: str = Field(min_length=1, description="댓글 원문.")
+    created_at: Optional[datetime] = Field(default=None, description="작성 시각 (ISO 8601).")
+    modified_at: Optional[datetime] = Field(default=None, description="수정 시각 (ISO 8601).")
+
+
+class IngestCommentLikePayload(IngestPayload):
+    """댓글 좋아요/취소."""
+
     comment_id: str = Field(min_length=1)
-    feed_id: str = Field(min_length=1)
     user_id: str = Field(min_length=1)
     persona_id: Optional[str] = Field(default=None)
-    mentioned_user_ids: list[str] = Field(default=[])
-    parent_comment_id: str = Field(default=None)
-    content: str = Field(min_length=1)
-    created_at: str = Field(default=None)
-    modified_at: str = Field(default=None)
+    is_like: bool = Field(default=True, description="True=좋아요, False=취소.")
+    created_at: Optional[datetime] = Field(default=None, description="반응 시각 (ISO 8601).")
 
-class IngestCommentLikePayload(BaseModel):
+
+class IngestCommentDeletePayload(IngestPayload):
+    """댓글 삭제."""
+
     comment_id: str = Field(min_length=1)
     user_id: str = Field(min_length=1)
-    persona_id: Optional[str] = Field(default=None)
-    is_like: bool = Field(default=True)
-    created_at: str = Field(default=None)
+    deleted_at: Optional[datetime] = Field(default=None, description="삭제 시각 (ISO 8601).")
 
-class IngestCommentDeletePayload(BaseModel):
-    comment_id: str = Field(min_length=1)
-    user_id: str = Field(min_length=1)
-    deleted_at: str = Field(default=None)
 
 __all__ = [
     "IngestCommentPayload",

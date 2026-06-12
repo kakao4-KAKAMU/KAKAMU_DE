@@ -139,6 +139,7 @@ class IngestWorker:
     def reenqueue(self, row: dict[str, Any]) -> int:
         new_id = self._outbox.enqueue(
             aggregate_type=row["aggregate_type"],
+            aggregate_id=row.get("aggregate_id", ""),
             op=row.get("op", "upsert"),
             payload=row["payload"],
         )
