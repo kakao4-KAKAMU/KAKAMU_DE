@@ -348,6 +348,14 @@ SET c.content_raw       = $content_raw,
 MERGE (c)-[:ON_FEED]->(parent)
 MERGE (c)-[:WRITTEN_BY]->(u)
 
+// parent comment (대댓글, optional)
+WITH c
+CALL (c) {
+  WITH c WHERE $parent_comment_id IS NOT NULL
+  MERGE (pc:Comment {comment_id: $parent_comment_id})
+  MERGE (c)-[:REPLY_TO]->(pc)
+}
+
 // emotions
 WITH c
 UNWIND $emotions AS e

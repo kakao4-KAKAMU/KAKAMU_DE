@@ -1,3 +1,4 @@
+from .shared import IngestPayload, JudgeType
 from .comment import IngestCommentPayload, IngestCommentLikePayload, IngestCommentDeletePayload
 from .feed import IngestFeedPayload, IngestFeedDeletePayload, IngestFeedLikePayload
 from .chat import ChatRequest, ChatSessionResponse, ChatSessionRequest
@@ -8,6 +9,9 @@ from .feedback import FeedbackRequest, FeedbackResponse
 from .recommend import RecommendRequest, RecommendResponse
 
 __all__ = [
+  "IngestPayload",
+  "JudgeType",
+
   "IngestCommentPayload",
   "IngestCommentLikePayload",
   "IngestCommentDeletePayload",

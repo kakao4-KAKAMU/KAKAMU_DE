@@ -7,8 +7,6 @@ SOLID
 
 from __future__ import annotations
 
-from typing import Any
-
 from src.api.schemas.movie import IngestMoviePayload, IngestMovieJudgePayload
 from src.api.schemas.feed import (
     IngestFeedPayload,
@@ -20,6 +18,7 @@ from src.api.schemas.comment import (
     IngestCommentLikePayload,
     IngestCommentDeletePayload,
 )
+from src.api.schemas.shared import IngestPayload
 from pydantic import BaseModel
 
 # ---------------------------------------------------------------------------
@@ -28,7 +27,7 @@ from pydantic import BaseModel
 
 
 class IngestEnvelope(BaseModel):
-    payload: dict[str, Any]
+    payload: IngestPayload
 
 
 # ------- MOVIE -------
