@@ -4,7 +4,19 @@ from .feed import IngestFeedPayload, IngestFeedDeletePayload, IngestFeedLikePayl
 from .chat import ChatRequest, ChatSessionResponse, ChatSessionRequest
 from .movie import IngestMoviePayload, IngestMovieJudgePayload
 from .person import IngestPersonPayload, IngestPersonJudgePayload
-from .ingest import IngestEnvelope, IngestMovieEnvelope, IngestMovieJudgeEnvelope, IngestFeedEnvelope, IngestFeedDeleteEnvelope, IngestFeedLikeEnvelope, IngestCommentEnvelope, IngestCommentDeleteEnvelope, IngestCommentLikeEnvelope, IngestResponse
+from .ingest import (
+    IngestEnvelope,
+    IngestMovieEnvelope,
+    IngestMovieJudgeEnvelope,
+    IngestPersonJudgeEnvelope,
+    IngestFeedEnvelope,
+    IngestFeedDeleteEnvelope,
+    IngestFeedLikeEnvelope,
+    IngestCommentEnvelope,
+    IngestCommentDeleteEnvelope,
+    IngestCommentLikeEnvelope,
+    IngestResponse,
+)
 from .feedback import FeedbackRequest, FeedbackResponse
 from .recommend import RecommendRequest, RecommendResponse
 
@@ -33,6 +45,7 @@ __all__ = [
   "IngestEnvelope",
   "IngestMovieEnvelope",
   "IngestMovieJudgeEnvelope",
+  "IngestPersonJudgeEnvelope",
   "IngestFeedEnvelope",
   "IngestFeedDeleteEnvelope",
   "IngestFeedLikeEnvelope",
