@@ -170,12 +170,14 @@ class OntologyLoader:
         content_raw: str,
         ontology: CommentOntology,
         summary_embedding: Sequence[float],
+        parent_comment_id: Optional[str] = None,
         created_at: Optional[datetime] = None,
     ) -> None:
         params = {
             "comment_id": comment_id,
             "feed_id": feed_id,
             "user_id": user_id,
+            "parent_comment_id": parent_comment_id,
             "content_raw": content_raw,
             "summary": ontology.summary,
             "summary_embedding": list(summary_embedding),

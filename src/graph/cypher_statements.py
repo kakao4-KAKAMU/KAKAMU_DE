@@ -348,6 +348,14 @@ SET c.content_raw       = $content_raw,
 MERGE (c)-[:ON_FEED]->(parent)
 MERGE (c)-[:WRITTEN_BY]->(u)
 
+// parent comment (대댓글, optional)
+WITH c
+CALL (c) {
+  WITH c WHERE $parent_comment_id IS NOT NULL
+  MERGE (pc:Comment {comment_id: $parent_comment_id})
+  MERGE (c)-[:REPLY_TO]->(pc)
+}
+
 // emotions
 WITH c
 UNWIND $emotions AS e
@@ -362,6 +370,19 @@ UNWIND $keywords AS kw
     ON CREATE SET k.kind = kw.kind, k.term = kw.term
   MERGE (c)-[r:MENTIONS]->(k)
     SET r.weight = kw.weight
+"""
+
+
+GET_FEED_SUMMARY: Final[str] = """
+MATCH (f:Feed {feed_id: $feed_id})
+RETURN f.summary AS summary
+LIMIT 1
+"""
+
+GET_COMMENT_SUMMARY: Final[str] = """
+MATCH (c:Comment {comment_id: $comment_id})
+RETURN c.summary AS summary
+LIMIT 1
 """
 
 
@@ -478,6 +499,8 @@ __all__ = [
     "UPSERT_MOVIE_WITH_ONTOLOGY",
     "UPSERT_FEED_WITH_ONTOLOGY",
     "UPSERT_COMMENT_WITH_ONTOLOGY",
+    "GET_FEED_SUMMARY",
+    "GET_COMMENT_SUMMARY",
     "HYBRID_MOVIE_RECOMMEND",
     "HYBRID_MOVIE_RECOMMEND_WEIGHTED",
     "build_upsert_movie_with_ontology",

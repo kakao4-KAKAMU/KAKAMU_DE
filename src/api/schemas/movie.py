@@ -1,27 +1,46 @@
-from pydantic import BaseModel, Field
-from src.api.schemas.shared import JudgeType
+"""영화(Movie) ingest payload 스키마.
+
+온톨로지 영화 추출(build_movie_plot_messages → MoviePlotOntology)의
+입력 구조와 1:1 로 대응한다.
+"""
+
+from __future__ import annotations
+
+from datetime import datetime
+from typing import List, Optional
+
+from pydantic import Field
 
 from src.api.schemas.person import IngestPersonPayload
-class IngestMoviePayload(BaseModel):
-    movie_id: str = Field(min_length=1)
-    title: str = Field(min_length=1)
-    producing_year: int = Field(default=None)
-    country: str = Field(default=None)
-    genres: list[str] = Field(default=[])
-    plot: str = Field(default=None)
-    persons: list[IngestPersonPayload] = Field(default=[])
-    reviews: list[str] = Field(
-        default=[],
+from src.api.schemas.shared import IngestPayload, JudgeType
+
+
+class IngestMoviePayload(IngestPayload):
+    """영화 등록/갱신. MoviePlotExtractor.extract() 의 입력 구조."""
+
+    movie_id: str = Field(min_length=1, description="영화 고유 ID.")
+    title: str = Field(min_length=1, description="영화 제목.")
+    producing_year: int = Field(default=None, description="제작 연도.")
+    country: str = Field(default=None, description="제작 국가 코드/명.")
+    genres: List[str] = Field(default_factory=list, description="장르 목록.")
+    plot: str = Field(default=None, description="원문 줄거리.")
+    persons: List[IngestPersonPayload] = Field(
+        default_factory=list, description="참여 인물 (감독/배우 등)."
+    )
+    reviews: List[str] = Field(
+        default_factory=list,
         description="관객 리뷰 샘플. 온톨로지 추출 시 themes/moods 보강 컨텍스트로 사용.",
     )
 
 
+class IngestMovieJudgePayload(IngestPayload):
+    """영화에 대한 사용자 선호 판정."""
 
-class IngestMovieJudgePayload(BaseModel):
     movie_id: str = Field(min_length=1)
     user_id: str = Field(min_length=1)
-    judge_type: JudgeType = Field(default="like")
-    created_at: str = Field(default=None)
+    judge_type: JudgeType = Field(default="like", description="like/dislike.")
+    created_at: Optional[datetime] = Field(default=None, description="판정 시각 (ISO 8601).")
+
 
 __all__ = [
     "IngestMoviePayload",
