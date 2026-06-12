@@ -1,8 +1,7 @@
 """댓글(Comment) ingest payload 스키마.
 
-온톨로지 댓글 추출(build_comment_messages → CommentOntology)의 입력 구조와
-1:1 로 대응한다. parent_feed_summary / parent_comment_summary 는 프롬프트의
-맥락(context) 입력으로 그대로 전달된다.
+온톨로지 댓글 추출 시 부모 맥락(parent_feed_summary, parent_comment_summary)은
+payload 가 아니라 feed_id / parent_comment_id 로 Neo4j 에서 조회한다.
 """
 
 from __future__ import annotations
@@ -16,7 +15,7 @@ from src.api.schemas.shared import IngestPayload
 
 
 class IngestCommentPayload(IngestPayload):
-    """댓글 등록/수정. CommentExtractor.extract() 의 입력 구조."""
+    """댓글 등록/수정."""
 
     comment_id: str = Field(min_length=1, description="댓글 고유 ID.")
     feed_id: str = Field(min_length=1, description="댓글이 달린 피드 ID.")
@@ -28,12 +27,6 @@ class IngestCommentPayload(IngestPayload):
     )
     parent_comment_id: Optional[str] = Field(
         default=None, description="대댓글인 경우 부모 댓글 ID."
-    )
-    parent_feed_summary: Optional[str] = Field(
-        default=None, description="부모 피드 요약. 온톨로지 추출 맥락으로 사용."
-    )
-    parent_comment_summary: Optional[str] = Field(
-        default=None, description="부모 댓글 요약. 온톨로지 추출 맥락으로 사용."
     )
     content: str = Field(min_length=1, description="댓글 원문.")
     created_at: Optional[datetime] = Field(default=None, description="작성 시각 (ISO 8601).")

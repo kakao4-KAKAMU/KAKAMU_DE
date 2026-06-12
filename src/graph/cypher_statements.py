@@ -373,6 +373,19 @@ UNWIND $keywords AS kw
 """
 
 
+GET_FEED_SUMMARY: Final[str] = """
+MATCH (f:Feed {feed_id: $feed_id})
+RETURN f.summary AS summary
+LIMIT 1
+"""
+
+GET_COMMENT_SUMMARY: Final[str] = """
+MATCH (c:Comment {comment_id: $comment_id})
+RETURN c.summary AS summary
+LIMIT 1
+"""
+
+
 # ---------------------------------------------------------------------------
 # 6. Hybrid Retrieval Cypher (semantic + keyword)
 # ---------------------------------------------------------------------------
@@ -486,6 +499,8 @@ __all__ = [
     "UPSERT_MOVIE_WITH_ONTOLOGY",
     "UPSERT_FEED_WITH_ONTOLOGY",
     "UPSERT_COMMENT_WITH_ONTOLOGY",
+    "GET_FEED_SUMMARY",
+    "GET_COMMENT_SUMMARY",
     "HYBRID_MOVIE_RECOMMEND",
     "HYBRID_MOVIE_RECOMMEND_WEIGHTED",
     "build_upsert_movie_with_ontology",
