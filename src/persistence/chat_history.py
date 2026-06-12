@@ -23,6 +23,7 @@ DDL = """
 CREATE TABLE IF NOT EXISTS chat_session (
     session_id   UUID PRIMARY KEY,
     user_id      TEXT NOT NULL,
+    persona_id   TEXT NOT NULL,
     started_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     last_active  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     metadata     JSONB DEFAULT '{}'::jsonb
@@ -54,6 +55,7 @@ CREATE INDEX IF NOT EXISTS idx_chat_message_user_time
 class ChatSession(BaseModel):
     session_id: UUID
     user_id: str
+    persona_id: str
     started_at: datetime
     last_active: datetime
     metadata: dict[str, Any]
@@ -65,6 +67,7 @@ class ChatMessage(BaseModel):
     id: int
     session_id: UUID
     user_id: str
+    persona_id: str
     role: str
     content: str
     created_at: datetime
@@ -80,18 +83,38 @@ class ChatHistoryStore:
             cur.execute(DDL)
             conn.commit()
 
-    def open_session(self, *, session_id: str, user_id: str, metadata: dict | None = None) -> None:
+    def open_session(self, *, session_id: str, user_id: str, persona_id: str, metadata: dict | None = None) -> None:
         with get_connection(self._settings) as conn, conn.cursor() as cur:
             cur.execute(
                 """
-                INSERT INTO chat_session (session_id, user_id, metadata)
-                VALUES (%s, %s, %s)
+                INSERT INTO chat_session (session_id, user_id, persona_id, metadata)
+                VALUES (%s, %s, %s, %s)
                 ON CONFLICT (session_id) DO UPDATE
                     SET last_active = NOW()
                 """,
-                (session_id, user_id, json.dumps(metadata or {})),
+                (session_id, user_id, persona_id, json.dumps(metadata or {})),
             )
             conn.commit()
+    
+    def get_session_by_id(self, *, session_id: str) -> Optional[ChatSession]:
+        with get_connection(self._settings) as conn, conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT session_id, user_id, persona_id, started_at, last_active, metadata
+                FROM chat_session
+                WHERE session_id = %s
+            """, (session_id,))
+            row = cur.fetchone()
+            if row:
+                return ChatSession(
+                    session_id=row[0],
+                    user_id=row[1],
+                    persona_id=row[2],
+                    started_at=row[3],
+                    last_active=row[4],
+                    metadata=row[5],
+                )
+            return None
 
     def list_sessions(self, *, user_id: str, cursor: Optional[int] = None, limit: int = 20) -> list[ChatSession]:
         with get_connection(self._settings) as conn, conn.cursor() as cur:
@@ -137,11 +160,11 @@ class ChatHistoryStore:
                     """
                     SELECT id, session_id, user_id, role, content, reply_metadata, created_at
                     FROM chat_message
-                    WHERE session_id = %s AND id < %s
+                    WHERE session_id = %s AND id < %s AND user_id = %s
                     ORDER BY id DESC
                     LIMIT %s
                     """,
-                    (session_id, cursor, limit),
+                    (session_id, cursor, user_id, limit),
                 )
             rows = cur.fetchall()
             messages = [

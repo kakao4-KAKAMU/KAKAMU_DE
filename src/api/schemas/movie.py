@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field
-from typing import Literal
+from src.api.schemas.shared import JudgeType
 
+from src.api.schemas.person import IngestPersonPayload
 class IngestMoviePayload(BaseModel):
     movie_id: str = Field(min_length=1)
     title: str = Field(min_length=1)
@@ -8,9 +9,13 @@ class IngestMoviePayload(BaseModel):
     country: str = Field(default=None)
     genres: list[str] = Field(default=[])
     plot: str = Field(default=None)
+    persons: list[IngestPersonPayload] = Field(default=[])
+    reviews: list[str] = Field(
+        default=[],
+        description="관객 리뷰 샘플. 온톨로지 추출 시 themes/moods 보강 컨텍스트로 사용.",
+    )
 
 
-JudgeType = Literal["like", "dislike"]
 
 class IngestMovieJudgePayload(BaseModel):
     movie_id: str = Field(min_length=1)

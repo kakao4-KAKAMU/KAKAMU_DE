@@ -2,19 +2,33 @@
 
 PostgreSQL transactional outbox로 movie / feed / comment 적재를 비동기 처리한다.
 
+> Feed·Comment payload 에 `persona_id` 가 포함되면 Neo4j 적재 시 `(:Persona)` 노드와 `WRITTEN_BY` 관계가 생성된다.
+> 상세: [persona_recommendation.md](persona_recommendation.md)
+
 ## 흐름
 
 ```mermaid
 flowchart LR
-    API[Ingest API] -->|enqueue| Outbox[(ingest_outbox)]
+    API[Ingest API<br/>persona_id in payload] -->|enqueue| Outbox[(ingest_outbox)]
     Outbox -->|FOR UPDATE SKIP LOCKED| Worker[IngestWorker]
     Worker -->|prompt_version stale| ReQ[re-enqueue]
     ReQ --> Outbox
     Worker --> Dispatcher[IngestDispatcher]
-    Dispatcher -->|mock extract+load| Neo4j[(Neo4j)]
+    Dispatcher -->|extract+load| Neo4j[(Neo4j<br/>Persona MERGE)]
     Worker -->|attempts >= 3| DLQ[(ingest_dlq)]
     Worker -->|2^n sec backoff| Outbox
 ```
+
+## Persona 필드 (feed / comment)
+
+| Payload | `persona_id` | Neo4j 효과 |
+|---------|--------------|------------|
+| `IngestFeedPayload` | 선택 | `MERGE (:Persona)` + `(:Feed)-[:WRITTEN_BY]->(:Persona)` |
+| `IngestFeedLikePayload` | 선택 | `(:Persona)-[:INTERACTED]->(:Feed)` |
+| `IngestCommentPayload` | 선택 | `MERGE (:Persona)` + `(:Comment)-[:WRITTEN_BY]->(:Persona)` |
+| `IngestCommentLikePayload` | 선택 | `(:Persona)-[:INTERACTED]->(:Comment)` |
+
+`persona_id` 가 없으면 기존 `(:User)` 직접 연결(fallback)을 사용한다.
 
 ## 재처리
 

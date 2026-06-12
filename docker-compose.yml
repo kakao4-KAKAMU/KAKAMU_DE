@@ -95,7 +95,7 @@ services:
 
   postgres:
     <<: *service-defaults
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     hostname: postgres
     expose:
       - "5432"
@@ -106,7 +106,7 @@ services:
       POSTGRES_USER: ${PG_USER:-postgres}
       POSTGRES_PASSWORD: ${PG_PASSWORD:-postgres}
     volumes:
-      - postgres-test-data:/var/lib/postgresql/data
+      - postgres-test-data:/var/lib/postgresql/18/docker
     healthcheck:
       test:
         [
