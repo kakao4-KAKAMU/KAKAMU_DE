@@ -12,7 +12,13 @@ from src.api.schemas import IngestCommentEnvelope, IngestResponse
 router = APIRouter()
 
 
-@router.post("/ingest/comment/modify", response_model=IngestResponse)
+@router.post(
+    "/ingest/comment/modify",
+    response_model=IngestResponse,
+    tags=["ingest", "comment"],
+    summary="댓글 수정",
+    description="수정된 댓글 내용을 ingest outbox에 적재합니다. 워커가 온톨로지를 재추출해 그래프를 갱신합니다.",
+)
 def ingest_comment_modify(
     env: IngestCommentEnvelope,
     container: AppContainer = Depends(get_app_container),

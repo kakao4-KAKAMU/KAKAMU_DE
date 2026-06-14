@@ -11,7 +11,13 @@ from src.api.schemas import FeedbackRequest, FeedbackResponse
 router = APIRouter()
 
 
-@router.post("/feedback", response_model=FeedbackResponse)
+@router.post(
+    "/feedback",
+    response_model=FeedbackResponse,
+    tags=["feedback"],
+    summary="Feedback",
+    description="Feedback를 기록합니다.",
+)
 def feedback(
     req: FeedbackRequest,
     container: AppContainer = Depends(get_app_container),

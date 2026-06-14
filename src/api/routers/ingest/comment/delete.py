@@ -12,7 +12,13 @@ from src.api.schemas import IngestCommentDeleteEnvelope, IngestResponse
 router = APIRouter()
 
 
-@router.post("/ingest/comment/delete", response_model=IngestResponse)
+@router.post(
+    "/ingest/comment/delete",
+    response_model=IngestResponse,
+    tags=["ingest", "comment"],
+    summary="댓글 삭제",
+    description="댓글 삭제 이벤트를 ingest outbox에 적재합니다.",
+)
 def ingest_comment_delete(
     env: IngestCommentDeleteEnvelope,
     container: AppContainer = Depends(get_app_container),

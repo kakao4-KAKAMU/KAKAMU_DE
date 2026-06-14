@@ -12,7 +12,13 @@ from src.api.schemas import IngestMovieJudgeEnvelope, IngestResponse
 router = APIRouter()
 
 
-@router.post("/ingest/movie/judge", response_model=IngestResponse)
+@router.post(
+    "/ingest/movie/judge",
+    response_model=IngestResponse,
+    tags=["ingest", "movie"],
+    summary="영화 선호 판정",
+    description="사용자의 영화 like/dislike 판정을 ingest outbox에 적재합니다.",
+)
 def ingest_movie_judge(
     env: IngestMovieJudgeEnvelope,
     container: AppContainer = Depends(get_app_container),
