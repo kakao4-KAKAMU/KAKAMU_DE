@@ -23,4 +23,9 @@ def ingest_person_judge(
     env: IngestPersonJudgeEnvelope,
     container: AppContainer = Depends(get_app_container),
 ) -> IngestResponse:
-    return enqueue(container, aggregate_type="person_judge", env=env)
+    return enqueue(
+        container,
+        aggregate_type="person_judge",
+        aggregate_id=f"{env.payload.person_id}_{env.payload.user_id}",
+        env=env,
+    )

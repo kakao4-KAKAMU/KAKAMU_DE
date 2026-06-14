@@ -23,4 +23,9 @@ def ingest_comment_like(
     env: IngestCommentLikeEnvelope,
     container: AppContainer = Depends(get_app_container),
 ) -> IngestResponse:
-    return enqueue(container, aggregate_type="comment_like", env=env)
+    return enqueue(
+        container,
+        aggregate_type="comment_like",
+        aggregate_id=f"{env.payload.comment_id}_{env.payload.user_id}",
+        env=env,
+    )

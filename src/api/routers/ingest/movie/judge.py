@@ -23,4 +23,9 @@ def ingest_movie_judge(
     env: IngestMovieJudgeEnvelope,
     container: AppContainer = Depends(get_app_container),
 ) -> IngestResponse:
-    return enqueue(container, aggregate_type="movie_judge", env=env)
+    return enqueue(
+        container,
+        aggregate_type="movie_judge",
+        aggregate_id=f"{env.payload.movie_id}_{env.payload.user_id}",
+        env=env,
+    )

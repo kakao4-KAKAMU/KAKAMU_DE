@@ -23,4 +23,9 @@ def ingest_comment_modify(
     env: IngestCommentEnvelope,
     container: AppContainer = Depends(get_app_container),
 ) -> IngestResponse:
-    return enqueue(container, aggregate_type="comment_modify", env=env)
+    return enqueue(
+        container,
+        aggregate_type="comment_modify",
+        aggregate_id=env.payload.comment_id,
+        env=env,
+    )

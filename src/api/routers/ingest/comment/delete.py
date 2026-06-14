@@ -23,4 +23,9 @@ def ingest_comment_delete(
     env: IngestCommentDeleteEnvelope,
     container: AppContainer = Depends(get_app_container),
 ) -> IngestResponse:
-    return enqueue(container, aggregate_type="comment_delete", env=env)
+    return enqueue(
+        container,
+        aggregate_type="comment_delete",
+        aggregate_id=env.payload.comment_id,
+        env=env,
+    )
