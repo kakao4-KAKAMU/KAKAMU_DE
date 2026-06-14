@@ -1,40 +1,49 @@
 from src.api.schemas.comment import IngestCommentPayload
 from src.extractor.comment_extractor import CommentExtractor
+from src.graph.context_reader import CommentContextReader, NullCommentContextReader
 from src.graph.loader import OntologyLoader
-from src.ingest.dispatcher.utils import Embedder, Handler, _parse_dt
+from src.ingest.dispatcher.utils import Embedder, Handler
+
 
 def build_comment_handler(
     *,
     extractor: CommentExtractor,
     embedder: Embedder,
     loader: OntologyLoader,
+    context_reader: CommentContextReader | None = None,
 ) -> Handler:
+    reader = context_reader or NullCommentContextReader()
 
     def _handler(payload: IngestCommentPayload) -> None:
         payload = IngestCommentPayload.model_validate(payload)
-        comment_id = str(payload.comment_id)
-        feed_id = str(payload.feed_id)
-        author_id = str(payload.author_id)
-        content = str(payload.content or "")
-        ontology = extractor.extract(
-            comment_id=comment_id,
-            feed_id=feed_id,
-            author_id=author_id,
-            mentioned_user_ids=list(payload.mentioned_user_ids or []),
-            parent_comment_id=payload.parent_comment_id,
-            content=content,
+        parent_feed_summary = reader.get_feed_summary(payload.feed_id)
+        parent_comment_summary = (
+            reader.get_comment_summary(payload.parent_comment_id)
+            if payload.parent_comment_id
+            else None
         )
-        embedding = embedder.embed(ontology.summary or content)
+        ontology = extractor.extract(
+            comment_id=payload.comment_id,
+            feed_id=payload.feed_id,
+            user_id=payload.user_id,
+            mentioned_user_ids=list(payload.mentioned_user_ids),
+            parent_feed_summary=parent_feed_summary,
+            parent_comment_summary=parent_comment_summary,
+            content=payload.content,
+        )
+        embedding = embedder.embed(ontology.summary or payload.content)
         loader.upsert_comment(
-            comment_id=comment_id,
-            feed_id=feed_id,
-            author_id=author_id,
-            content_raw=content,
+            comment_id=payload.comment_id,
+            feed_id=payload.feed_id,
+            user_id=payload.user_id,
+            parent_comment_id=payload.parent_comment_id,
+            content_raw=payload.content,
             ontology=ontology,
             summary_embedding=embedding,
-            created_at=_parse_dt(payload.created_at),
+            created_at=payload.created_at,
         )
 
     return _handler
+
 
 __all__ = ["build_comment_handler"]

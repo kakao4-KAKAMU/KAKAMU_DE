@@ -1,70 +1,410 @@
 # HTTP API
 
-FastAPI 라우터 ([src/api/routers.py](../src/api/routers.py)) 는 5개의 엔드포인트와 헬스체크로 구성된다.
+FastAPI 게이트웨이 ([`src/api/app.py`](../src/api/app.py)) 는 **Chat · Recommend · Ingest · Feedback · Health** 5개 도메인으로 구성된다.
+라우터 집합은 [`src/api/routers/__init__.py`](../src/api/routers/__init__.py) 에서 등록한다.
+
+> **Persona**: 추천·세션·피드백의 최소 단위. `(user_id, persona_id)` 로 스코프된다.
+> 상세: [persona_recommendation.md](persona_recommendation.md)
+
+---
+
+## 1. API 구조도
+
+### 1-1. High-Level
+
+```mermaid
+flowchart TB
+    subgraph Client["Client (Web / Mobile)"]
+        C[HTTP Client]
+    end
+
+    subgraph Gateway["FastAPI Gateway\nroot_path=/chat"]
+        H["GET /healthz"]
+        CH["Chat Router"]
+        RC["POST /recommend"]
+        FB["POST /feedback"]
+        IG["Ingest Router"]
+    end
+
+    subgraph Chat["Chat (/chat/*)"]
+        CS["POST /chat/stream\n(SSE)"]
+        CL["GET /chat/list"]
+        CHH["GET /chat/history/{session_id}"]
+    end
+
+    subgraph Ingest["Ingest (/ingest/*)"]
+        MV["movie/regist · movie/judge"]
+        FD["feed/create · modify · delete · like"]
+        CM["comment/create · modify · delete · like"]
+    end
+
+    subgraph Backend["Backend Services"]
+        LG[LangGraph StateGraph]
+        PG[(PostgreSQL\nchat_session · chat_message\nbandit_state · ingest_outbox)]
+        NEO[(Neo4j)]
+        VLLM[(vLLM + BGE-M3)]
+        Worker[Ingest Worker]
+    end
+
+    C --> H
+    C --> CH
+    C --> RC
+    C --> FB
+    C --> IG
+
+    CH --> CS & CL & CHH
+    IG --> MV & FD & CM
+
+    CS --> LG
+    CL --> PG
+    CHH --> PG
+    LG --> VLLM & NEO & PG
+
+    RC --> NEO
+    FB --> PG
+
+    MV & FD & CM -->|enqueue| PG
+    PG --> Worker --> NEO
+```
+
+### 1-2. 라우터 모듈 구조
 
 ```mermaid
 flowchart LR
-    Client[Web/Mobile Client] -->|POST /chat| API[FastAPI]
-    Client -->|POST /recommend| API
-    Client -->|POST /ingest/*| API
-    Client -->|POST /feedback| API
-    API --> LG[LangGraph<br/>StateGraph]
-    API --> Tmpl[TemplateExecutor]
-    API --> Outbox[(ingest_outbox)]
-    API --> Bandit[ThompsonBandit + Postgres]
-    LG --> Neo4j[(Neo4j)]
-    LG --> VLLM[(vLLM)]
-    LG --> History[(chat_message)]
+    APP["src/api/app.py\ncreate_app()"]
+    R["src/api/routers/__init__.py"]
+
+    APP --> R
+
+    R --> H["health/healthz.py"]
+    R --> CL["chat/list.py"]
+    R --> CH["chat/history.py"]
+    R --> CS["chat/stream.py"]
+    R --> RC["recommend/post.py"]
+    R --> FB["feedback/post.py"]
+    R --> MR["ingest/movie/regist.py"]
+    R --> MJ["ingest/movie/judge.py"]
+    R --> FC["ingest/feed/create.py"]
+    R --> FM["ingest/feed/modify.py"]
+    R --> FD["ingest/feed/delete.py"]
+    R --> FL["ingest/feed/like.py"]
+    R --> CC["ingest/comment/create.py"]
+    R --> CM["ingest/comment/modify.py"]
+    R --> CD["ingest/comment/delete.py"]
+    R --> CLk["ingest/comment/like.py"]
 ```
 
-## 실행
+| 디렉터리 | 책임 |
+|----------|------|
+| `src/api/app.py` | FastAPI 인스턴스 조립, CORS, `root_path` |
+| `src/api/dependencies.py` | `AppContainer` 싱글턴 (Neo4j, LangGraph, Outbox 등) |
+| `src/api/routers/` | HTTP 핸들러 — 입출력 변환 + 도메인 호출만 |
+| `src/api/schemas/` | Pydantic 요청/응답 스키마 |
+
+---
+
+## 2. 실행 · Base URL
 
 ```bash
 uvicorn src.api.app:app --host 0.0.0.0 --port 8080 --reload
 ```
 
-`bootstrap_schema.py` 가 Postgres / Neo4j / LangGraph checkpoint 테이블을 모두 초기화한다.
+| 항목 | 값 |
+|------|-----|
+| OpenAPI | `/docs`, `/redoc`, `/openapi.json` |
+| `root_path` | `/chat` — 리버스 프록시 뒤에서 prefix 로 사용 |
+| 로컬 직접 호출 | `http://localhost:8080/...` |
+| 프록시 경유 | `https://{host}/chat/...` |
 
-## 엔드포인트
+스키마 초기화: `python -m scripts.bootstrap_schema`
 
-| Method | Path | 설명 |
-|--------|------|------|
-| GET    | `/healthz` | liveness probe |
-| POST   | `/chat` | LangGraph 단발 invoke. `session_id` 미지정 시 자동 생성, 세션 메모리는 PostgresSaver 로 유지된다. |
-| POST   | `/chat/stream` | SSE 스트리밍 — 노드 단위 부분 상태를 전송 (디버깅용) |
-| POST   | `/recommend` | LangGraph 우회 단발 추천. `IntentResolver` + `TemplateExecutor` 만 사용. |
-| POST   | `/ingest/movie` \| `/ingest/feed` \| `/ingest/comment` | `OutboxWriter.enqueue` 만 호출 (실 적재는 worker) |
-| POST   | `/feedback` | `arm_id + action(+dwell_seconds)` → `RecommendPolicy.record_reward` → DB write-through |
+---
 
-요청/응답 스키마는 [src/api/schemas.py](../src/api/schemas.py) 참고.
+## 3. Persona 전달 규약
 
-### 예시: `/chat`
+| 방식 | 적용 엔드포인트 |
+|------|----------------|
+| `X-Persona-Id` 헤더 | `/chat/stream`, `/chat/list`, `/chat/history/{session_id}`, `/recommend` |
+| body `persona_id` | `ChatRequest`, `RecommendRequest`, `FeedbackRequest`, feed/comment ingest payload |
+
+`persona_id` 가 존재하면 Persona 스코프로 추천·Bandit·세션이 동작한다. 없으면 `user_id` 단독 fallback.
+
+Bandit `context_key` = `{user_id}:{persona_id}` (persona 없으면 `user_id`).
+
+---
+
+## 4. 엔드포인트 목록
+
+### 4-1. Health
+
+| Method | Path | 응답 | 설명 |
+|--------|------|------|------|
+| GET | `/healthz` | `{"status":"ok"}` | Liveness probe |
+
+### 4-2. Chat
+
+| Method | Path | 요청 | 응답 | 설명 |
+|--------|------|------|------|------|
+| POST | `/chat/stream` | `ChatRequest` + `X-Persona-Id` | SSE | LangGraph 노드 단위 스트리밍 |
+| GET | `/chat/list` | Query: `user_id`, `cursor?`, `limit?` + `X-Persona-Id` | `list[ChatSession]` | Persona별 세션 목록 |
+| GET | `/chat/history/{session_id}` | Query: `user_id`, `cursor?`, `limit?` + `X-Persona-Id` | `ChatSessionResponse` | 세션 메시지 이력 (cursor 페이지네이션) |
+
+> 단발 `/chat` (non-stream) 엔드포인트는 없다. 클라이언트는 `/chat/stream` 을 사용한다.
+
+**`ChatRequest`**
+
+| 필드 | 타입 | 필수 | 기본값 | 설명 |
+|------|------|------|--------|------|
+| `user_id` | string | Y | — | 계정 ID |
+| `persona_id` | string | N | null | Persona ID (헤더와 병행 가능) |
+| `session_id` | string | N | UUID 자동 생성 | 대화 세션 |
+| `message` | string | Y | — | 사용자 메시지 |
+| `top_k` | int | N | 10 | 추천 후보 수 (1–50) |
+| `max_toxicity` | float | N | 0.7 | toxicity 필터 상한 |
+
+**SSE 이벤트 (`/chat/stream`)**
+
+| event | data | 설명 |
+|-------|------|------|
+| `open` | `{session_id, message_id}` | 스트림 시작 |
+| `node` | LangGraph partial state JSON | 노드별 중간 상태 |
+| `error` | `{detail}` | 예외 발생 |
+| `done` | `{session_id}` | 스트림 종료 |
+
+### 4-3. Recommend
+
+| Method | Path | 요청 | 응답 | 설명 |
+|--------|------|------|------|------|
+| POST | `/recommend` | `RecommendRequest` + `X-Persona-Id` | `RecommendResponse` | LangGraph 우회 단발 hybrid 추천 |
+
+**`RecommendRequest`**
+
+| 필드 | 타입 | 필수 | 기본값 |
+|------|------|------|--------|
+| `user_id` | string | Y | — |
+| `persona_id` | string | N | null |
+| `query` | string | Y | — |
+| `top_k` | int | N | 10 |
+| `vec_top_k` | int | N | 30 |
+| `max_toxicity` | float | N | 0.7 |
+
+**`RecommendResponse`**: `{ arm_id, movies[], keywords[], themes[], moods[] }`
+
+### 4-4. Feedback
+
+| Method | Path | 요청 | 응답 | 설명 |
+|--------|------|------|------|------|
+| POST | `/feedback` | `FeedbackRequest` | `FeedbackResponse` | Bandit posterior 갱신 |
+
+**`FeedbackRequest`**
+
+| 필드 | 타입 | 필수 | 설명 |
+|------|------|------|------|
+| `user_id` | string | Y | 계정 ID |
+| `persona_id` | string | N | Persona ID |
+| `arm_id` | string | Y | 노출된 Bandit arm |
+| `action` | enum | Y | `click` \| `dwell` \| `like` \| `skip` \| `dislike` |
+| `content_type` | enum | Y | `feed` \| `comment` \| `movie` |
+| `dwell_seconds` | float | N | 체류 시간 (기본 0) |
+
+**`FeedbackResponse`**: `{ arm_id, reward }` — reward 양수 → α 증가, 음수 → β 증가.
+
+### 4-5. Ingest (Outbox Enqueue)
+
+모든 ingest 엔드포인트는 **Envelope 패턴** `{ "payload": { ... } }` 를 사용한다.
+API는 `ingest_outbox` 에 적재만 하고, 실제 Neo4j 적재는 [Outbox Worker](outbox_ingest.md) 가 수행한다.
+
+**공통 응답 `IngestResponse`**: `{ "outbox_id": int }`
+
+#### Movie
+
+| Method | Path | Envelope | aggregate_type |
+|--------|------|----------|----------------|
+| POST | `/ingest/movie/regist` | `IngestMovieEnvelope` | `movie` |
+| POST | `/ingest/movie/judge` | `IngestMovieJudgeEnvelope` | `movie_judge` |
+
+**`IngestMoviePayload`**: `movie_id`, `title`, `producing_year?`, `country?`, `genres[]`, `plot?`, `persons[]`
+
+**`IngestMovieJudgePayload`**: `movie_id`, `user_id`, `judge_type` (`like`|`dislike`), `created_at?`
+
+#### Feed
+
+| Method | Path | Envelope | aggregate_type |
+|--------|------|----------|----------------|
+| POST | `/ingest/feed/create` | `IngestFeedEnvelope` | `feed` |
+| POST | `/ingest/feed/modify` | `IngestFeedEnvelope` | `feed_modify` |
+| POST | `/ingest/feed/delete` | `IngestFeedDeleteEnvelope` | `feed_delete` |
+| POST | `/ingest/feed/like` | `IngestFeedLikeEnvelope` | `feed_like` |
+
+**`IngestFeedPayload`**: `feed_id`, `user_id`, `persona_id?`, `related_movie_id?`, `known_movie_ids[]`, `mentioned_user_ids[]`, `content`, `created_at?`, `modified_at?`
+
+**`IngestFeedLikePayload`**: `feed_id`, `user_id`, `persona_id?`, `is_like`, `created_at?`
+
+**`IngestFeedDeletePayload`**: `feed_id`, `user_id`, `deleted_at?`
+
+#### Comment
+
+| Method | Path | Envelope | aggregate_type |
+|--------|------|----------|----------------|
+| POST | `/ingest/comment/create` | `IngestCommentEnvelope` | `comment` |
+| POST | `/ingest/comment/modify` | `IngestCommentEnvelope` | `comment_modify` |
+| POST | `/ingest/comment/delete` | `IngestCommentDeleteEnvelope` | `comment_delete` |
+| POST | `/ingest/comment/like` | `IngestCommentLikeEnvelope` | `comment_like` |
+
+**`IngestCommentPayload`**: `comment_id`, `feed_id`, `user_id`, `persona_id?`, `mentioned_user_ids[]`, `parent_comment_id?`, `content`, `created_at?`, `modified_at?`
+
+**`IngestCommentLikePayload`**: `comment_id`, `user_id`, `persona_id?`, `is_like`, `created_at?`
+
+**`IngestCommentDeletePayload`**: `comment_id`, `user_id`, `deleted_at?`
+
+---
+
+## 5. 요청 흐름
+
+### 5-1. Chat Stream
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor C as Client
+    participant API as POST /chat/stream
+    participant PG as PostgreSQL
+    participant LG as LangGraph
+    participant NEO as Neo4j
+    participant VL as vLLM
+
+    C->>API: ChatRequest + X-Persona-Id
+    API->>PG: open_session(user_id, persona_id)
+    API->>PG: append(user message)
+    API->>LG: astream(state, thread_id=session_id)
+
+    loop SSE node events
+        LG->>NEO: retrieve_movies (hybrid)
+        LG->>VL: generate_reply
+        LG-->>API: partial state
+        API-->>C: event:node
+    end
+
+    API-->>C: event:done
+```
+
+### 5-2. Ingest Enqueue
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor C as Client
+    participant API as POST /ingest/{domain}/{action}
+    participant PG as ingest_outbox
+    participant W as Ingest Worker
+    participant NEO as Neo4j
+
+    C->>API: { payload: {...} }
+    API->>PG: enqueue(aggregate_type, payload)
+    API-->>C: { outbox_id }
+    W->>PG: poll (SKIP LOCKED)
+    W->>NEO: extract + upsert
+```
+
+---
+
+## 6. curl 예시
+
+### Chat Stream
 
 ```bash
-curl -s http://localhost:8080/chat \
+curl -N http://localhost:8080/chat/stream \
   -H 'content-type: application/json' \
+  -H 'X-Persona-Id: movie_buff' \
   -d '{
         "user_id": "u-1",
         "message": "잔잔한 한국 가족 영화 추천해줘"
+      }'
+```
+
+### 세션 목록
+
+```bash
+curl -s 'http://localhost:8080/chat/list?user_id=u-1&limit=20' \
+  -H 'X-Persona-Id: movie_buff' | jq
+```
+
+### 세션 이력
+
+```bash
+curl -s 'http://localhost:8080/chat/history/{session_id}?user_id=u-1&limit=20' \
+  -H 'X-Persona-Id: movie_buff' | jq
+```
+
+### Recommend
+
+```bash
+curl -s http://localhost:8080/recommend \
+  -H 'content-type: application/json' \
+  -H 'X-Persona-Id: family_night' \
+  -d '{
+        "user_id": "u-1",
+        "query": "아이와 볼 만한 애니메이션"
       }' | jq
 ```
 
-```json
-{
-  "session_id": "…",
-  "reply": "이런 영화를 추천드려요: 기생충, …",
-  "arm_id": "balanced",
-  "movies": [{"movie_id": "m-001", "title": "기생충", "score": 0.78}],
-  "ontology_ref": {"arm_id": "balanced", "movie_ids": ["m-001"], "themes": ["가족"]}
-}
+### Feed Create (Envelope)
+
+```bash
+curl -s http://localhost:8080/ingest/feed/create \
+  -H 'content-type: application/json' \
+  -d '{
+        "payload": {
+          "feed_id": "f-001",
+          "user_id": "u-1",
+          "persona_id": "movie_buff",
+          "content": "기생충 다시 봤는데 레이어가 더 보임"
+        }
+      }' | jq
 ```
 
-### 예시: `/feedback`
+### Movie Regist
+
+```bash
+curl -s http://localhost:8080/ingest/movie/regist \
+  -H 'content-type: application/json' \
+  -d '{
+        "payload": {
+          "movie_id": "m-001",
+          "title": "기생충",
+          "producing_year": 2019,
+          "country": "KR",
+          "genres": ["드라마", "스릴러"],
+          "plot": "전원백수 가족이..."
+        }
+      }' | jq
+```
+
+### Feedback
 
 ```bash
 curl -s http://localhost:8080/feedback \
   -H 'content-type: application/json' \
-  -d '{"user_id": "u-1", "arm_id": "balanced", "action": "like"}'
+  -d '{
+        "user_id": "u-1",
+        "persona_id": "movie_buff",
+        "arm_id": "balanced",
+        "action": "like",
+        "content_type": "movie"
+      }' | jq
 ```
 
-응답 `reward` 가 양수면 해당 arm 의 α 가, 음수면 β 가 증가한다 (Beta posterior).
+---
+
+## 7. 스키마 참조
+
+| 도메인 | 스키마 파일 |
+|--------|------------|
+| Chat | [`src/api/schemas/chat.py`](../src/api/schemas/chat.py) |
+| Recommend | [`src/api/schemas/recommend.py`](../src/api/schemas/recommend.py) |
+| Feedback | [`src/api/schemas/feedback.py`](../src/api/schemas/feedback.py) |
+| Ingest Envelope | [`src/api/schemas/ingest.py`](../src/api/schemas/ingest.py) |
+| Movie | [`src/api/schemas/movie.py`](../src/api/schemas/movie.py) |
+| Feed | [`src/api/schemas/feed.py`](../src/api/schemas/feed.py) |
+| Comment | [`src/api/schemas/comment.py`](../src/api/schemas/comment.py) |
+| Person (movie embed) | [`src/api/schemas/person.py`](../src/api/schemas/person.py) |

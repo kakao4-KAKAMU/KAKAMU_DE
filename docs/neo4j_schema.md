@@ -11,6 +11,7 @@
 ```mermaid
 flowchart LR
     User(("User"))
+    Persona(("Persona"))
     Feed(("Feed"))
     Comment(("Comment"))
     Movie(("Movie"))
@@ -23,13 +24,24 @@ flowchart LR
     Person(("Person"))
     Country(("Country"))
 
-    User -- "WRITTEN_BY" --- Feed
-    User -- "WRITTEN_BY" --- Comment
-    User -- "PREFERS {weight}" --> Genre
-    User -- "PREFERS {weight}" --> Theme
-    User -- "PREFERS {weight}" --> Keyword
-    User -- "INTERACTED {action,weight,ts}" --> Movie
-    User -- "INTERACTED {action,weight,ts}" --> Feed
+    User -- "HAS_PERSONA" --> Persona
+    Persona -- "PREFERS {weight}" --> Genre
+    Persona -- "PREFERS {weight}" --> Theme
+    Persona -- "PREFERS {weight}" --> Mood
+    Persona -- "PREFERS {weight}" --> Keyword
+    Persona -- "INTERACTED {action,weight,ts}" --> Movie
+    Persona -- "INTERACTED {action,weight,ts}" --> Feed
+    Persona -- "INTERACTED {action,weight,ts}" --> Comment
+
+    User -- "WRITTEN_BY (fallback)" --- Feed
+    User -- "WRITTEN_BY (fallback)" --- Comment
+    Persona -- "WRITTEN_BY" --- Feed
+    Persona -- "WRITTEN_BY" --- Comment
+
+    User -- "PREFERS {weight} (fallback)" --> Genre
+    User -- "PREFERS {weight} (fallback)" --> Theme
+    User -- "INTERACTED {action,weight,ts} (fallback)" --> Movie
+    User -- "INTERACTED {action,weight,ts} (fallback)" --> Feed
 
     Feed -- "ABOUT_MOVIE" --> Movie
     Feed -- "HAS_CATEGORY" --> Category
@@ -47,6 +59,10 @@ flowchart LR
     Movie -- "HAS_PERSON {job}" --> Person
     Movie -- "PRODUCED_IN" --> Country
 ```
+
+> **Persona 스코프**: `persona_id` 가 존재하면 `PREFERS` / `INTERACTED` / `WRITTEN_BY` 는 `(:Persona)` 에 연결한다.
+> `persona_id` 가 없으면 기존 `(:User)` 직접 연결(fallback)을 사용한다.
+> 상세: [persona_recommendation.md](persona_recommendation.md)
 
 
 
@@ -69,6 +85,7 @@ classDiagram
 
     class Feed {
         +String feed_id  PK
+        +String persona_id FK (optional)
         +String content_raw
         +String summary
         +float[] summary_embedding
@@ -81,6 +98,7 @@ classDiagram
 
     class Comment {
         +String comment_id PK
+        +String persona_id FK (optional)
         +String content_raw
         +String summary
         +float[] summary_embedding
@@ -94,6 +112,13 @@ classDiagram
     class User {
         +String user_id PK
         +String nickname
+        +DateTime created_at
+    }
+
+    class Persona {
+        +String persona_id PK
+        +String user_id FK
+        +String label
         +DateTime created_at
     }
 
@@ -123,12 +148,14 @@ classDiagram
 | ----------- | ---------------------------------------------- | ------------- | ---------------- |
 | Constraint  | `:Movie(movie_id)`                             | UNIQUE        | 멱등 upsert anchor |
 | Constraint  | `:User(user_id)`                               | UNIQUE        |                  |
+| Constraint  | `:Persona(persona_id)`                         | UNIQUE        | 추천 최소 단위 anchor |
 | Constraint  | `:Feed(feed_id)`                               | UNIQUE        |                  |
 | Constraint  | `:Comment(comment_id)`                         | UNIQUE        |                  |
 | Constraint  | `:Keyword(normalized)`                         | UNIQUE        | 정규화 표제어 anchor   |
 | Constraint  | `:Genre/Theme/Mood/Category(name)`             | UNIQUE        |                  |
 | Constraint  | `:Emotion(tag)`                                | UNIQUE        |                  |
 | Range Index | `:Movie(producing_year)`                       | RANGE         | 시간 필터            |
+| Range Index | `:Persona(user_id)`                            | RANGE         | User→Persona lookup |
 | Range Index | `:Feed(created_at)` / `:Feed(sentiment_score)` | RANGE         | 정렬/필터            |
 | Fulltext    | `:Movie(title, plot_summary)`                  | CJK analyzer  | 한국어 키워드 검색       |
 | Fulltext    | `:Feed(summary)` / `:Comment(summary)`         | CJK analyzer  |                  |
@@ -146,10 +173,18 @@ classDiagram
 
 ```mermaid
 erDiagram
-    USER ||--o{ FEED         : writes
-    USER ||--o{ COMMENT      : writes
-    USER }o--o{ MOVIE        : "INTERACTED"
-    USER }o--o{ GENRE        : "PREFERS"
+    USER ||--o{ PERSONA       : has
+    PERSONA }o--o{ MOVIE       : "INTERACTED"
+    PERSONA }o--o{ FEED        : "INTERACTED"
+    PERSONA }o--o{ COMMENT     : "INTERACTED"
+    PERSONA }o--o{ GENRE       : "PREFERS"
+    PERSONA }o--o{ THEME       : "PREFERS"
+    PERSONA }o--o{ MOOD        : "PREFERS"
+    PERSONA ||--o{ FEED        : writes
+    PERSONA ||--o{ COMMENT     : writes
+    USER ||--o{ FEED         : "writes (fallback)"
+    USER ||--o{ COMMENT      : "writes (fallback)"
+    USER }o--o{ MOVIE        : "INTERACTED (fallback)"
     FEED ||--o{ COMMENT      : has
     FEED }o--|| MOVIE        : "ABOUT_MOVIE"
     FEED }o--o{ CATEGORY     : has
@@ -194,12 +229,19 @@ OPTIONAL MATCH (m)-[:HAS_MOOD]->(md:Mood)
 WHERE md.name IN $query_moods
 WITH m, vec_score, kw_hits, theme_hits, count(DISTINCT md) AS mood_hits
 
-// 3) User preference 가중치 (선택)
-OPTIONAL MATCH (u:User {user_id: $user_id})-[p:PREFERS]->(x)
+// 3) Persona preference 가중치 (persona_id 존재 시)
+OPTIONAL MATCH (p:Persona {persona_id: $persona_id})-[pref:PREFERS]->(x)
 WHERE x:Genre OR x:Theme OR x:Keyword
 OPTIONAL MATCH (m)-[:HAS_GENRE|HAS_THEME|MENTIONS]->(x)
 WITH m, vec_score, kw_hits, theme_hits, mood_hits,
-     coalesce(sum(p.weight), 0.0) AS user_pref_score
+     coalesce(sum(pref.weight), 0.0) AS persona_pref_score
+
+// 3-fallback) persona_id 없을 때 User preference
+OPTIONAL MATCH (u:User {user_id: $user_id})-[p:PREFERS]->(x2)
+WHERE $persona_id IS NULL AND (x2:Genre OR x2:Theme OR x2:Keyword)
+OPTIONAL MATCH (m)-[:HAS_GENRE|HAS_THEME|MENTIONS]->(x2)
+WITH m, vec_score, kw_hits, theme_hits, mood_hits,
+     coalesce(persona_pref_score, 0.0) + coalesce(sum(p.weight), 0.0) AS user_pref_score
 
 // 4) 최종 스코어 산출 (가중 합)
 WITH m,
@@ -227,15 +269,18 @@ ORDER BY f.sentiment_score DESC, f.created_at DESC
 LIMIT 20;
 ```
 
-### 5-3. 사용자 선호 그래프 업데이트(상호작용 기반)
+### 5-3. Persona 선호 그래프 업데이트(상호작용 기반)
 
 ```cypher
-MATCH (u:User {user_id: $user_id})-[i:INTERACTED]->(m:Movie)
+MATCH (u:User {user_id: $user_id})-[:HAS_PERSONA]->(p:Persona {persona_id: $persona_id})
+MATCH (p)-[i:INTERACTED]->(m:Movie)
 WHERE i.action IN ['like','watched_to_end']
 MATCH (m)-[:HAS_THEME|HAS_GENRE|MENTIONS]->(x)
-WITH u, x, sum(i.weight) AS w
-MERGE (u)-[r:PREFERS]->(x)
+WITH p, x, sum(i.weight) AS w
+MERGE (p)-[r:PREFERS]->(x)
 SET r.weight = coalesce(r.weight, 0) * 0.9 + w * 0.1,
     r.updated_at = datetime();
 ```
+
+> `persona_id` 가 없을 때는 `(:User)-[:INTERACTED]` → `(:User)-[:PREFERS]` 경로를 사용한다.
 

@@ -71,8 +71,8 @@ jobs:
           sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
           sudo chmod +x /usr/local/bin/yq
 
-          cd helm-charts/environments/dev/${{ env.SERVICE }}
-          yq -i '.image.tag = "1.${{ github.run_number }}"' values.yaml
+          cd helm-charts/environments/dev/movie
+          yq -i '(.containers[] | select(.name == "${{ env.SERVICE }}") | .image.tag) = "1.${{ github.run_number }}"' values.yaml
 
           git config --global user.email "action@github.com"
           git config --global user.name "GitHub Action"

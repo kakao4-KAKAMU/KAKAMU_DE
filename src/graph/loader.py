@@ -11,11 +11,19 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from typing import Optional, Sequence
+from typing import Mapping, Optional, Sequence
 
 from src.embedding.version_registry import EmbeddingVersionRegistry
 from src.graph.client import Neo4jClient
 from src.graph.cypher_statements import (
+    JUDGE_MOVIE,
+    JUDGE_PERSON,
+    LIKE_COMMENT_WITH_PERSONA,
+    LIKE_FEED_WITH_PERSONA,
+    SOFT_DELETE_COMMENT,
+    SOFT_DELETE_FEED,
+    UNLIKE_COMMENT_WITH_PERSONA,
+    UNLIKE_FEED_WITH_PERSONA,
     UPSERT_COMMENT_WITH_ONTOLOGY,
     UPSERT_FEED_WITH_ONTOLOGY,
     UPSERT_MOVIE_WITH_ONTOLOGY,
@@ -77,6 +85,7 @@ class OntologyLoader:
         plot_raw: str,
         ontology: MoviePlotOntology,
         plot_embedding: Sequence[float],
+        persons: Sequence[Mapping[str, str]] | None = None,
     ) -> None:
         themes = ontology.themes
         moods = ontology.moods
@@ -99,13 +108,22 @@ class OntologyLoader:
             "moods": moods,
             "toxicity_score": ontology.toxicity_score,
             "keywords": [k.model_dump() for k in keywords],
+            "persons": [
+                {
+                    "person_id": str(p["person_id"]),
+                    "name": str(p["name"]),
+                    "job": str(p["job"]),
+                }
+                for p in (persons or [])
+            ],
         }
         self._neo4j.execute_write(self._movie_upsert_cypher(), params)
         logger.info(
-            "Upserted movie %s (themes=%d, keywords=%d)",
+            "Upserted movie %s (themes=%d, keywords=%d, persons=%d)",
             movie_id,
             len(ontology.themes),
             len(ontology.keywords),
+            len(persons or []),
         )
 
     # ------------------------------------------------------------------
@@ -115,7 +133,7 @@ class OntologyLoader:
         self,
         *,
         feed_id: str,
-        author_id: str,
+        user_id: str,
         related_movie_id: Optional[str],
         content_raw: str,
         ontology: FeedOntology,
@@ -124,7 +142,7 @@ class OntologyLoader:
     ) -> None:
         params = {
             "feed_id": feed_id,
-            "author_id": author_id,
+            "user_id": user_id,
             "related_movie_id": related_movie_id,
             "content_raw": content_raw,
             "summary": ontology.summary,
@@ -133,7 +151,7 @@ class OntologyLoader:
             "sentiment_score": ontology.sentiment_score,
             "contains_spoiler": ontology.contains_spoiler,
             "toxicity_score": ontology.toxicity_score,
-            "categories": [c.value for c in ontology.categories],
+            "categories": [ontology.category.value],
             "emotions": [
                 {"tag": e.tag.value, "score": e.score} for e in ontology.emotions
             ],
@@ -144,7 +162,7 @@ class OntologyLoader:
         logger.info(
             "Upserted feed %s (cats=%d, keywords=%d)",
             feed_id,
-            len(ontology.categories),
+            1,
             len(ontology.keywords),
         )
 
@@ -156,16 +174,18 @@ class OntologyLoader:
         *,
         comment_id: str,
         feed_id: str,
-        author_id: str,
+        user_id: str,
         content_raw: str,
         ontology: CommentOntology,
         summary_embedding: Sequence[float],
+        parent_comment_id: Optional[str] = None,
         created_at: Optional[datetime] = None,
     ) -> None:
         params = {
             "comment_id": comment_id,
             "feed_id": feed_id,
-            "author_id": author_id,
+            "user_id": user_id,
+            "parent_comment_id": parent_comment_id,
             "content_raw": content_raw,
             "summary": ontology.summary,
             "summary_embedding": list(summary_embedding),
@@ -181,6 +201,130 @@ class OntologyLoader:
         }
         self._neo4j.execute_write(UPSERT_COMMENT_WITH_ONTOLOGY, params)
         logger.info("Upserted comment %s on feed %s", comment_id, feed_id)
+
+    # ------------------------------------------------------------------
+    # Feed Like
+    # ------------------------------------------------------------------
+    def like_feed(
+        self,
+        *,
+        feed_id: str,
+        user_id: str,
+        persona_id: Optional[str] = None,
+        is_like: bool = True,
+        ts: Optional[datetime] = None,
+    ) -> None:
+        ts_val = ts or datetime.now(timezone.utc)
+        if is_like:
+            self._neo4j.execute_write(
+                LIKE_FEED_WITH_PERSONA,
+                {"feed_id": feed_id, "user_id": user_id, "persona_id": persona_id,
+                 "weight": 1.0, "ts": ts_val},
+            )
+        else:
+            self._neo4j.execute_write(
+                UNLIKE_FEED_WITH_PERSONA,
+                {"feed_id": feed_id, "user_id": user_id, "persona_id": persona_id},
+            )
+        logger.info("Feed like=%s feed=%s user=%s", is_like, feed_id, user_id)
+
+    # ------------------------------------------------------------------
+    # Comment Like
+    # ------------------------------------------------------------------
+    def like_comment(
+        self,
+        *,
+        comment_id: str,
+        user_id: str,
+        persona_id: Optional[str] = None,
+        is_like: bool = True,
+        ts: Optional[datetime] = None,
+    ) -> None:
+        ts_val = ts or datetime.now(timezone.utc)
+        if is_like:
+            self._neo4j.execute_write(
+                LIKE_COMMENT_WITH_PERSONA,
+                {"comment_id": comment_id, "user_id": user_id, "persona_id": persona_id,
+                 "weight": 1.0, "ts": ts_val},
+            )
+        else:
+            self._neo4j.execute_write(
+                UNLIKE_COMMENT_WITH_PERSONA,
+                {"comment_id": comment_id, "user_id": user_id, "persona_id": persona_id},
+            )
+        logger.info("Comment like=%s comment=%s user=%s", is_like, comment_id, user_id)
+
+    # ------------------------------------------------------------------
+    # Movie Judge
+    # ------------------------------------------------------------------
+    def judge_movie(
+        self,
+        *,
+        movie_id: str,
+        user_id: str,
+        judge_type: str,
+        ts: Optional[datetime] = None,
+    ) -> None:
+        weight = 1.0 if judge_type == "like" else -1.0
+        ts_val = ts or datetime.now(timezone.utc)
+        self._neo4j.execute_write(
+            JUDGE_MOVIE,
+            {"movie_id": movie_id, "user_id": user_id,
+             "judge_type": judge_type, "weight": weight, "ts": ts_val},
+        )
+        logger.info("Judge movie=%s user=%s type=%s", movie_id, user_id, judge_type)
+
+    # ------------------------------------------------------------------
+    # Person Judge
+    # ------------------------------------------------------------------
+    def judge_person(
+        self,
+        *,
+        person_id: str,
+        user_id: str,
+        judge_type: str,
+        ts: Optional[datetime] = None,
+    ) -> None:
+        weight = 1.0 if judge_type == "like" else -1.0
+        ts_val = ts or datetime.now(timezone.utc)
+        self._neo4j.execute_write(
+            JUDGE_PERSON,
+            {"person_id": person_id, "user_id": user_id,
+             "judge_type": judge_type, "weight": weight, "ts": ts_val},
+        )
+        logger.info("Judge person=%s user=%s type=%s", person_id, user_id, judge_type)
+
+    # ------------------------------------------------------------------
+    # Feed Delete (soft)
+    # ------------------------------------------------------------------
+    def delete_feed(
+        self,
+        *,
+        feed_id: str,
+        deleted_at: Optional[datetime] = None,
+    ) -> None:
+        ts_val = deleted_at or datetime.now(timezone.utc)
+        self._neo4j.execute_write(
+            SOFT_DELETE_FEED,
+            {"feed_id": feed_id, "deleted_at": ts_val},
+        )
+        logger.info("Soft-deleted feed %s", feed_id)
+
+    # ------------------------------------------------------------------
+    # Comment Delete (soft)
+    # ------------------------------------------------------------------
+    def delete_comment(
+        self,
+        *,
+        comment_id: str,
+        deleted_at: Optional[datetime] = None,
+    ) -> None:
+        ts_val = deleted_at or datetime.now(timezone.utc)
+        self._neo4j.execute_write(
+            SOFT_DELETE_COMMENT,
+            {"comment_id": comment_id, "deleted_at": ts_val},
+        )
+        logger.info("Soft-deleted comment %s", comment_id)
 
 
 __all__ = ["OntologyLoader"]

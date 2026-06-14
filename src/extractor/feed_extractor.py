@@ -15,14 +15,14 @@ class FeedExtractor(OntologyExtractor[FeedOntology]):
         self,
         *,
         feed_id: str,
-        author_id: str,
+        user_id: str,
         related_movie_id: str | None,
         known_movie_ids: list[str] | None,
         content: str,
     ) -> OntologyChatPayload:
         return build_feed_messages(
             feed_id=feed_id,
-            author_id=author_id,
+            user_id=user_id,
             related_movie_id=related_movie_id,
             known_movie_ids=known_movie_ids,
             content=content,

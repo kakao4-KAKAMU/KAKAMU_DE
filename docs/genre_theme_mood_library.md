@@ -6,12 +6,12 @@
 
 구성 목표:
 
-* 장르 정규화
-* Theme ontology 구성
-* 상위/하위 관계 정의
-* Mood 연결
-* Narrative Device 연결
-* 추천 similarity 계산 가능 구조
+- 장르 정규화
+- Theme ontology 구성
+- 상위/하위 관계 정의
+- Mood 연결
+- Narrative Device 연결
+- 추천 similarity 계산 가능 구조
 
 ---
 
@@ -48,28 +48,411 @@
 
 # Core Genre Dataset
 
-## Action
+## Science Fiction
 
 ```json
 {
-  "id": "genre_action",
-  "name": "action",
-  "display_name_ko": "액션",
+  "id": "genre_science_fiction",
+  "name": "science_fiction",
+  "display_name_ko": "SF",
   "related_genres": [
+    "fantasy",
     "thriller",
-    "adventure",
-    "crime"
+    "science"
   ],
   "common_themes": [
-    "revenge",
-    "survival",
-    "justice",
-    "heroism"
+    "humanity",
+    "technology",
+    "identity",
+    "artificial_intelligence"
   ],
   "common_moods": [
-    "intense",
-    "adrenaline",
+    "futuristic",
+    "philosophical",
+    "surreal"
+  ]
+}
+```
+
+---
+
+## Family
+
+```json
+{
+  "id": "genre_family",
+  "name": "family",
+  "display_name_ko": "가족",
+  "related_genres": [
+    "drama",
+    "comedy",
+    "children"
+  ],
+  "common_themes": [
+    "family",
+    "love",
+    "responsibility",
+    "personal_growth"
+  ],
+  "common_moods": [
+    "warm",
+    "emotional",
+    "bittersweet"
+  ]
+}
+```
+
+---
+
+## Gangster
+
+```json
+{
+  "id": "genre_gangster",
+  "name": "gangster",
+  "display_name_ko": "갱스터",
+  "related_genres": [
+    "crime",
+    "noir",
+    "drama"
+  ],
+  "common_themes": [
+    "power",
+    "betrayal",
+    "loyalty",
+    "corruption"
+  ],
+  "common_moods": [
+    "gritty",
+    "dark",
     "violent"
+  ]
+}
+```
+
+---
+
+## Enlightenment
+
+```json
+{
+  "id": "genre_enlightenment",
+  "name": "enlightenment",
+  "display_name_ko": "계몽",
+  "related_genres": [
+    "documentary",
+    "education",
+    "social"
+  ],
+  "common_themes": [
+    "social_change",
+    "justice",
+    "awareness"
+  ],
+  "common_moods": [
+    "hopeful",
+    "inspiring",
+    "serious"
+  ]
+}
+```
+
+---
+
+## Horror
+
+```json
+{
+  "id": "genre_horror",
+  "name": "horror",
+  "display_name_ko": "공포",
+  "related_genres": [
+    "thriller",
+    "horror_explicit",
+    "mystery"
+  ],
+  "common_themes": [
+    "fear",
+    "death",
+    "madness",
+    "isolation"
+  ],
+  "common_moods": [
+    "disturbing",
+    "anxious",
+    "claustrophobic"
+  ]
+}
+```
+
+---
+
+## Horror Explicit
+
+```json
+{
+  "id": "genre_horror_explicit",
+  "name": "horror_explicit",
+  "display_name_ko": "공포(호러)",
+  "related_genres": [
+    "horror",
+    "thriller"
+  ],
+  "common_themes": [
+    "fear",
+    "death",
+    "survival"
+  ],
+  "common_moods": [
+    "disturbing",
+    "anxious",
+    "violent"
+  ]
+}
+```
+
+---
+
+## Science
+
+```json
+{
+  "id": "genre_science",
+  "name": "science",
+  "display_name_ko": "과학",
+  "related_genres": [
+    "documentary",
+    "science_fiction",
+    "education"
+  ],
+  "common_themes": [
+    "discovery",
+    "technology",
+    "humanity"
+  ],
+  "common_moods": [
+    "curious",
+    "philosophical",
+    "wonder"
+  ]
+}
+```
+
+---
+
+## Education
+
+```json
+{
+  "id": "genre_education",
+  "name": "education",
+  "display_name_ko": "교육",
+  "related_genres": [
+    "documentary",
+    "children",
+    "social"
+  ],
+  "common_themes": [
+    "personal_growth",
+    "awareness",
+    "responsibility"
+  ],
+  "common_moods": [
+    "hopeful",
+    "warm",
+    "serious"
+  ]
+}
+```
+
+---
+
+## Military
+
+```json
+{
+  "id": "genre_military",
+  "name": "military",
+  "display_name_ko": "군사",
+  "related_genres": [
+    "war",
+    "action",
+    "espionage"
+  ],
+  "common_themes": [
+    "duty",
+    "sacrifice",
+    "survival",
+    "patriotism"
+  ],
+  "common_moods": [
+    "tense",
+    "intense",
+    "serious"
+  ]
+}
+```
+
+---
+
+## Christian Animation
+
+```json
+{
+  "id": "genre_christian_animation",
+  "name": "christian_animation",
+  "display_name_ko": "기독교 애니메이션",
+  "related_genres": [
+    "animation",
+    "children",
+    "religion"
+  ],
+  "common_themes": [
+    "faith",
+    "redemption",
+    "family"
+  ],
+  "common_moods": [
+    "warm",
+    "hopeful",
+    "gentle"
+  ]
+}
+```
+
+---
+
+## Documentary
+
+```json
+{
+  "id": "genre_documentary",
+  "name": "documentary",
+  "display_name_ko": "기록",
+  "related_genres": [
+    "culture",
+    "nature",
+    "historical"
+  ],
+  "common_themes": [
+    "truth",
+    "memory",
+    "identity"
+  ],
+  "common_moods": [
+    "realistic",
+    "quiet",
+    "serious"
+  ]
+}
+```
+
+---
+
+## Institutional
+
+```json
+{
+  "id": "genre_institutional",
+  "name": "institutional",
+  "display_name_ko": "기업ㆍ기관ㆍ단체",
+  "related_genres": [
+    "documentary",
+    "social",
+    "culture"
+  ],
+  "common_themes": [
+    "power",
+    "corruption",
+    "responsibility"
+  ],
+  "common_moods": [
+    "serious",
+    "realistic",
+    "tense"
+  ]
+}
+```
+
+---
+
+## Noir
+
+```json
+{
+  "id": "genre_noir",
+  "name": "noir",
+  "display_name_ko": "느와르",
+  "related_genres": [
+    "crime",
+    "thriller",
+    "mystery"
+  ],
+  "common_themes": [
+    "morality",
+    "betrayal",
+    "obsession",
+    "corruption"
+  ],
+  "common_moods": [
+    "dark",
+    "gritty",
+    "melancholic"
+  ]
+}
+```
+
+---
+
+## Multi Part
+
+```json
+{
+  "id": "genre_multi_part",
+  "name": "multi_part",
+  "display_name_ko": "다부작",
+  "related_genres": [
+    "serial",
+    "drama",
+    "historical"
+  ],
+  "common_themes": [
+    "destiny",
+    "family",
+    "personal_growth"
+  ],
+  "common_moods": [
+    "epic",
+    "emotional",
+    "nostalgic"
+  ]
+}
+```
+
+---
+
+## Lgbtq
+
+```json
+{
+  "id": "genre_lgbtq",
+  "name": "lgbtq",
+  "display_name_ko": "동성애",
+  "related_genres": [
+    "drama",
+    "romance",
+    "youth"
+  ],
+  "common_themes": [
+    "identity",
+    "love",
+    "isolation",
+    "acceptance"
+  ],
+  "common_moods": [
+    "emotional",
+    "bittersweet",
+    "warm"
   ]
 }
 ```
@@ -86,7 +469,7 @@
   "related_genres": [
     "romance",
     "family",
-    "independent"
+    "social"
   ],
   "common_themes": [
     "identity",
@@ -98,6 +481,417 @@
     "emotional",
     "melancholic",
     "warm"
+  ]
+}
+```
+
+---
+
+## Road Movie
+
+```json
+{
+  "id": "genre_road_movie",
+  "name": "road_movie",
+  "display_name_ko": "로드무비",
+  "related_genres": [
+    "drama",
+    "adventure",
+    "comedy"
+  ],
+  "common_themes": [
+    "self_discovery",
+    "freedom",
+    "friendship"
+  ],
+  "common_moods": [
+    "nostalgic",
+    "hopeful",
+    "bittersweet"
+  ]
+}
+```
+
+---
+
+## Romance
+
+```json
+{
+  "id": "genre_romance",
+  "name": "romance",
+  "display_name_ko": "멜로/로맨스",
+  "related_genres": [
+    "drama",
+    "comedy",
+    "melodrama"
+  ],
+  "common_themes": [
+    "love",
+    "separation",
+    "emotional_connection",
+    "sacrifice"
+  ],
+  "common_moods": [
+    "warm",
+    "hopeful",
+    "bittersweet"
+  ]
+}
+```
+
+---
+
+## Melodrama
+
+```json
+{
+  "id": "genre_melodrama",
+  "name": "melodrama",
+  "display_name_ko": "멜로드라마",
+  "related_genres": [
+    "drama",
+    "romance",
+    "shinpa"
+  ],
+  "common_themes": [
+    "love",
+    "loss",
+    "family",
+    "sacrifice"
+  ],
+  "common_moods": [
+    "emotional",
+    "melancholic",
+    "tragic"
+  ]
+}
+```
+
+---
+
+## Adventure
+
+```json
+{
+  "id": "genre_adventure",
+  "name": "adventure",
+  "display_name_ko": "모험",
+  "related_genres": [
+    "action",
+    "fantasy",
+    "adventure_epic"
+  ],
+  "common_themes": [
+    "hero_journey",
+    "survival",
+    "friendship"
+  ],
+  "common_moods": [
+    "epic",
+    "wonder",
+    "adrenaline"
+  ]
+}
+```
+
+---
+
+## Wuxia
+
+```json
+{
+  "id": "genre_wuxia",
+  "name": "wuxia",
+  "display_name_ko": "무협",
+  "related_genres": [
+    "action",
+    "period_drama",
+    "fantasy"
+  ],
+  "common_themes": [
+    "justice",
+    "revenge",
+    "honor",
+    "destiny"
+  ],
+  "common_moods": [
+    "epic",
+    "intense",
+    "mythical"
+  ]
+}
+```
+
+---
+
+## Literary
+
+```json
+{
+  "id": "genre_literary",
+  "name": "literary",
+  "display_name_ko": "문예",
+  "related_genres": [
+    "drama",
+    "art",
+    "historical"
+  ],
+  "common_themes": [
+    "identity",
+    "memory",
+    "loss"
+  ],
+  "common_moods": [
+    "melancholic",
+    "quiet",
+    "philosophical"
+  ]
+}
+```
+
+---
+
+## Culture
+
+```json
+{
+  "id": "genre_culture",
+  "name": "culture",
+  "display_name_ko": "문화",
+  "related_genres": [
+    "documentary",
+    "art",
+    "regional"
+  ],
+  "common_themes": [
+    "identity",
+    "memory",
+    "tradition"
+  ],
+  "common_moods": [
+    "nostalgic",
+    "warm",
+    "quiet"
+  ]
+}
+```
+
+---
+
+## Musical
+
+```json
+{
+  "id": "genre_musical",
+  "name": "musical",
+  "display_name_ko": "뮤지컬",
+  "related_genres": [
+    "music",
+    "romance",
+    "comedy"
+  ],
+  "common_themes": [
+    "love",
+    "dream",
+    "personal_growth"
+  ],
+  "common_moods": [
+    "joyful",
+    "hopeful",
+    "warm"
+  ]
+}
+```
+
+---
+
+## Music
+
+```json
+{
+  "id": "genre_music",
+  "name": "music",
+  "display_name_ko": "뮤직",
+  "related_genres": [
+    "musical",
+    "biopic",
+    "documentary"
+  ],
+  "common_themes": [
+    "identity",
+    "passion",
+    "dream"
+  ],
+  "common_moods": [
+    "energetic",
+    "emotional",
+    "nostalgic"
+  ]
+}
+```
+
+---
+
+## Mystery
+
+```json
+{
+  "id": "genre_mystery",
+  "name": "mystery",
+  "display_name_ko": "미스터리",
+  "related_genres": [
+    "thriller",
+    "crime",
+    "noir"
+  ],
+  "common_themes": [
+    "truth",
+    "hidden_past",
+    "obsession",
+    "uncertainty"
+  ],
+  "common_moods": [
+    "enigmatic",
+    "tense",
+    "suspenseful"
+  ]
+}
+```
+
+---
+
+## Division
+
+```json
+{
+  "id": "genre_division",
+  "name": "division",
+  "display_name_ko": "반공/분단",
+  "related_genres": [
+    "war",
+    "drama",
+    "historical"
+  ],
+  "common_themes": [
+    "identity",
+    "family",
+    "survival",
+    "loss"
+  ],
+  "common_moods": [
+    "tragic",
+    "tense",
+    "melancholic"
+  ]
+}
+```
+
+---
+
+## Crime
+
+```json
+{
+  "id": "genre_crime",
+  "name": "crime",
+  "display_name_ko": "범죄",
+  "related_genres": [
+    "thriller",
+    "action",
+    "noir"
+  ],
+  "common_themes": [
+    "corruption",
+    "power",
+    "morality",
+    "betrayal"
+  ],
+  "common_moods": [
+    "gritty",
+    "dark",
+    "violent"
+  ]
+}
+```
+
+---
+
+## Social
+
+```json
+{
+  "id": "genre_social",
+  "name": "social",
+  "display_name_ko": "사회",
+  "related_genres": [
+    "drama",
+    "documentary",
+    "social_realism"
+  ],
+  "common_themes": [
+    "class_conflict",
+    "justice",
+    "survival"
+  ],
+  "common_moods": [
+    "realistic",
+    "tense",
+    "serious"
+  ]
+}
+```
+
+---
+
+## Social Realism
+
+```json
+{
+  "id": "genre_social_realism",
+  "name": "social_realism",
+  "display_name_ko": "사회물(경향)",
+  "related_genres": [
+    "social",
+    "drama",
+    "noir"
+  ],
+  "common_themes": [
+    "class_conflict",
+    "corruption",
+    "survival"
+  ],
+  "common_moods": [
+    "gritty",
+    "dark",
+    "realistic"
+  ]
+}
+```
+
+---
+
+## Western
+
+```json
+{
+  "id": "genre_western",
+  "name": "western",
+  "display_name_ko": "서부",
+  "related_genres": [
+    "action",
+    "adventure",
+    "crime"
+  ],
+  "common_themes": [
+    "justice",
+    "revenge",
+    "survival"
+  ],
+  "common_moods": [
+    "gritty",
+    "epic",
+    "tense"
   ]
 }
 ```
@@ -132,84 +926,623 @@
 
 ---
 
-## Science Fiction
+## Sports
 
 ```json
 {
-  "id": "genre_scifi",
-  "name": "science_fiction",
-  "display_name_ko": "SF",
-  "related_genres": [
-    "cyberpunk",
-    "fantasy",
-    "thriller"
-  ],
-  "common_themes": [
-    "humanity",
-    "technology",
-    "identity",
-    "artificial_intelligence",
-    "time"
-  ],
-  "common_moods": [
-    "futuristic",
-    "philosophical",
-    "surreal"
-  ]
-}
-```
-
----
-
-## Horror
-
-```json
-{
-  "id": "genre_horror",
-  "name": "horror",
-  "display_name_ko": "공포",
-  "related_genres": [
-    "thriller",
-    "psychological",
-    "supernatural"
-  ],
-  "common_themes": [
-    "fear",
-    "death",
-    "madness",
-    "isolation"
-  ],
-  "common_moods": [
-    "disturbing",
-    "anxious",
-    "claustrophobic"
-  ]
-}
-```
-
----
-
-## Romance
-
-```json
-{
-  "id": "genre_romance",
-  "name": "romance",
-  "display_name_ko": "로맨스",
+  "id": "genre_sports",
+  "name": "sports",
+  "display_name_ko": "스포츠",
   "related_genres": [
     "drama",
-    "comedy",
-    "slice_of_life"
+    "youth",
+    "biopic"
+  ],
+  "common_themes": [
+    "personal_growth",
+    "teamwork",
+    "perseverance"
+  ],
+  "common_moods": [
+    "inspiring",
+    "intense",
+    "hopeful"
+  ]
+}
+```
+
+---
+
+## Period Drama
+
+```json
+{
+  "id": "genre_period_drama",
+  "name": "period_drama",
+  "display_name_ko": "시대극/사극",
+  "related_genres": [
+    "historical",
+    "drama",
+    "wuxia"
+  ],
+  "common_themes": [
+    "power",
+    "honor",
+    "destiny",
+    "family"
+  ],
+  "common_moods": [
+    "epic",
+    "melancholic",
+    "mythical"
+  ]
+}
+```
+
+---
+
+## Shinpa
+
+```json
+{
+  "id": "genre_shinpa",
+  "name": "shinpa",
+  "display_name_ko": "신파",
+  "related_genres": [
+    "melodrama",
+    "drama",
+    "family"
   ],
   "common_themes": [
     "love",
-    "separation",
-    "emotional_connection",
-    "sacrifice"
+    "loss",
+    "sacrifice",
+    "family"
+  ],
+  "common_moods": [
+    "emotional",
+    "tragic",
+    "melancholic"
+  ]
+}
+```
+
+---
+
+## Experimental
+
+```json
+{
+  "id": "genre_experimental",
+  "name": "experimental",
+  "display_name_ko": "실험",
+  "related_genres": [
+    "art",
+    "drama",
+    "documentary"
+  ],
+  "common_themes": [
+    "identity",
+    "alienation",
+    "absurdity"
+  ],
+  "common_moods": [
+    "surreal",
+    "dreamlike",
+    "philosophical"
+  ]
+}
+```
+
+---
+
+## Children
+
+```json
+{
+  "id": "genre_children",
+  "name": "children",
+  "display_name_ko": "아동",
+  "related_genres": [
+    "family",
+    "animation",
+    "fantasy"
+  ],
+  "common_themes": [
+    "friendship",
+    "personal_growth",
+    "courage"
   ],
   "common_moods": [
     "warm",
     "hopeful",
+    "lighthearted"
+  ]
+}
+```
+
+---
+
+## Animation
+
+```json
+{
+  "id": "genre_animation",
+  "name": "animation",
+  "display_name_ko": "애니메이션",
+  "related_genres": [
+    "fantasy",
+    "family",
+    "children"
+  ],
+  "common_themes": [
+    "hero_journey",
+    "friendship",
+    "identity"
+  ],
+  "common_moods": [
+    "wonder",
+    "warm",
+    "lighthearted"
+  ]
+}
+```
+
+---
+
+## Action
+
+```json
+{
+  "id": "genre_action",
+  "name": "action",
+  "display_name_ko": "액션",
+  "related_genres": [
+    "thriller",
+    "adventure",
+    "crime"
+  ],
+  "common_themes": [
+    "revenge",
+    "survival",
+    "justice",
+    "heroism"
+  ],
+  "common_moods": [
+    "intense",
+    "adrenaline",
+    "violent"
+  ]
+}
+```
+
+---
+
+## Adventure Epic
+
+```json
+{
+  "id": "genre_adventure_epic",
+  "name": "adventure_epic",
+  "display_name_ko": "어드벤처",
+  "related_genres": [
+    "adventure",
+    "fantasy",
+    "action"
+  ],
+  "common_themes": [
+    "hero_journey",
+    "destiny",
+    "survival"
+  ],
+  "common_moods": [
+    "epic",
+    "wonder",
+    "adrenaline"
+  ]
+}
+```
+
+---
+
+## Erotica
+
+```json
+{
+  "id": "genre_erotica",
+  "name": "erotica",
+  "display_name_ko": "에로",
+  "related_genres": [
+    "drama",
+    "romance"
+  ],
+  "common_themes": [
+    "desire",
+    "obsession",
+    "identity"
+  ],
+  "common_moods": [
+    "sensual",
+    "dark",
+    "intense"
+  ]
+}
+```
+
+---
+
+## Historical
+
+```json
+{
+  "id": "genre_historical",
+  "name": "historical",
+  "display_name_ko": "역사",
+  "related_genres": [
+    "period_drama",
+    "war",
+    "biopic"
+  ],
+  "common_themes": [
+    "power",
+    "memory",
+    "identity"
+  ],
+  "common_moods": [
+    "epic",
+    "serious",
+    "melancholic"
+  ]
+}
+```
+
+---
+
+## Serial
+
+```json
+{
+  "id": "genre_serial",
+  "name": "serial",
+  "display_name_ko": "연쇄극",
+  "related_genres": [
+    "multi_part",
+    "drama",
+    "thriller"
+  ],
+  "common_themes": [
+    "obsession",
+    "destiny",
+    "family"
+  ],
+  "common_moods": [
+    "suspenseful",
+    "emotional",
+    "nostalgic"
+  ]
+}
+```
+
+---
+
+## Art
+
+```json
+{
+  "id": "genre_art",
+  "name": "art",
+  "display_name_ko": "예술",
+  "related_genres": [
+    "experimental",
+    "biopic",
+    "literary"
+  ],
+  "common_themes": [
+    "identity",
+    "passion",
+    "alienation"
+  ],
+  "common_moods": [
+    "dreamlike",
+    "melancholic",
+    "philosophical"
+  ]
+}
+```
+
+---
+
+## Omnibus
+
+```json
+{
+  "id": "genre_omnibus",
+  "name": "omnibus",
+  "display_name_ko": "옴니버스",
+  "related_genres": [
+    "drama",
+    "comedy",
+    "experimental"
+  ],
+  "common_themes": [
+    "identity",
+    "daily_life",
+    "connection"
+  ],
+  "common_moods": [
+    "bittersweet",
+    "varied",
+    "quiet"
+  ]
+}
+```
+
+---
+
+## Human Rights
+
+```json
+{
+  "id": "genre_human_rights",
+  "name": "human_rights",
+  "display_name_ko": "인권",
+  "related_genres": [
+    "documentary",
+    "social",
+    "drama"
+  ],
+  "common_themes": [
+    "justice",
+    "survival",
+    "responsibility"
+  ],
+  "common_moods": [
+    "serious",
+    "emotional",
+    "hopeful"
+  ]
+}
+```
+
+---
+
+## Portrait
+
+```json
+{
+  "id": "genre_portrait",
+  "name": "portrait",
+  "display_name_ko": "인물",
+  "related_genres": [
+    "biopic",
+    "documentary",
+    "historical"
+  ],
+  "common_themes": [
+    "identity",
+    "legacy",
+    "memory"
+  ],
+  "common_moods": [
+    "inspiring",
+    "serious",
+    "emotional"
+  ]
+}
+```
+
+---
+
+## Nature
+
+```json
+{
+  "id": "genre_nature",
+  "name": "nature",
+  "display_name_ko": "자연ㆍ환경",
+  "related_genres": [
+    "documentary",
+    "adventure",
+    "disaster"
+  ],
+  "common_themes": [
+    "survival",
+    "responsibility",
+    "wonder"
+  ],
+  "common_moods": [
+    "awe",
+    "quiet",
+    "hopeful"
+  ]
+}
+```
+
+---
+
+## Disaster
+
+```json
+{
+  "id": "genre_disaster",
+  "name": "disaster",
+  "display_name_ko": "재난",
+  "related_genres": [
+    "action",
+    "thriller",
+    "science_fiction"
+  ],
+  "common_themes": [
+    "survival",
+    "fear",
+    "family"
+  ],
+  "common_moods": [
+    "intense",
+    "tense",
+    "anxious"
+  ]
+}
+```
+
+---
+
+## Biopic
+
+```json
+{
+  "id": "genre_biopic",
+  "name": "biopic",
+  "display_name_ko": "전기",
+  "related_genres": [
+    "drama",
+    "historical",
+    "portrait"
+  ],
+  "common_themes": [
+    "identity",
+    "legacy",
+    "personal_growth"
+  ],
+  "common_moods": [
+    "inspiring",
+    "emotional",
+    "serious"
+  ]
+}
+```
+
+---
+
+## War
+
+```json
+{
+  "id": "genre_war",
+  "name": "war",
+  "display_name_ko": "전쟁",
+  "related_genres": [
+    "military",
+    "historical",
+    "drama"
+  ],
+  "common_themes": [
+    "survival",
+    "loss",
+    "sacrifice",
+    "morality"
+  ],
+  "common_moods": [
+    "intense",
+    "tragic",
+    "dark"
+  ]
+}
+```
+
+---
+
+## Religion
+
+```json
+{
+  "id": "genre_religion",
+  "name": "religion",
+  "display_name_ko": "종교",
+  "related_genres": [
+    "drama",
+    "historical",
+    "documentary"
+  ],
+  "common_themes": [
+    "faith",
+    "redemption",
+    "morality"
+  ],
+  "common_moods": [
+    "serious",
+    "hopeful",
+    "philosophical"
+  ]
+}
+```
+
+---
+
+## Regional
+
+```json
+{
+  "id": "genre_regional",
+  "name": "regional",
+  "display_name_ko": "지역",
+  "related_genres": [
+    "culture",
+    "drama",
+    "documentary"
+  ],
+  "common_themes": [
+    "identity",
+    "tradition",
+    "community"
+  ],
+  "common_moods": [
+    "nostalgic",
+    "warm",
+    "quiet"
+  ]
+}
+```
+
+---
+
+## Espionage
+
+```json
+{
+  "id": "genre_espionage",
+  "name": "espionage",
+  "display_name_ko": "첩보",
+  "related_genres": [
+    "thriller",
+    "action",
+    "crime"
+  ],
+  "common_themes": [
+    "conspiracy",
+    "betrayal",
+    "survival"
+  ],
+  "common_moods": [
+    "suspenseful",
+    "tense",
+    "dark"
+  ]
+}
+```
+
+---
+
+## Youth
+
+```json
+{
+  "id": "genre_youth",
+  "name": "youth",
+  "display_name_ko": "청춘영화",
+  "related_genres": [
+    "drama",
+    "romance",
+    "teen"
+  ],
+  "common_themes": [
+    "personal_growth",
+    "identity",
+    "friendship"
+  ],
+  "common_moods": [
+    "hopeful",
+    "nostalgic",
     "bittersweet"
   ]
 }
@@ -217,56 +1550,27 @@
 
 ---
 
-## Mystery
+## Comedy
 
 ```json
 {
-  "id": "genre_mystery",
-  "name": "mystery",
-  "display_name_ko": "미스터리",
+  "id": "genre_comedy",
+  "name": "comedy",
+  "display_name_ko": "코메디",
   "related_genres": [
-    "thriller",
-    "crime",
-    "psychological"
+    "romance",
+    "family",
+    "teen"
   ],
   "common_themes": [
-    "truth",
-    "hidden_past",
-    "obsession",
-    "uncertainty"
+    "friendship",
+    "daily_life",
+    "misunderstanding"
   ],
   "common_moods": [
-    "enigmatic",
-    "tense",
-    "suspenseful"
-  ]
-}
-```
-
----
-
-## Crime
-
-```json
-{
-  "id": "genre_crime",
-  "name": "crime",
-  "display_name_ko": "범죄",
-  "related_genres": [
-    "thriller",
-    "action",
-    "mystery"
-  ],
-  "common_themes": [
-    "corruption",
-    "power",
-    "morality",
-    "betrayal"
-  ],
-  "common_moods": [
-    "gritty",
-    "dark",
-    "violent"
+    "lighthearted",
+    "funny",
+    "chaotic"
   ]
 }
 ```
@@ -282,8 +1586,8 @@
   "display_name_ko": "판타지",
   "related_genres": [
     "adventure",
-    "scifi",
-    "family"
+    "science_fiction",
+    "animation"
   ],
   "common_themes": [
     "destiny",
@@ -301,28 +1605,108 @@
 
 ---
 
-## Comedy
+## Teen
 
 ```json
 {
-  "id": "genre_comedy",
-  "name": "comedy",
-  "display_name_ko": "코미디",
+  "id": "genre_teen",
+  "name": "teen",
+  "display_name_ko": "하이틴(고교)",
   "related_genres": [
+    "youth",
     "romance",
-    "slice_of_life",
-    "family"
+    "comedy"
   ],
   "common_themes": [
+    "identity",
     "friendship",
-    "daily_life",
-    "social_satire",
-    "misunderstanding"
+    "first_love"
   ],
   "common_moods": [
+    "hopeful",
     "lighthearted",
-    "funny",
-    "chaotic"
+    "nostalgic"
+  ]
+}
+```
+
+---
+
+## Adaptation
+
+```json
+{
+  "id": "genre_adaptation",
+  "name": "adaptation",
+  "display_name_ko": "합작(번안물)",
+  "related_genres": [
+    "drama",
+    "historical",
+    "romance"
+  ],
+  "common_themes": [
+    "identity",
+    "cultural_exchange",
+    "love"
+  ],
+  "common_moods": [
+    "varied",
+    "emotional",
+    "nostalgic"
+  ]
+}
+```
+
+---
+
+## Naval Action
+
+```json
+{
+  "id": "genre_naval_action",
+  "name": "naval_action",
+  "display_name_ko": "해양액션",
+  "related_genres": [
+    "action",
+    "war",
+    "adventure"
+  ],
+  "common_themes": [
+    "survival",
+    "heroism",
+    "duty"
+  ],
+  "common_moods": [
+    "intense",
+    "adrenaline",
+    "epic"
+  ]
+}
+```
+
+---
+
+## Period Action
+
+```json
+{
+  "id": "genre_period_action",
+  "name": "period_action",
+  "display_name_ko": "활극",
+  "related_genres": [
+    "action",
+    "wuxia",
+    "period_drama"
+  ],
+  "common_themes": [
+    "justice",
+    "revenge",
+    "honor"
+  ],
+  "common_moods": [
+    "epic",
+    "intense",
+    "adrenaline"
   ]
 }
 ```

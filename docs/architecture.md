@@ -29,7 +29,7 @@ flowchart LR
     end
 
     subgraph State["State Layer"]
-        Postgres[("PostgreSQL\n- chat_session\n- chat_message\n- LangGraph checkpoint")]
+        Postgres[("PostgreSQL\n- chat_session (persona_id)\n- chat_message (persona_id)\n- bandit_state (context_key)\n- LangGraph checkpoint")]
     end
 
     subgraph ETL["Ontology ETL"]
@@ -135,14 +135,14 @@ sequenceDiagram
     participant NEO as Neo4j
     participant EMB as Embedding
 
-    U->>API: query "감성적인 한국 영화 추천해줘"
-    API->>PG: open_session + append(user message)
-    API->>LG: invoke(state{user_id, session_id, query})
+    U->>API: query "감성적인 한국 영화 추천해줘"<br/>+ persona_id (선택)
+    API->>PG: open_session(user_id, persona_id) + append(user message)
+    API->>LG: invoke(state{user_id, persona_id, session_id, query})
 
     LG->>EMB: embed_query
     LG->>LG: plan_intent (IntentResolver: vocab + NN)
-    LG->>LG: select_weights (ThompsonBandit.sample_arm)
-    LG->>NEO: retrieve_movies (TemplateExecutor.hybrid_recommend)
+    LG->>LG: select_weights (context_key = user_id:persona_id)
+    LG->>NEO: retrieve_movies (Persona-scoped hybrid_recommend)
     NEO-->>LG: top-K movies
 
     LG->>VL: generate_reply (vLLM JSON mode)
@@ -164,7 +164,7 @@ sequenceDiagram
 flowchart LR
     subgraph Prefix["고정 Prefix (호출 간 동일)"]
         SP["System Prompt\n(ONTOLOGY_SYSTEM_PROMPT)"]
-        UP["User Persona Prefix\n(user_id 기반 안정 prefix)"]
+        UP["Persona Prefix\n(user_id + persona_id 기반 안정 prefix)"]
     end
 
     subgraph Variable["가변 Suffix"]
@@ -186,27 +186,46 @@ flowchart LR
 
 ---
 
-## 5. 추천 알고리즘 (Hybrid: Semantic × Keyword × Graph)
+## 5. 추천 알고리즘 (Hybrid: Semantic × Keyword × Graph × Persona)
+
+> Persona 는 추천의 **최소 단위**이다. `(user_id, persona_id)` 로 선호·Bandit·세션이 스코프된다.
+> 상세: [persona_recommendation.md](persona_recommendation.md)
 
 ```mermaid
 flowchart TB
-    Q["사용자 질의 / 사용자 컨텍스트"]
+    Q["사용자 질의 / 컨텍스트\n(user_id + persona_id)"]
     Q --> E["Query Embedding\n(BGE-M3)"]
-    Q --> KW["Keyword/Theme/Mood 추출\n(LLM or 룰 기반)"]
+    Q --> KW["Keyword/Theme/Mood 추출\n(IntentResolver)"]
 
     E --> V["Vector Search\n(movie_plot_vec)"]
     KW --> KS["Keyword Match\n(:MENTIONS via Keyword)"]
     KW --> TM["Theme/Mood Match"]
 
-    subgraph UserPref["사용자 선호도"]
-        P1[":PREFERS"]
-        P2[":INTERACTED\n(view/like/skip)"]
+    subgraph PersonaPref["Persona 선호도\n(persona_id 존재 시)"]
+        P1["(:Persona)-[:PREFERS]"]
+        P2["(:Persona)-[:INTERACTED]"]
     end
 
-    V --> S["가중합 스코어\n0.55·vec\n+ 0.15·kw\n+ 0.10·theme\n+ 0.05·mood\n+ 0.15·user_pref"]
+    subgraph UserFallback["Fallback\n(persona_id 없음)"]
+        U1["(:User)-[:PREFERS]"]
+        U2["(:User)-[:INTERACTED]"]
+    end
+
+    V --> S["가중합 스코어\nBandit arm 가중치 적용\n(w_vec, w_kw, w_theme, w_mood, w_user)"]
     KS --> S
     TM --> S
-    UserPref --> S
+    PersonaPref --> S
+    UserFallback --> S
 
-    S --> R["Top-K Movies\n(추천 / 채팅 근거)"]
+    S --> R["Top-K\n(Movie / Feed / Comment)"]
 ```
+
+### 5-1. 도메인별 Persona 파생
+
+| 도메인 | 엔드포인트 | Persona 역할 |
+|--------|-----------|--------------|
+| Chat | `/chat` | LangGraph `select_weights` + `retrieve_movies` + 세션 이력 |
+| Movie | `/recommend` | Bandit arm + hybrid Cypher `$persona_id` |
+| Feed | `/ingest/feed` + 랭킹 | `WRITTEN_BY` Persona, Persona-scoped `INTERACTED` |
+| Comment | `/ingest/comment` + 랭킹 | Persona affinity + intent/sentiment 부스트 |
+| Feedback | `/feedback` | `context_key = user_id:persona_id` posterior 갱신 |

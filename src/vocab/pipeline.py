@@ -41,23 +41,7 @@ class VocabPipeline:
     def resolve_keywords(
         self, keywords: Sequence[Keyword], embeddings: Optional[dict[str, list[float]]] = None
     ) -> list[Keyword]:
-        kept: list[Keyword] = []
-        for kw in keywords:
-            if kw.kind in ("theme", "mood"):
-                canon = (
-                    self._normalizer.normalize_theme(kw.normalized)
-                    or self._normalizer.normalize_mood(kw.normalized)
-                )
-                if not canon:
-                    emb = (embeddings or {}).get(kw.normalized)
-                    self._store.observe(
-                        term=kw.term,
-                        normalized=kw.normalized,
-                        kind=kw.kind,
-                        embedding=emb,
-                    )
-            kept.append(kw)
-        return kept
+        return list(keywords)
 
 
 __all__ = ["VocabPipeline"]
