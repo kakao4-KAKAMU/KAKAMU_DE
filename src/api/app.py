@@ -15,6 +15,8 @@ import logging
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.openapi.utils import get_openapi
+
 
 from src.api.routers import router
 from src.config.settings import get_settings
@@ -29,14 +31,26 @@ origins = [
 def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(
-        title="movie-recommend-system",
-        version="0.1.0",
-        description="Knowledge-graph based movie recommendation + LLM chat",
         docs_url="/docs",
         redoc_url="/redoc",
         openapi_url="/openapi.json",
         root_path="/chat",
     )
+
+    def custom_openapi():
+        if app.openapi_schema:
+            return app.openapi_schema
+        openapi_schema = get_openapi(
+            version="0.1.0",
+            title="movie-recommend-system",
+            description="Knowledge-graph based movie recommendation + LLM chat",
+            openapi_version="3.2.0",
+            routes=router.routes,
+        )
+        app.openapi_schema = openapi_schema
+        return app.openapi_schema
+
+    app.openapi = custom_openapi
     app.add_middleware(
         CORSMiddleware,
         allow_origins=origins,
