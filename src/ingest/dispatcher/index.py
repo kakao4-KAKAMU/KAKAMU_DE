@@ -22,8 +22,18 @@ from src.ingest.dispatcher.utils import Embedder, Handler, LLMClient
 from src.ingest.dispatcher.movie import build_movie_handler
 from src.ingest.dispatcher.feed import build_feed_handler
 from src.ingest.dispatcher.comment import build_comment_handler
+from src.ingest.dispatcher.like import build_feed_like_handler, build_comment_like_handler
+from src.ingest.dispatcher.judge import build_movie_judge_handler, build_person_judge_handler
+from src.ingest.dispatcher.delete import build_feed_delete_handler, build_comment_delete_handler
 
 logger = logging.getLogger(__name__)
+
+ALL_AGGREGATE_TYPES = (
+    "movie", "feed", "comment",
+    "feed_modify", "feed_delete", "feed_like",
+    "comment_modify", "comment_delete", "comment_like",
+    "movie_judge", "person_judge",
+)
 
 
 # ---------------------------------------------------------------------------
@@ -69,9 +79,9 @@ class IngestDispatcher:
 
 
 def default_dispatcher() -> IngestDispatcher:
-    """movie / feed / comment → mock extract+load. (테스트/로컬 smoke)"""
+    """전체 aggregate_type → mock extract+load. (테스트/로컬 smoke)"""
     d = IngestDispatcher()
-    for t in ("movie", "feed", "comment"):
+    for t in ALL_AGGREGATE_TYPES:
         d.register(t, mock_extract_load_handler(t))
     return d
 
@@ -86,35 +96,40 @@ def build_production_dispatcher(
     """실 Extractor + Embedder + Loader 를 묶은 production dispatcher."""
     context_reader = Neo4jCommentContextReader(neo4j)
     d = IngestDispatcher()
-    d.register(
-        "movie",
-        build_movie_handler(
-            extractor=MoviePlotExtractor(llm),
-            embedder=embedder,
-            loader=loader,
-        ),
+
+    movie_handler = build_movie_handler(
+        extractor=MoviePlotExtractor(llm), embedder=embedder, loader=loader,
     )
-    d.register(
-        "feed",
-        build_feed_handler(
-            extractor=FeedExtractor(llm),
-            embedder=embedder,
-            loader=loader,
-        ),
+    feed_handler = build_feed_handler(
+        extractor=FeedExtractor(llm), embedder=embedder, loader=loader,
     )
-    d.register(
-        "comment",
-        build_comment_handler(
-            extractor=CommentExtractor(llm),
-            embedder=embedder,
-            loader=loader,
-            context_reader=context_reader,
-        ),
+    comment_handler = build_comment_handler(
+        extractor=CommentExtractor(llm), embedder=embedder, loader=loader,
+        context_reader=context_reader,
     )
+
+    d.register("movie", movie_handler)
+    d.register("feed", feed_handler)
+    d.register("comment", comment_handler)
+
+    # modify 는 create 와 동일한 MERGE/SET 로직 (멱등)
+    d.register("feed_modify", feed_handler)
+    d.register("comment_modify", comment_handler)
+
+    d.register("feed_like", build_feed_like_handler(loader=loader))
+    d.register("comment_like", build_comment_like_handler(loader=loader))
+
+    d.register("movie_judge", build_movie_judge_handler(loader=loader))
+    d.register("person_judge", build_person_judge_handler(loader=loader))
+
+    d.register("feed_delete", build_feed_delete_handler(loader=loader))
+    d.register("comment_delete", build_comment_delete_handler(loader=loader))
+
     return d
 
 
 __all__ = [
+    "ALL_AGGREGATE_TYPES",
     "IngestDispatcher",
     "build_production_dispatcher",
     "default_dispatcher",
