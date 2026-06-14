@@ -17,7 +17,25 @@ CREATE TABLE IF NOT EXISTS ingest_outbox (
 
 CREATE INDEX IF NOT EXISTS idx_ingest_outbox_pending
     ON ingest_outbox (status, next_attempt_at)
-    WHERE status IN ('pending', 'processing');
+    WHERE status IN ('pending', 'processing', 'waiting');
+
+CREATE INDEX IF NOT EXISTS idx_ingest_outbox_done_lookup
+    ON ingest_outbox (aggregate_type, aggregate_id)
+    WHERE status = 'done';
+
+CREATE TABLE IF NOT EXISTS ingest_dependencies (
+    id          BIGSERIAL PRIMARY KEY,
+    outbox_id   BIGINT NOT NULL REFERENCES ingest_outbox(id) ON DELETE CASCADE,
+    dep_type    TEXT NOT NULL,
+    dep_id      TEXT NOT NULL,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_ingest_deps_outbox
+    ON ingest_dependencies (outbox_id);
+
+CREATE INDEX IF NOT EXISTS idx_ingest_deps_dep
+    ON ingest_dependencies (dep_type, dep_id);
 
 CREATE TABLE IF NOT EXISTS ingest_dlq (
     id              BIGSERIAL PRIMARY KEY,

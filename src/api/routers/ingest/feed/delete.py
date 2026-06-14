@@ -12,7 +12,13 @@ from src.api.schemas import IngestFeedDeleteEnvelope, IngestResponse
 router = APIRouter()
 
 
-@router.post("/ingest/feed/delete", response_model=IngestResponse)
+@router.post(
+    "/ingest/feed/delete",
+    response_model=IngestResponse,
+    tags=["feed"],
+    summary="피드 삭제",
+    description="피드 삭제 이벤트를 ingest outbox에 적재합니다.",
+)
 def ingest_feed_delete(
     env: IngestFeedDeleteEnvelope,
     container: AppContainer = Depends(get_app_container),

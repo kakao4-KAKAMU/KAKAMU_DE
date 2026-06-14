@@ -13,7 +13,13 @@ from src.api.schemas import ChatSessionResponse
 router = APIRouter()
 
 
-@router.get("/chat/history/{session_id}", response_model=ChatSessionResponse)
+@router.get(
+    "/chat/history/{session_id}",
+    response_model=ChatSessionResponse,
+    tags=["chat"],
+    summary="세션 메시지 이력",
+    description="세션 메시지 이력을 조회합니다.",
+)
 def chat_session(
     session_id: str,
     persona_id: Annotated[Optional[str], Header(alias="X-Persona-Id")] = None,
