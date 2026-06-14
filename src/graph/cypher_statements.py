@@ -304,7 +304,7 @@ MERGE (f)-[:WRITTEN_BY]->(u)
 // related movie (optional)
 WITH f
 CALL (f) {
-  WITH f WHERE $related_movie_id IS NOT NULL
+  With f WHERE $related_movie_id IS NOT NULL
   MATCH (m:Movie {movie_id: $related_movie_id})
   MERGE (f)-[:ABOUT_MOVIE]->(m)
 }
@@ -323,7 +323,7 @@ UNWIND $emotions AS e
     SET r.score = e.score
 
 // keywords
-WITH f
+With f
 UNWIND $keywords AS kw
   MERGE (k:Keyword {normalized: kw.normalized})
     ON CREATE SET k.kind = kw.kind, k.term = kw.term
@@ -351,25 +351,130 @@ MERGE (c)-[:WRITTEN_BY]->(u)
 // parent comment (대댓글, optional)
 WITH c
 CALL (c) {
-  WITH c WHERE $parent_comment_id IS NOT NULL
+  With c WHERE $parent_comment_id IS NOT NULL
   MERGE (pc:Comment {comment_id: $parent_comment_id})
   MERGE (c)-[:REPLY_TO]->(pc)
 }
 
 // emotions
-WITH c
+With c
 UNWIND $emotions AS e
   MERGE (em:Emotion {tag: e.tag})
   MERGE (c)-[r:HAS_EMOTION]->(em)
     SET r.score = e.score
 
 // keywords
-WITH c
+With c
 UNWIND $keywords AS kw
   MERGE (k:Keyword {normalized: kw.normalized})
     ON CREATE SET k.kind = kw.kind, k.term = kw.term
   MERGE (c)-[r:MENTIONS]->(k)
     SET r.weight = kw.weight
+"""
+
+
+# ---------------------------------------------------------------------------
+# 5-b. Like / Judge / Delete — INTERACTED + soft-delete
+# ---------------------------------------------------------------------------
+
+LIKE_FEED_WITH_PERSONA: Final[str] = """
+MERGE (f:Feed {feed_id: $feed_id})
+WITH f
+CALL (f) {
+  WITH f WHERE $persona_id IS NOT NULL
+  MERGE (u:User {user_id: $user_id})
+  MERGE (pe:Persona {persona_id: $persona_id})
+  MERGE (u)-[:HAS_PERSONA]->(pe)
+  MERGE (pe)-[r:INTERACTED]->(f)
+    SET r.action = 'like', r.weight = $weight, r.ts = $ts
+}
+WITH f
+CALL (f) {
+  WITH f WHERE $persona_id IS NULL
+  MERGE (u:User {user_id: $user_id})
+  MERGE (u)-[r:INTERACTED]->(f)
+    SET r.action = 'like', r.weight = $weight, r.ts = $ts
+}
+"""
+
+UNLIKE_FEED_WITH_PERSONA: Final[str] = """
+MATCH (f:Feed {feed_id: $feed_id})
+WITH f
+CALL (f) {
+  WITH f WHERE $persona_id IS NOT NULL
+  OPTIONAL MATCH (:Persona {persona_id: $persona_id})-[r:INTERACTED]->(f)
+  DELETE r
+}
+WITH f
+CALL (f) {
+  WITH f WHERE $persona_id IS NULL
+  OPTIONAL MATCH (:User {user_id: $user_id})-[r:INTERACTED]->(f)
+  DELETE r
+}
+"""
+
+LIKE_COMMENT_WITH_PERSONA: Final[str] = """
+MERGE (c:Comment {comment_id: $comment_id})
+WITH c
+CALL (c) {
+  WITH c WHERE $persona_id IS NOT NULL
+  MERGE (u:User {user_id: $user_id})
+  MERGE (pe:Persona {persona_id: $persona_id})
+  MERGE (u)-[:HAS_PERSONA]->(pe)
+  MERGE (pe)-[r:INTERACTED]->(c)
+    SET r.action = 'like', r.weight = $weight, r.ts = $ts
+}
+WITH c
+CALL (c) {
+  WITH c WHERE $persona_id IS NULL
+  MERGE (u:User {user_id: $user_id})
+  MERGE (u)-[r:INTERACTED]->(c)
+    SET r.action = 'like', r.weight = $weight, r.ts = $ts
+}
+"""
+
+UNLIKE_COMMENT_WITH_PERSONA: Final[str] = """
+MATCH (c:Comment {comment_id: $comment_id})
+WITH c
+CALL (c) {
+  WITH c WHERE $persona_id IS NOT NULL
+  OPTIONAL MATCH (:Persona {persona_id: $persona_id})-[r:INTERACTED]->(c)
+  DELETE r
+}
+WITH c
+CALL (c) {
+  WITH c WHERE $persona_id IS NULL
+  OPTIONAL MATCH (:User {user_id: $user_id})-[r:INTERACTED]->(c)
+  DELETE r
+}
+"""
+
+JUDGE_MOVIE: Final[str] = """
+MERGE (u:User {user_id: $user_id})
+MERGE (m:Movie {movie_id: $movie_id})
+MERGE (u)-[r:INTERACTED]->(m)
+  SET r.action = $judge_type, r.weight = $weight, r.ts = $ts
+"""
+
+JUDGE_PERSON: Final[str] = """
+MERGE (u:User {user_id: $user_id})
+MERGE (p:Person {person_id: $person_id})
+MERGE (u)-[r:INTERACTED]->(p)
+  SET r.action = $judge_type, r.weight = $weight, r.ts = $ts
+"""
+
+SOFT_DELETE_FEED: Final[str] = """
+MATCH (f:Feed {feed_id: $feed_id})
+SET f.deleted = true,
+    f.deleted_at = $deleted_at,
+    f.updated_at = datetime()
+"""
+
+SOFT_DELETE_COMMENT: Final[str] = """
+MATCH (c:Comment {comment_id: $comment_id})
+SET c.deleted = true,
+    c.deleted_at = $deleted_at,
+    c.updated_at = datetime()
 """
 
 
@@ -499,6 +604,14 @@ __all__ = [
     "UPSERT_MOVIE_WITH_ONTOLOGY",
     "UPSERT_FEED_WITH_ONTOLOGY",
     "UPSERT_COMMENT_WITH_ONTOLOGY",
+    "LIKE_FEED_WITH_PERSONA",
+    "UNLIKE_FEED_WITH_PERSONA",
+    "LIKE_COMMENT_WITH_PERSONA",
+    "UNLIKE_COMMENT_WITH_PERSONA",
+    "JUDGE_MOVIE",
+    "JUDGE_PERSON",
+    "SOFT_DELETE_FEED",
+    "SOFT_DELETE_COMMENT",
     "GET_FEED_SUMMARY",
     "GET_COMMENT_SUMMARY",
     "HYBRID_MOVIE_RECOMMEND",
