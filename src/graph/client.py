@@ -41,7 +41,6 @@ class Neo4jClient:
             max_connection_lifetime=3600.0,
             max_connection_pool_size=20,
             connection_timeout=30.0,
-            connection_liveness_check_timeout=None,
         )
 
     # ------------------------------------------------------------------
