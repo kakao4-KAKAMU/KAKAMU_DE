@@ -15,7 +15,7 @@ router = APIRouter()
 @router.post(
     "/ingest/feed/like",
     response_model=IngestResponse,
-    tags=["ingest", "feed"],
+    tags=["feed"],
     summary="피드 좋아요",
     description="피드 좋아요/취소 이벤트를 ingest outbox에 적재합니다.",
 )

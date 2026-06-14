@@ -15,7 +15,7 @@ router = APIRouter()
 @router.post(
     "/ingest/comment/modify",
     response_model=IngestResponse,
-    tags=["ingest", "comment"],
+    tags=["comment"],
     summary="댓글 수정",
     description="수정된 댓글 내용을 ingest outbox에 적재합니다. 워커가 온톨로지를 재추출해 그래프를 갱신합니다.",
 )

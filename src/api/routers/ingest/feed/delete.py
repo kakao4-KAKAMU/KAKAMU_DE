@@ -15,7 +15,7 @@ router = APIRouter()
 @router.post(
     "/ingest/feed/delete",
     response_model=IngestResponse,
-    tags=["ingest", "feed"],
+    tags=["feed"],
     summary="피드 삭제",
     description="피드 삭제 이벤트를 ingest outbox에 적재합니다.",
 )

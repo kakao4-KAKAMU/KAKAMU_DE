@@ -15,7 +15,7 @@ router = APIRouter()
 @router.post(
     "/ingest/movie/judge",
     response_model=IngestResponse,
-    tags=["ingest", "movie"],
+    tags=["movie"],
     summary="영화 선호 판정",
     description="사용자의 영화 like/dislike 판정을 ingest outbox에 적재합니다.",
 )

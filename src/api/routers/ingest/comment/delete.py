@@ -15,7 +15,7 @@ router = APIRouter()
 @router.post(
     "/ingest/comment/delete",
     response_model=IngestResponse,
-    tags=["ingest", "comment"],
+    tags=["comment"],
     summary="댓글 삭제",
     description="댓글 삭제 이벤트를 ingest outbox에 적재합니다.",
 )

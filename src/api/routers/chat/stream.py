@@ -36,7 +36,7 @@ async def chat_stream(
     req: ChatRequest,
     persona_id: Annotated[Optional[str], Header(alias="X-Persona-Id")] = None,
     container: AppContainer = Depends(get_app_container),
-) -> AsyncIterable:
+) -> AsyncIterable[ServerSentEvent]:
     """노드 단위 SSE 스트리밍 (디버깅/관측용)."""
     session_id = req.ensure_session_id()
     msg_id = None

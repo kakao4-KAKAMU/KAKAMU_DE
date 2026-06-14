@@ -15,7 +15,7 @@ router = APIRouter()
 @router.post(
     "/ingest/comment/like",
     response_model=IngestResponse,
-    tags=["ingest", "comment"],
+    tags=["comment"],
     summary="댓글 좋아요",
     description="댓글 좋아요/취소 이벤트를 ingest outbox에 적재합니다.",
 )
