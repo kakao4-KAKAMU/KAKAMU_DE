@@ -156,7 +156,7 @@ EMBED_DIMENSION=1024
 
 > **Persona** `(user_id, persona_id)` 가 추천의 최소 단위이다. 상세: [docs/persona_recommendation.md](docs/persona_recommendation.md)
 
-`HYBRID_MOVIE_RECOMMEND` (`src/graph/cypher_statements.py`) 의 가중합:
+`HYBRID_MOVIE_RECOMMEND_WEIGHTED` (`src/graph/cypher_statements.py`) 의 가중합:
 
 ```
 score = 0.55 · vector_similarity
@@ -193,13 +193,13 @@ score = 0.55 · vector_similarity
 
 | 영역                      | 모듈                                         | 문서                                                         |
 | ----------------------- | ------------------------------------------ | ---------------------------------------------------------- |
-| Cypher Template         | `src/graph/template_*`                     | [docs/cypher_templates.md](docs/cypher_templates.md)       |
+| Cypher Template         | `src/graph/template_`*                     | [docs/cypher_templates.md](docs/cypher_templates.md)       |
 | Versioned Embedding     | `src/embedding/version_*`                  | [docs/versioned_embedding.md](docs/versioned_embedding.md) |
 | Auto Vocabulary         | `src/vocab/*`                              | [docs/auto_vocab.md](docs/auto_vocab.md)                   |
 | Outbox Ingest           | `src/ingest/*`                             | [docs/outbox_ingest.md](docs/outbox_ingest.md)             |
 | Bandit Weights          | `src/recommend/*` (Postgres write-through) | [docs/bandit_weights.md](docs/bandit_weights.md)           |
 | LLM Judge               | `src/eval/*`                               | [docs/llm_judge.md](docs/llm_judge.md)                     |
-| **LangGraph + FastAPI** | `src/chat/`*, `src/api/*`                  | [docs/api.md](docs/api.md)                                 |
+| **LangGraph + FastAPI** | `src/chat/`*, `src/api/`*                  | [docs/api.md](docs/api.md)                                 |
 
 
 통합 smoke: [docs/smoke_test.md](docs/smoke_test.md)
