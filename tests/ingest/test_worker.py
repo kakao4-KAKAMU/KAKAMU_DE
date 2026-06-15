@@ -218,6 +218,48 @@ def test_release_ready_calls_sweep_sql() -> None:
     assert "ingest_dependencies" in sql
 
 
+def test_release_in_flight_reverts_processing_rows() -> None:
+    """release_in_flight 는 추적 중인 processing row 를 pending 으로 복귀."""
+    dispatcher = MagicMock(spec=IngestDispatcher)
+    worker = IngestWorker(dispatcher)
+    worker._track_in_flight(7)
+    worker._track_in_flight(8)
+    with patch.object(worker, "_connect") as mock_conn:
+        conn = MagicMock()
+        cur = MagicMock()
+        cur.rowcount = 2
+        mock_conn.return_value.__enter__ = MagicMock(return_value=conn)
+        mock_conn.return_value.__exit__ = MagicMock(return_value=False)
+        conn.cursor.return_value.__enter__ = MagicMock(return_value=cur)
+        conn.cursor.return_value.__exit__ = MagicMock(return_value=False)
+        released = worker.release_in_flight()
+    assert released == 2
+    sql, params = cur.execute.call_args[0]
+    assert "processing" in sql
+    assert set(params[0]) == {7, 8}
+    assert worker._in_flight == set()
+
+
+def test_release_in_flight_noop_when_empty() -> None:
+    dispatcher = MagicMock(spec=IngestDispatcher)
+    worker = IngestWorker(dispatcher)
+    with patch.object(worker, "_connect") as mock_conn:
+        released = worker.release_in_flight()
+    assert released == 0
+    mock_conn.assert_not_called()
+
+
+def test_run_once_untracks_in_flight_after_processing() -> None:
+    dispatcher = MagicMock(spec=IngestDispatcher)
+    worker = IngestWorker(dispatcher)
+    row = {"id": 21, "aggregate_type": "movie", "payload": {}, "prompt_version": "1.0", "model_name": "test", "attempts": 0}
+    with patch.object(worker, "release_ready"):
+        with patch.object(worker, "claim_batch", return_value=[row]):
+            with patch.object(worker, "process_row"):
+                worker.run_once()
+    assert worker._in_flight == set()
+
+
 def test_run_once_calls_release_ready_before_claim() -> None:
     """run_once 는 claim_batch 전에 release_ready 를 호출한다."""
     dispatcher = MagicMock(spec=IngestDispatcher)

@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import threading
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from typing import Any, Iterator, Optional, Sequence
@@ -65,6 +66,8 @@ class IngestWorker:
         self._settings = settings or get_settings().postgres
         self._outbox = outbox_writer or OutboxWriter(self._settings)
         self._resolver = dependency_resolver or DependencyResolver()
+        self._in_flight: set[int] = set()
+        self._in_flight_lock = threading.Lock()
 
     @contextmanager
     def _connect(self) -> Iterator[psycopg.Connection]:
@@ -88,6 +91,40 @@ class IngestWorker:
         if released:
             logger.info("Released %d waiting rows to pending", released)
         return released
+
+    def release_in_flight(self) -> int:
+        """Worker 종료 시 claim 후 미완료 processing row 를 pending 으로 복귀."""
+        with self._in_flight_lock:
+            ids = list(self._in_flight)
+            self._in_flight.clear()
+        if not ids:
+            return 0
+        with self._connect() as conn, conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE ingest_outbox
+                SET status = 'pending', updated_at = NOW()
+                WHERE id = ANY(%s) AND status = 'processing'
+                """,
+                (ids,),
+            )
+            released = cur.rowcount
+            conn.commit()
+        if released:
+            logger.info(
+                "Released %d in-flight processing rows to pending (ids=%s)",
+                released,
+                ids,
+            )
+        return released
+
+    def _track_in_flight(self, outbox_id: int) -> None:
+        with self._in_flight_lock:
+            self._in_flight.add(outbox_id)
+
+    def _untrack_in_flight(self, outbox_id: int) -> None:
+        with self._in_flight_lock:
+            self._in_flight.discard(outbox_id)
 
     # ------------------------------------------------------------------
     # Claim
@@ -276,26 +313,48 @@ class IngestWorker:
         self.release_ready()
         rows = self.claim_batch()
         for row in rows:
+            self._track_in_flight(row["id"])
             try:
                 self.process_row(row)
             except Exception as exc:
                 logger.exception("Ingest failed id=%s", row["id"])
                 self.nack(row, str(exc))
+            finally:
+                self._untrack_in_flight(row["id"])
         return len(rows)
 
-    async def run_loop(self, *, concurrency: int = 4, poll_interval: float = 1.0) -> None:
+    async def run_loop(
+        self,
+        *,
+        concurrency: int = 4,
+        poll_interval: float = 1.0,
+        stop_event: Optional[asyncio.Event] = None,
+    ) -> None:
+        stop = stop_event or asyncio.Event()
         sem = asyncio.Semaphore(concurrency)
 
         async def _tick() -> None:
+            if stop.is_set():
+                return
             async with sem:
+                if stop.is_set():
+                    return
                 await asyncio.to_thread(self.run_once)
 
-        while True:
-            try:
-                await asyncio.gather(*[_tick() for _ in range(concurrency)])
-            except Exception as exc:
-                logger.exception("Ingest loop failed", exc_info=True)
-            await asyncio.sleep(poll_interval)
+        try:
+            while not stop.is_set():
+                try:
+                    await asyncio.gather(*[_tick() for _ in range(concurrency)])
+                except Exception:
+                    logger.exception("Ingest loop failed")
+                if stop.is_set():
+                    break
+                try:
+                    await asyncio.wait_for(stop.wait(), timeout=poll_interval)
+                except asyncio.TimeoutError:
+                    pass
+        finally:
+            self.release_in_flight()
 
 
 __all__ = ["IngestWorker", "MAX_ATTEMPTS"]
