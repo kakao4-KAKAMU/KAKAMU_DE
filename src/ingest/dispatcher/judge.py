@@ -19,6 +19,7 @@ def build_movie_judge_handler(*, loader: OntologyLoader) -> Handler:
         loader.judge_movie(
             movie_id=p.movie_id,
             user_id=p.user_id,
+            persona_id=p.persona_id,
             judge_type=p.judge_type,
             ts=p.created_at,
         )
@@ -32,6 +33,7 @@ def build_person_judge_handler(*, loader: OntologyLoader) -> Handler:
         loader.judge_person(
             person_id=p.person_id,
             user_id=p.user_id,
+            persona_id=p.persona_id,
             judge_type=p.judge_type,
             ts=p.created_at,
         )

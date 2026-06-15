@@ -34,7 +34,6 @@ router = APIRouter()
 )
 async def chat_stream(
     req: ChatRequest,
-    persona_id: Annotated[Optional[str], Header(alias="X-Persona-Id")] = None,
     container: AppContainer = Depends(get_app_container),
 ) -> AsyncIterable[ServerSentEvent]:
     """노드 단위 SSE 스트리밍 (디버깅/관측용)."""
@@ -42,7 +41,7 @@ async def chat_stream(
     msg_id = None
     try:
         container.chat_history.open_session(
-            session_id=session_id, user_id=req.user_id, persona_id=persona_id
+            session_id=session_id, user_id=req.user_id, persona_id=req.persona_id
         )
         msg_id = container.chat_history.append(
             session_id=session_id,
