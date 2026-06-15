@@ -449,18 +449,44 @@ CALL (c) {
 }
 """
 
-JUDGE_MOVIE: Final[str] = """
-MERGE (u:User {user_id: $user_id})
+JUDGE_MOVIE_WITH_PERSONA: Final[str] = """
 MERGE (m:Movie {movie_id: $movie_id})
-MERGE (u)-[r:INTERACTED]->(m)
-  SET r.action = $judge_type, r.weight = $weight, r.ts = $ts
+WITH m
+CALL (m) {
+  WITH m WHERE $persona_id IS NOT NULL
+  MERGE (u:User {user_id: $user_id})
+  MERGE (pe:Persona {persona_id: $persona_id})
+  MERGE (u)-[:HAS_PERSONA]->(pe)
+  MERGE (pe)-[r:INTERACTED]->(m)
+    SET r.action = $judge_type, r.weight = $weight, r.ts = $ts
+}
+WITH m
+CALL (m) {
+  WITH m WHERE $persona_id IS NULL
+  MERGE (u:User {user_id: $user_id})
+  MERGE (u)-[r:INTERACTED]->(m)
+    SET r.action = $judge_type, r.weight = $weight, r.ts = $ts
+}
 """
 
-JUDGE_PERSON: Final[str] = """
-MERGE (u:User {user_id: $user_id})
+JUDGE_PERSON_WITH_PERSONA: Final[str] = """
 MERGE (p:Person {person_id: $person_id})
-MERGE (u)-[r:INTERACTED]->(p)
-  SET r.action = $judge_type, r.weight = $weight, r.ts = $ts
+WITH p
+CALL (p) {
+  WITH p WHERE $persona_id IS NOT NULL
+  MERGE (u:User {user_id: $user_id})
+  MERGE (pe:Persona {persona_id: $persona_id})
+  MERGE (u)-[:HAS_PERSONA]->(pe)
+  MERGE (pe)-[r:INTERACTED]->(p)
+    SET r.action = $judge_type, r.weight = $weight, r.ts = $ts
+}
+WITH p
+CALL (p) {
+  WITH p WHERE $persona_id IS NULL
+  MERGE (u:User {user_id: $user_id})
+  MERGE (u)-[r:INTERACTED]->(p)
+    SET r.action = $judge_type, r.weight = $weight, r.ts = $ts
+}
 """
 
 SOFT_DELETE_FEED: Final[str] = """
@@ -662,8 +688,8 @@ __all__ = [
     "UNLIKE_FEED_WITH_PERSONA",
     "LIKE_COMMENT_WITH_PERSONA",
     "UNLIKE_COMMENT_WITH_PERSONA",
-    "JUDGE_MOVIE",
-    "JUDGE_PERSON",
+    "JUDGE_MOVIE_WITH_PERSONA",
+    "JUDGE_PERSON_WITH_PERSONA",
     "SOFT_DELETE_FEED",
     "SOFT_DELETE_COMMENT",
     "GET_FEED_SUMMARY",

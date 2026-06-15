@@ -16,8 +16,8 @@ from typing import Mapping, Optional, Sequence
 from src.embedding.version_registry import EmbeddingVersionRegistry
 from src.graph.client import Neo4jClient
 from src.graph.cypher_statements import (
-    JUDGE_MOVIE,
-    JUDGE_PERSON,
+    JUDGE_MOVIE_WITH_PERSONA,
+    JUDGE_PERSON_WITH_PERSONA,
     LIKE_COMMENT_WITH_PERSONA,
     LIKE_FEED_WITH_PERSONA,
     SOFT_DELETE_COMMENT,
@@ -263,16 +263,20 @@ class OntologyLoader:
         movie_id: str,
         user_id: str,
         judge_type: str,
+        persona_id: Optional[str] = None,
         ts: Optional[datetime] = None,
     ) -> None:
         weight = 1.0 if judge_type == "like" else -1.0
         ts_val = ts or datetime.now(timezone.utc)
         self._neo4j.execute_write(
-            JUDGE_MOVIE,
-            {"movie_id": movie_id, "user_id": user_id,
+            JUDGE_MOVIE_WITH_PERSONA,
+            {"movie_id": movie_id, "user_id": user_id, "persona_id": persona_id,
              "judge_type": judge_type, "weight": weight, "ts": ts_val},
         )
-        logger.info("Judge movie=%s user=%s type=%s", movie_id, user_id, judge_type)
+        logger.info(
+            "Judge movie=%s user=%s persona=%s type=%s",
+            movie_id, user_id, persona_id, judge_type,
+        )
 
     # ------------------------------------------------------------------
     # Person Judge
@@ -283,16 +287,20 @@ class OntologyLoader:
         person_id: str,
         user_id: str,
         judge_type: str,
+        persona_id: Optional[str] = None,
         ts: Optional[datetime] = None,
     ) -> None:
         weight = 1.0 if judge_type == "like" else -1.0
         ts_val = ts or datetime.now(timezone.utc)
         self._neo4j.execute_write(
-            JUDGE_PERSON,
-            {"person_id": person_id, "user_id": user_id,
+            JUDGE_PERSON_WITH_PERSONA,
+            {"person_id": person_id, "user_id": user_id, "persona_id": persona_id,
              "judge_type": judge_type, "weight": weight, "ts": ts_val},
         )
-        logger.info("Judge person=%s user=%s type=%s", person_id, user_id, judge_type)
+        logger.info(
+            "Judge person=%s user=%s persona=%s type=%s",
+            person_id, user_id, persona_id, judge_type,
+        )
 
     # ------------------------------------------------------------------
     # Feed Delete (soft)
