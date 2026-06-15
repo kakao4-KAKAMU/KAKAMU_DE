@@ -36,6 +36,7 @@ class TemplateExecutor:
             logger.info("Falling back to %s", DEFAULT_TEMPLATE_ID)
             fallback_params = {
                 "user_id": params.get("user_id", "anonymous"),
+                "persona_id": params.get("persona_id"),
                 "query_embedding": params.get("query_embedding", []),
                 "query_keywords": params.get("query_keywords", []),
                 "query_themes": params.get("query_themes", []),

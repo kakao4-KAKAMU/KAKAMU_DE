@@ -10,6 +10,7 @@ from src.ontology.prompts.comment import (
 from src.ontology.prompts.feed import build_feed_messages, get_feed_schema_json
 from src.ontology.prompts.movie import build_movie_plot_messages, get_movie_plot_schema_json
 from src.ontology.prompts.schema_vocab import (
+    KEYWORD_KINDS,
     apply_vocab_enums,
     build_vocab_guide_lines,
     vocab_fingerprint,
@@ -17,13 +18,19 @@ from src.ontology.prompts.schema_vocab import (
     vocab_moods,
     vocab_themes,
 )
+from src.ontology.schema import (
+    COMMENT_REACTION_VALUES,
+    COMMENT_TARGET_VALUES,
+    FEED_CATEGORY_VALUES,
+    KEYWORD_KIND_VALUES,
+)
 
 
 def _enum_items(schema: dict, field: str) -> list[str]:
     return schema["schema"]["properties"][field]["items"]["enum"]
 
 
-def _assert_standard_payload_layout(payload: dict, *, cache_prefix: str) -> None:
+def _assert_movie_payload_layout(payload: dict, *, cache_prefix: str) -> None:
     messages = payload["messages"]
     assert len(messages) == 4
     assert messages[0] == {"role": "system", "content": ONTOLOGY_SYSTEM_PROMPT}
@@ -32,6 +39,16 @@ def _assert_standard_payload_layout(payload: dict, *, cache_prefix: str) -> None
     assert messages[3]["role"] == "user"
     assert payload["response_format"]["type"] == "json_schema"
     assert "json_schema" in payload["response_format"]
+    assert payload["cache_salt"].startswith(cache_prefix)
+
+
+def _assert_feed_comment_payload_layout(payload: dict, *, cache_prefix: str) -> None:
+    messages = payload["messages"]
+    assert len(messages) == 3
+    assert messages[0] == {"role": "system", "content": ONTOLOGY_SYSTEM_PROMPT}
+    assert messages[1]["role"] == "system"
+    assert messages[2]["role"] == "user"
+    assert payload["response_format"]["type"] == "json_schema"
     assert payload["cache_salt"].startswith(cache_prefix)
 
 
@@ -44,24 +61,41 @@ def test_vocab_loaders_non_empty() -> None:
 
 def test_movie_schema_injects_vocab_enums() -> None:
     schema = get_movie_plot_schema_json()
-    genres = _enum_items(schema, "genres")
     themes = _enum_items(schema, "themes")
     moods = _enum_items(schema, "moods")
 
-    assert "드라마" in genres
     assert "identity" in themes
     assert "melancholic" in moods
 
     keyword_kind = schema["schema"]["properties"]["keywords"]["items"]["properties"]["kind"]
-    assert "genre" in keyword_kind["enum"]
+    assert set(keyword_kind["enum"]) == set(KEYWORD_KIND_VALUES)
+    assert set(keyword_kind["enum"]) == set(KEYWORD_KINDS)
 
 
-def test_feed_and_comment_schema_inject_vocab_enums() -> None:
+def test_feed_and_comment_schema_have_no_vocab_fields() -> None:
     for getter in (get_feed_schema_json, get_comment_schema_json):
         schema = getter()
-        assert "액션" in _enum_items(schema, "genres")
-        assert "loss" in _enum_items(schema, "themes")
-        assert "warm" in _enum_items(schema, "moods")
+        props = schema["schema"]["properties"]
+        assert "genres" not in props
+        assert "themes" not in props
+        assert "moods" not in props
+        keyword_kind = props["keywords"]["items"]["properties"]["kind"]
+        assert set(keyword_kind["enum"]) == set(KEYWORD_KIND_VALUES)
+    assert set(keyword_kind["enum"]) == set(KEYWORD_KINDS)
+
+
+def test_feed_schema_has_category_enum() -> None:
+    schema = get_feed_schema_json()
+    category = schema["schema"]["properties"]["category"]
+    assert set(category["enum"]) == set(FEED_CATEGORY_VALUES)
+
+
+def test_comment_schema_has_target_reaction() -> None:
+    schema = get_comment_schema_json()
+    props = schema["schema"]["properties"]
+    assert set(props["target"]["enum"]) == set(COMMENT_TARGET_VALUES)
+    assert set(props["reaction"]["enum"]) == set(COMMENT_REACTION_VALUES)
+    assert "intents" not in props
 
 
 def test_apply_vocab_enums_defaults_inject_standard_fields() -> None:
@@ -107,14 +141,14 @@ def test_build_movie_plot_messages_uses_vocab_cache_salt() -> None:
         genres=["드라마"],
         plot="테스트 줄거리",
     )
-    _assert_standard_payload_layout(
-        payload, cache_prefix="ontology:movie_plot:v1:vocab:"
+    _assert_movie_payload_layout(
+        payload, cache_prefix="ontology:movie_plot:v1.5:vocab:"
     )
     schema = payload["response_format"]["json_schema"]
-    assert "드라마" in _enum_items(schema, "genres")
+    assert "identity" in _enum_items(schema, "themes")
 
 
-def test_feed_and_comment_payload_use_standard_layout() -> None:
+def test_feed_and_comment_payload_use_compact_layout() -> None:
     feed = build_feed_messages(
         feed_id="f1",
         user_id="u1",
@@ -122,7 +156,7 @@ def test_feed_and_comment_payload_use_standard_layout() -> None:
         known_movie_ids=None,
         content="좋은 영화였어요",
     )
-    _assert_standard_payload_layout(feed, cache_prefix="ontology:feed:v1:vocab:")
+    _assert_feed_comment_payload_layout(feed, cache_prefix="ontology:feed:v3:vocab:")
 
     comment = build_comment_messages(
         comment_id="c1",
@@ -132,4 +166,4 @@ def test_feed_and_comment_payload_use_standard_layout() -> None:
         parent_feed_summary=None,
         content="동의합니다",
     )
-    _assert_standard_payload_layout(comment, cache_prefix="ontology:comment:v1:vocab:")
+    _assert_feed_comment_payload_layout(comment, cache_prefix="ontology:comment:v3:vocab:")
