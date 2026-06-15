@@ -22,3 +22,16 @@ class RecommendResponse(BaseModel):
     keywords: list[str]
     themes: list[str]
     moods: list[str]
+
+
+# ---------------------------------------------------------------------------
+# /recommend/feed
+# ---------------------------------------------------------------------------
+
+
+class FeedRecommendResponse(BaseModel):
+    arm_id: str
+    feeds: list[dict[str, Any]]
+    keywords: list[str]
+    themes: list[str]
+    moods: list[str]

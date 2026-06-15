@@ -18,7 +18,7 @@ from .ingest import (
     IngestResponse,
 )
 from .feedback import FeedbackRequest, FeedbackResponse
-from .recommend import RecommendRequest, RecommendResponse
+from .recommend import FeedRecommendResponse, RecommendRequest, RecommendResponse
 
 __all__ = [
   "IngestPayload",
@@ -59,4 +59,5 @@ __all__ = [
 
   "RecommendRequest",
   "RecommendResponse",
+  "FeedRecommendResponse",
 ]
