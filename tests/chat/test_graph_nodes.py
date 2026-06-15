@@ -8,11 +8,14 @@ from src.chat.feedback import FeedbackRecorder
 from src.chat.graph import build_chat_graph
 from src.chat.nodes import (
     ChatGraphDependencies,
+    classify_media,
     embed_query,
     generate_reply,
     persist_history,
     plan_intent,
+    retrieve_feeds,
     retrieve_movies,
+    route_media,
     select_weights,
 )
 from src.recommend.arms import BanditArm
@@ -42,6 +45,9 @@ def _deps() -> ChatGraphDependencies:
     llm = MagicMock()
     llm.chat_json.return_value = {"reply": "이런 영화를 추천드려요"}
 
+    media_classifier = MagicMock()
+    media_classifier.classify.return_value = "movie"
+
     history = MagicMock()
 
     return ChatGraphDependencies(
@@ -51,6 +57,7 @@ def _deps() -> ChatGraphDependencies:
         template_executor=template_executor,
         llm=llm,
         history=history,
+        media_classifier=media_classifier,
     )
 
 
@@ -97,6 +104,82 @@ def test_retrieve_movies_calls_template_executor_with_weights() -> None:
     assert params["w_vec"] == 0.5
     assert "max_toxicity" in params
     assert out["retrieved"][0]["movie_id"] == "m1"
+
+
+def test_classify_media_delegates_to_classifier() -> None:
+    deps = _deps()
+    deps.media_classifier.classify.return_value = "feed"
+    out = classify_media({"query": "잔잔한 영화 후기 추천"}, deps)
+    assert out["media_type"] == "feed"
+    deps.media_classifier.classify.assert_called_once_with("잔잔한 영화 후기 추천")
+
+
+def test_classify_media_movie_decision() -> None:
+    deps = _deps()
+    deps.media_classifier.classify.return_value = "movie"
+    out = classify_media({"query": "잔잔한 성장 영화 추천"}, deps)
+    assert out["media_type"] == "movie"
+
+
+def test_classify_media_respects_existing_media_type() -> None:
+    deps = _deps()
+    out = classify_media({"query": "영화 추천", "media_type": "feed"}, deps)
+    assert out["media_type"] == "feed"
+    deps.media_classifier.classify.assert_not_called()
+
+
+def test_route_media_returns_branch_key() -> None:
+    assert route_media({"media_type": "feed"}) == "feed"
+    assert route_media({"media_type": "movie"}) == "movie"
+    assert route_media({}) == "movie"
+
+
+def test_retrieve_feeds_uses_feed_template_without_fallback() -> None:
+    deps = _deps()
+    deps.template_executor.execute.return_value = [
+        {"feed_id": "f1", "summary": "감동적인 후기", "score": 0.8}
+    ]
+    state = {
+        "user_id": "u-1",
+        "query_embedding": [0.1],
+        "keywords": ["성장"],
+        "themes": [],
+        "moods": [],
+        "weights": {
+            "w_vec": 0.5,
+            "w_kw": 0.15,
+            "w_theme": 0.15,
+            "w_mood": 0.1,
+            "w_user": 0.1,
+        },
+    }
+    out = retrieve_feeds(state, deps)
+    deps.template_executor.execute.assert_called_once()
+    template_id = deps.template_executor.execute.call_args.args[0]
+    assert template_id == "hybrid_feed_recommend"
+    assert deps.template_executor.execute.call_args.kwargs["fallback"] is False
+    assert out["retrieved"][0]["feed_id"] == "f1"
+
+
+def test_build_chat_graph_routes_feed_query() -> None:
+    deps = _deps()
+    deps.media_classifier.classify.return_value = "feed"
+    deps.template_executor.execute.return_value = [
+        {"feed_id": "f1", "summary": "후기", "score": 0.9}
+    ]
+    deps.llm.chat_json.return_value = {
+        "reply": "이런 피드를 추천드려요",
+        "metadata": {"type": "feed", "id": "f1"},
+    }
+    graph = build_chat_graph(deps)
+    final = graph.invoke(
+        {"user_id": "u1", "session_id": "s1", "query": "영화 감상 후기 피드 추천"}
+    )
+    assert final["media_type"] == "feed"
+    assert final["retrieved"][0]["feed_id"] == "f1"
+    template_id = deps.template_executor.execute.call_args.args[0]
+    assert template_id == "hybrid_feed_recommend"
+    assert final["ontology_ref"]["feed_ids"] == ["f1"]
 
 
 def test_generate_reply_uses_llm_json() -> None:

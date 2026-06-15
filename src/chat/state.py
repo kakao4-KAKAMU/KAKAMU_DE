@@ -11,8 +11,11 @@ from __future__ import annotations
 from typing import Any, Literal, Optional, TypedDict
 
 
+MediaType = Literal["movie", "feed"]
+
+
 class ChatMetadata(TypedDict, total=False):
-    type: Literal["movie"]
+    type: MediaType
     id: str
 
 class ChatState(TypedDict, total=False):
@@ -31,6 +34,8 @@ class ChatState(TypedDict, total=False):
     themes: list[str]
     moods: list[str]
 
+    media_type: MediaType
+
     arm_id: str
     weights: dict[str, float]
     top_k: int
@@ -45,4 +50,4 @@ class ChatState(TypedDict, total=False):
     ontology_ref: dict[str, Any]
 
 
-__all__ = ["ChatState"]
+__all__ = ["ChatState", "ChatMetadata", "MediaType"]
