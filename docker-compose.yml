@@ -21,7 +21,7 @@
 # 네트워크
 # --------
 #   - mrs-test (bridge): 모든 서비스가 동일 네트워크에 연결
-#   - 앱 → DB: bolt://neo4j:7687, postgres:5432 (서비스명 DNS)
+#   - 앱 → DB: bolt://neo4j:7687, postgres:5433 (서비스명 DNS)
 #   - 호스트 포트 충돌 시 docker-compose.env 에서 *_TEST_PORT 변경
 
 name: movie-recommend-system-test
@@ -100,13 +100,13 @@ services:
     expose:
       - "5432"
     ports:
-      - "${PG_TEST_PORT:-5432}:5432"
+      - "${PG_TEST_PORT:-5433}:5432"
     environment:
       POSTGRES_DB: ${PG_DATABASE:-chatbot}
       POSTGRES_USER: ${PG_USER:-postgres}
       POSTGRES_PASSWORD: ${PG_PASSWORD:-postgres}
     volumes:
-      - postgres-test-data:/var/lib/postgresql/18/docker
+      - /Users/mac/Documents/KAKAMU_DE/postgres/:/var/lib/postgresql/18/docker
     healthcheck:
       test:
         [
@@ -159,7 +159,8 @@ services:
     depends_on:
       bootstrap:
         condition: service_completed_successfully
-    command: ["uvicorn", "src.api.app:app", "--host", "0.0.0.0", "--port", "8080"]
+    command:
+      ["uvicorn", "src.api.app:app", "--host", "0.0.0.0", "--port", "8080"]
 
   # ---------------------------------------------------------------------------
   # One-shot: ingest worker smoke (mock dispatcher, 1회 처리 후 종료)

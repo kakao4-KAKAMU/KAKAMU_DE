@@ -18,4 +18,5 @@ node_modules
 tests
 GraphRAG
 neo4j/data
+postgres
 *.plan.md
