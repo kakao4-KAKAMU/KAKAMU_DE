@@ -6,32 +6,30 @@
 SOLID
 -----
 - SRP : 파라미터 구성과 템플릿 실행만 담당.
-- DRY : 공통 파라미터 구성을 ``_build_hybrid_params`` 로 추출.
+- DRY : 공통 파라미터 구성을 ``build_hybrid_recommend_params`` 로 위임.
 """
 
 from __future__ import annotations
 
-from typing import Any
-
 from src.chat.nodes.dependencies import DEFAULT_WEIGHTS, ChatGraphDependencies
 from src.chat.state import ChatState
+from src.recommend.context import build_hybrid_recommend_params
 
 
-def _build_hybrid_params(
-    state: ChatState, deps: ChatGraphDependencies
-) -> dict[str, Any]:
+def _build_hybrid_params(state: ChatState, deps: ChatGraphDependencies) -> dict:
     weights = state.get("weights") or DEFAULT_WEIGHTS
-    return {
-        "user_id": state.get("user_id", "anonymous"),
-        "query_embedding": state.get("query_embedding") or [],
-        "query_keywords": state.get("keywords") or [],
-        "query_themes": state.get("themes") or [],
-        "query_moods": state.get("moods") or [],
-        "top_k": int(state.get("top_k") or deps.default_top_k),
-        "vec_top_k": int(state.get("vec_top_k") or deps.default_vec_top_k),
-        "max_toxicity": float(state.get("max_toxicity") or deps.default_max_toxicity),
-        **weights,
-    }
+    return build_hybrid_recommend_params(
+        user_id=state.get("user_id", "anonymous"),
+        persona_id=state.get("persona_id"),
+        query_embedding=state.get("query_embedding") or [],
+        query_keywords=state.get("keywords") or [],
+        query_themes=state.get("themes") or [],
+        query_moods=state.get("moods") or [],
+        top_k=int(state.get("top_k") or deps.default_top_k),
+        vec_top_k=int(state.get("vec_top_k") or deps.default_vec_top_k),
+        max_toxicity=float(state.get("max_toxicity") or deps.default_max_toxicity),
+        weights=weights,
+    )
 
 
 def retrieve_movies(state: ChatState, deps: ChatGraphDependencies) -> ChatState:

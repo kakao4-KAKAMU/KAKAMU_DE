@@ -76,9 +76,10 @@ def test_plan_intent_resolves_themes_moods() -> None:
 
 def test_select_weights_records_arm_id() -> None:
     deps = _deps()
-    out = select_weights({"user_id": "u-1"}, deps)
+    out = select_weights({"user_id": "u-1", "persona_id": "movie_buff"}, deps)
     assert out["arm_id"] == "balanced"
     assert out["weights"]["w_vec"] == 0.5
+    deps.policy.select_arm.assert_called_once_with(context_key="u-1:movie_buff")
 
 
 def test_retrieve_movies_calls_template_executor_with_weights() -> None:

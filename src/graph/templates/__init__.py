@@ -54,6 +54,7 @@ def build_default_registry() -> TemplateRegistry:
             cypher=HYBRID_MOVIE_RECOMMEND_WEIGHTED,
             params_schema={
                 "user_id": "string",
+                "persona_id": "optional_string",
                 "query_embedding": "float_list",
                 "query_keywords": "string_list",
                 "query_themes": "string_list",
@@ -77,6 +78,7 @@ def build_default_registry() -> TemplateRegistry:
             cypher=HYBRID_FEED_RECOMMEND_WEIGHTED,
             params_schema={
                 "user_id": "string",
+                "persona_id": "optional_string",
                 "query_embedding": "float_list",
                 "query_keywords": "string_list",
                 "query_themes": "string_list",

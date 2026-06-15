@@ -25,7 +25,7 @@ class CypherTemplate(BaseModel):
     cypher: str
     params_schema: dict[str, str] = Field(
         default_factory=dict,
-        description="param_name -> type hint (string|int|float|list|string_list|float_list)",
+        description="param_name -> type hint (string|optional_string|int|float|list|string_list|float_list|bool)",
     )
     read_only: bool = True
     max_limit: int = Field(default=100, ge=1, le=500)
@@ -113,6 +113,11 @@ def _coerce(value: Any, hint: str) -> Any:
         if not isinstance(value, list):
             raise TemplateValidationError(f"Expected list, got {type(value)}")
         return [float(v) for v in value]
+    if hint == "optional_string":
+        if value is None:
+            return None
+        text = str(value).strip()
+        return text or None
     if hint in ("list", "string_list"):
         if not isinstance(value, list):
             raise TemplateValidationError(f"Expected list, got {type(value)}")
