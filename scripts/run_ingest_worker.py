@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import logging
+import signal
 
 from src.config.settings import get_settings
 from src.embedding.vllm_embedding import VLLMEmbeddingClient
@@ -40,6 +41,28 @@ def _build_production_dispatcher() -> IngestDispatcher:
     )
 
 
+async def _run_loop_with_shutdown(
+    worker: IngestWorker,
+    *,
+    concurrency: int,
+) -> None:
+    stop_event = asyncio.Event()
+    loop = asyncio.get_running_loop()
+
+    def _request_shutdown(signum: int) -> None:
+        logging.info("Received signal %s, shutting down ingest worker", signum)
+        stop_event.set()
+
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        loop.add_signal_handler(sig, _request_shutdown, sig)
+
+    try:
+        await worker.run_loop(concurrency=concurrency, stop_event=stop_event)
+    finally:
+        loop.remove_signal_handler(signal.SIGINT)
+        loop.remove_signal_handler(signal.SIGTERM)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--once", action="store_true")
@@ -54,10 +77,13 @@ def main() -> None:
     dispatcher = default_dispatcher() if args.mock else _build_production_dispatcher()
     worker = IngestWorker(dispatcher)
     if args.once:
-        n = worker.run_once()
-        logging.info("Processed %d rows", n)
+        try:
+            n = worker.run_once()
+            logging.info("Processed %d rows", n)
+        finally:
+            worker.release_in_flight()
     else:
-        asyncio.run(worker.run_loop(concurrency=args.concurrency))
+        asyncio.run(_run_loop_with_shutdown(worker, concurrency=args.concurrency))
 
 
 if __name__ == "__main__":
