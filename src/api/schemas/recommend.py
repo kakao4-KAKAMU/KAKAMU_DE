@@ -16,12 +16,12 @@ class RecommendRequest(BaseModel):
     max_toxicity: float = Field(default=0.7, ge=0.0, le=1.0)
 
 
-class RecommendResponse(BaseModel):
-    arm_id: str
-    movies: list[dict[str, Any]]
-    keywords: list[str]
-    themes: list[str]
-    moods: list[str]
+class MovieRecommendResponse(BaseModel):
+    arm_id: str = Field(description="ARM ID.")
+    movies: list[dict[str, Any]] = Field(description="영화 목록.")
+    keywords: list[str] = Field(description="키워드 목록.")
+    themes: list[str] = Field(description="테마 목록.")
+    moods: list[str] = Field(description="무드 목록.")
 
 
 # ---------------------------------------------------------------------------
@@ -30,8 +30,8 @@ class RecommendResponse(BaseModel):
 
 
 class FeedRecommendResponse(BaseModel):
-    arm_id: str
-    feeds: list[dict[str, Any]]
-    keywords: list[str]
-    themes: list[str]
-    moods: list[str]
+    arm_id: str = Field(description="ARM ID.")
+    feeds: list[dict[str, Any]] = Field(description="피드 목록.")
+    keywords: list[str] = Field(description="키워드 목록.")
+    themes: list[str] = Field(description="테마 목록.")
+    moods: list[str] = Field(description="무드 목록.")

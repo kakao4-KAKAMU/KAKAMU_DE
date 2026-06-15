@@ -26,6 +26,7 @@ class IngestPersonJudgePayload(IngestPayload):
 
     person_id: str = Field(min_length=1)
     user_id: str = Field(min_length=1)
+    persona_id: Optional[str] = Field(default=None, description="Persona ID.")
     judge_type: JudgeType = Field(default="like", description="like/dislike.")
     created_at: Optional[datetime] = Field(default=None, description="판정 시각 (ISO 8601).")
 

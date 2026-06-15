@@ -8,17 +8,22 @@ from fastapi import APIRouter, Depends, Header
 
 from src.api.dependencies import AppContainer
 from src.api.routers.deps import get_app_container
-from src.api.schemas import RecommendRequest, RecommendResponse
+from src.api.schemas import RecommendRequest, MovieRecommendResponse
 
 router = APIRouter()
 
 
-@router.post("/recommend", response_model=RecommendResponse)
-def recommend(
+@router.post(
+    "/recommend/movie",
+    response_model=MovieRecommendResponse,
+    tags=["recommend"],
+    summary="영화 하이브리드 추천",
+    description="hybrid 방식으로 영화를 추천합니다.",
+)
+def recommend_movie(
     req: RecommendRequest,
-    persona_id: Annotated[Optional[str], Header(alias="X-Persona-Id")] = None,
     container: AppContainer = Depends(get_app_container),
-) -> RecommendResponse:
+) -> MovieRecommendResponse:
     intent = container.intent_resolver.resolve(req.query)
     embedding = container.embedder.embed(req.query)
     arm = container.policy.select_arm(context_key=req.user_id)
@@ -34,7 +39,7 @@ def recommend(
         **dict(arm.weights),
     }
     movies = container.template_executor.execute("hybrid_recommend", params)
-    return RecommendResponse(
+    return MovieRecommendResponse(
         arm_id=arm.arm_id,
         movies=list(movies),
         keywords=list(intent.keywords),
