@@ -548,23 +548,23 @@ OPTIONAL MATCH (m)-[:HAS_MOOD]->(md:Mood)
 WHERE md.name IN $query_moods
 WITH m, vec_score, kw_hits, theme_hits, count(DISTINCT md) AS mood_hits
 
-// 4) Persona / User preference 가중치 (persona_id optional)
-OPTIONAL MATCH (pe:Persona)-[pref:PREFERS]->(x)
-WHERE $persona_id IS NOT NULL
-  AND pe.persona_id = $persona_id
-  AND (x:Genre OR x:Theme OR x:Keyword)
-OPTIONAL MATCH (m)-[:HAS_GENRE|HAS_THEME|MENTIONS]->(x)
+// 4) Persona / User preference 가중치 (persona_id 있으면 Persona, 없으면 User; 노드 없으면 0)
 WITH m, vec_score, kw_hits, theme_hits, mood_hits,
-     coalesce(sum(pref.weight), 0.0) AS persona_pref_score
+     ($persona_id IS NOT NULL) AS use_persona
 
-OPTIONAL MATCH (u:User)-[p:PREFERS]->(x2)
-WHERE $persona_id IS NULL
-  AND $user_id IS NOT NULL
-  AND u.user_id = $user_id
-  AND (x2:Genre OR x2:Theme OR x2:Keyword)
+OPTIONAL MATCH (pe:Persona {persona_id: $persona_id})-[pref:PREFERS]->(x)
+WHERE use_persona AND (x:Genre OR x:Theme OR x:Keyword)
+OPTIONAL MATCH (m)-[:HAS_GENRE|HAS_THEME|MENTIONS]->(x)
+WITH m, vec_score, kw_hits, theme_hits, mood_hits, use_persona,
+     CASE WHEN use_persona THEN coalesce(sum(pref.weight), 0.0) ELSE 0.0 END AS persona_pref_score
+
+OPTIONAL MATCH (u:User {user_id: $user_id})-[p:PREFERS]->(x2)
+WHERE NOT use_persona AND $user_id IS NOT NULL AND (x2:Genre OR x2:Theme OR x2:Keyword)
 OPTIONAL MATCH (m)-[:HAS_GENRE|HAS_THEME|MENTIONS]->(x2)
+WITH m, vec_score, kw_hits, theme_hits, mood_hits, use_persona, persona_pref_score,
+     CASE WHEN NOT use_persona THEN coalesce(sum(p.weight), 0.0) ELSE 0.0 END AS user_pref_score
 WITH m, vec_score, kw_hits, theme_hits, mood_hits,
-     coalesce(persona_pref_score, 0.0) + coalesce(sum(p.weight), 0.0) AS user_pref_score
+     persona_pref_score + user_pref_score AS pref_score
 
 // 5) 최종 스코어 산출
 WITH m,
@@ -572,7 +572,7 @@ WITH m,
    + ($w_kw    * (1.0 - exp(-toFloat(kw_hits))))
    + ($w_theme * (1.0 - exp(-toFloat(theme_hits))))
    + ($w_mood  * (1.0 - exp(-toFloat(mood_hits))))
-   + ($w_user  * tanh(user_pref_score)) AS score
+   + ($w_user  * tanh(pref_score)) AS score
 ORDER BY score DESC
 LIMIT $top_k
 
@@ -613,23 +613,23 @@ OPTIONAL MATCH (f)-[:HAS_EMOTION]->(em:Emotion)
 WHERE em.tag IN $query_moods
 WITH f, vec_score, kw_hits, theme_hits, count(DISTINCT em) AS mood_hits
 
-// 6) Persona / User preference 가중치 (persona_id optional)
-OPTIONAL MATCH (pe:Persona)-[pref:PREFERS]->(x)
-WHERE $persona_id IS NOT NULL
-  AND pe.persona_id = $persona_id
-  AND (x:Genre OR x:Theme OR x:Keyword OR x:Category)
-OPTIONAL MATCH (f)-[:MENTIONS|HAS_CATEGORY]->(x)
+// 6) Persona / User preference 가중치 (persona_id 있으면 Persona, 없으면 User; 노드 없으면 0)
 WITH f, vec_score, kw_hits, theme_hits, mood_hits,
-     coalesce(sum(pref.weight), 0.0) AS persona_pref_score
+     ($persona_id IS NOT NULL) AS use_persona
 
-OPTIONAL MATCH (u:User)-[p:PREFERS]->(x2)
-WHERE $persona_id IS NULL
-  AND $user_id IS NOT NULL
-  AND u.user_id = $user_id
-  AND (x2:Genre OR x2:Theme OR x2:Keyword OR x2:Category)
+OPTIONAL MATCH (pe:Persona {persona_id: $persona_id})-[pref:PREFERS]->(x)
+WHERE use_persona AND (x:Genre OR x:Theme OR x:Keyword OR x:Category)
+OPTIONAL MATCH (f)-[:MENTIONS|HAS_CATEGORY]->(x)
+WITH f, vec_score, kw_hits, theme_hits, mood_hits, use_persona,
+     CASE WHEN use_persona THEN coalesce(sum(pref.weight), 0.0) ELSE 0.0 END AS persona_pref_score
+
+OPTIONAL MATCH (u:User {user_id: $user_id})-[p:PREFERS]->(x2)
+WHERE NOT use_persona AND $user_id IS NOT NULL AND (x2:Genre OR x2:Theme OR x2:Keyword OR x2:Category)
 OPTIONAL MATCH (f)-[:MENTIONS|HAS_CATEGORY]->(x2)
+WITH f, vec_score, kw_hits, theme_hits, mood_hits, use_persona, persona_pref_score,
+     CASE WHEN NOT use_persona THEN coalesce(sum(p.weight), 0.0) ELSE 0.0 END AS user_pref_score
 WITH f, vec_score, kw_hits, theme_hits, mood_hits,
-     coalesce(persona_pref_score, 0.0) + coalesce(sum(p.weight), 0.0) AS user_pref_score
+     persona_pref_score + user_pref_score AS pref_score
 
 // 7) 최종 스코어 산출
 WITH f,
@@ -637,7 +637,7 @@ WITH f,
    + ($w_kw    * (1.0 - exp(-toFloat(kw_hits))))
    + ($w_theme * (1.0 - exp(-toFloat(theme_hits))))
    + ($w_mood  * (1.0 - exp(-toFloat(mood_hits))))
-   + ($w_user  * tanh(user_pref_score)) AS score
+   + ($w_user  * tanh(pref_score)) AS score
 ORDER BY score DESC
 LIMIT $top_k
 
