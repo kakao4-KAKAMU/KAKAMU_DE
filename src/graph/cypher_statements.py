@@ -304,7 +304,7 @@ MERGE (f)-[:WRITTEN_BY]->(u)
 // related movie (optional)
 WITH f
 CALL (f) {
-  WITH f WHERE $related_movie_id IS NOT NULL
+  With f WHERE $related_movie_id IS NOT NULL
   MATCH (m:Movie {movie_id: $related_movie_id})
   MERGE (f)-[:ABOUT_MOVIE]->(m)
 }
@@ -323,7 +323,7 @@ UNWIND $emotions AS e
     SET r.score = e.score
 
 // keywords
-WITH f
+With f
 UNWIND $keywords AS kw
   MERGE (k:Keyword {normalized: kw.normalized})
     ON CREATE SET k.kind = kw.kind, k.term = kw.term
@@ -348,15 +348,23 @@ SET c.content_raw       = $content_raw,
 MERGE (c)-[:ON_FEED]->(parent)
 MERGE (c)-[:WRITTEN_BY]->(u)
 
-// emotions
+// parent comment (대댓글, optional)
 WITH c
+CALL (c) {
+  With c WHERE $parent_comment_id IS NOT NULL
+  MERGE (pc:Comment {comment_id: $parent_comment_id})
+  MERGE (c)-[:REPLY_TO]->(pc)
+}
+
+// emotions
+With c
 UNWIND $emotions AS e
   MERGE (em:Emotion {tag: e.tag})
   MERGE (c)-[r:HAS_EMOTION]->(em)
     SET r.score = e.score
 
 // keywords
-WITH c
+With c
 UNWIND $keywords AS kw
   MERGE (k:Keyword {normalized: kw.normalized})
     ON CREATE SET k.kind = kw.kind, k.term = kw.term
@@ -366,54 +374,152 @@ UNWIND $keywords AS kw
 
 
 # ---------------------------------------------------------------------------
-# 6. Hybrid Retrieval Cypher (semantic + keyword)
+# 5-b. Like / Judge / Delete — INTERACTED + soft-delete
 # ---------------------------------------------------------------------------
 
-HYBRID_MOVIE_RECOMMEND: Final[
-    str
-] = """
-// 1) Vector similarity 계산 (index 자동 활용)
-MATCH (m:Movie)
-WHERE m.plot_embedding IS NOT NULL
-WITH m, vector.similarity.cosine(m.plot_embedding, $query_embedding) AS vec_score
-ORDER BY vec_score DESC
-LIMIT $vec_top_k
-
-// 2) Keyword/Theme/Mood 부스트
-OPTIONAL MATCH (m)-[:MENTIONS]->(k:Keyword)
-WHERE k.normalized IN $query_keywords
-WITH m, vec_score, count(DISTINCT k) AS kw_hits
-
-OPTIONAL MATCH (m)-[:HAS_THEME]->(t:Theme)
-WHERE t.name IN $query_themes
-WITH m, vec_score, kw_hits, count(DISTINCT t) AS theme_hits
-
-OPTIONAL MATCH (m)-[:HAS_MOOD]->(md:Mood)
-WHERE md.name IN $query_moods
-WITH m, vec_score, kw_hits, theme_hits, count(DISTINCT md) AS mood_hits
-
-// 3) User preference 가중치 (선택)
-OPTIONAL MATCH (u:User {user_id: $user_id})-[p:PREFERS]->(x)
-WHERE x:Genre OR x:Theme OR x:Keyword
-OPTIONAL MATCH (m)-[:HAS_GENRE|HAS_THEME|MENTIONS]->(x)
-WITH m, vec_score, kw_hits, theme_hits, mood_hits,
-     coalesce(sum(p.weight), 0.0) AS user_pref_score
-
-// 4) 최종 스코어 산출 (가중 합)
-WITH m,
-     (0.55 * vec_score)
-   + (0.15 * (1.0 - exp(-toFloat(kw_hits))))
-   + (0.10 * (1.0 - exp(-toFloat(theme_hits))))
-   + (0.05 * (1.0 - exp(-toFloat(mood_hits))))
-   + (0.15 * tanh(user_pref_score)) AS score
-ORDER BY score DESC
-LIMIT $top_k
-
-RETURN m.movie_id      AS movie_id,
-       m.title         AS title,
-       m.plot_summary  AS plot_summary,
-       score
+LIKE_FEED_WITH_PERSONA: Final[str] = """
+MERGE (f:Feed {feed_id: $feed_id})
+WITH f
+CALL (f) {
+  WITH f WHERE $persona_id IS NOT NULL
+  MERGE (u:User {user_id: $user_id})
+  MERGE (pe:Persona {persona_id: $persona_id})
+  MERGE (u)-[:HAS_PERSONA]->(pe)
+  MERGE (pe)-[r:INTERACTED]->(f)
+    SET r.action = 'like', r.weight = $weight, r.ts = $ts
+}
+WITH f
+CALL (f) {
+  WITH f WHERE $persona_id IS NULL
+  MERGE (u:User {user_id: $user_id})
+  MERGE (u)-[r:INTERACTED]->(f)
+    SET r.action = 'like', r.weight = $weight, r.ts = $ts
+}
 """
+
+UNLIKE_FEED_WITH_PERSONA: Final[str] = """
+MATCH (f:Feed {feed_id: $feed_id})
+WITH f
+CALL (f) {
+  WITH f WHERE $persona_id IS NOT NULL
+  OPTIONAL MATCH (:Persona {persona_id: $persona_id})-[r:INTERACTED]->(f)
+  DELETE r
+}
+WITH f
+CALL (f) {
+  WITH f WHERE $persona_id IS NULL
+  OPTIONAL MATCH (:User {user_id: $user_id})-[r:INTERACTED]->(f)
+  DELETE r
+}
+"""
+
+LIKE_COMMENT_WITH_PERSONA: Final[str] = """
+MERGE (c:Comment {comment_id: $comment_id})
+WITH c
+CALL (c) {
+  WITH c WHERE $persona_id IS NOT NULL
+  MERGE (u:User {user_id: $user_id})
+  MERGE (pe:Persona {persona_id: $persona_id})
+  MERGE (u)-[:HAS_PERSONA]->(pe)
+  MERGE (pe)-[r:INTERACTED]->(c)
+    SET r.action = 'like', r.weight = $weight, r.ts = $ts
+}
+WITH c
+CALL (c) {
+  WITH c WHERE $persona_id IS NULL
+  MERGE (u:User {user_id: $user_id})
+  MERGE (u)-[r:INTERACTED]->(c)
+    SET r.action = 'like', r.weight = $weight, r.ts = $ts
+}
+"""
+
+UNLIKE_COMMENT_WITH_PERSONA: Final[str] = """
+MATCH (c:Comment {comment_id: $comment_id})
+WITH c
+CALL (c) {
+  WITH c WHERE $persona_id IS NOT NULL
+  OPTIONAL MATCH (:Persona {persona_id: $persona_id})-[r:INTERACTED]->(c)
+  DELETE r
+}
+WITH c
+CALL (c) {
+  WITH c WHERE $persona_id IS NULL
+  OPTIONAL MATCH (:User {user_id: $user_id})-[r:INTERACTED]->(c)
+  DELETE r
+}
+"""
+
+JUDGE_MOVIE_WITH_PERSONA: Final[str] = """
+MERGE (m:Movie {movie_id: $movie_id})
+WITH m
+CALL (m) {
+  WITH m WHERE $persona_id IS NOT NULL
+  MERGE (u:User {user_id: $user_id})
+  MERGE (pe:Persona {persona_id: $persona_id})
+  MERGE (u)-[:HAS_PERSONA]->(pe)
+  MERGE (pe)-[r:INTERACTED]->(m)
+    SET r.action = $judge_type, r.weight = $weight, r.ts = $ts
+}
+WITH m
+CALL (m) {
+  WITH m WHERE $persona_id IS NULL
+  MERGE (u:User {user_id: $user_id})
+  MERGE (u)-[r:INTERACTED]->(m)
+    SET r.action = $judge_type, r.weight = $weight, r.ts = $ts
+}
+"""
+
+JUDGE_PERSON_WITH_PERSONA: Final[str] = """
+MERGE (p:Person {person_id: $person_id})
+WITH p
+CALL (p) {
+  WITH p WHERE $persona_id IS NOT NULL
+  MERGE (u:User {user_id: $user_id})
+  MERGE (pe:Persona {persona_id: $persona_id})
+  MERGE (u)-[:HAS_PERSONA]->(pe)
+  MERGE (pe)-[r:INTERACTED]->(p)
+    SET r.action = $judge_type, r.weight = $weight, r.ts = $ts
+}
+WITH p
+CALL (p) {
+  WITH p WHERE $persona_id IS NULL
+  MERGE (u:User {user_id: $user_id})
+  MERGE (u)-[r:INTERACTED]->(p)
+    SET r.action = $judge_type, r.weight = $weight, r.ts = $ts
+}
+"""
+
+SOFT_DELETE_FEED: Final[str] = """
+MATCH (f:Feed {feed_id: $feed_id})
+SET f.deleted = true,
+    f.deleted_at = $deleted_at,
+    f.updated_at = datetime()
+"""
+
+SOFT_DELETE_COMMENT: Final[str] = """
+MATCH (c:Comment {comment_id: $comment_id})
+SET c.deleted = true,
+    c.deleted_at = $deleted_at,
+    c.updated_at = datetime()
+"""
+
+
+GET_FEED_SUMMARY: Final[str] = """
+MATCH (f:Feed {feed_id: $feed_id})
+RETURN f.summary AS summary
+LIMIT 1
+"""
+
+GET_COMMENT_SUMMARY: Final[str] = """
+MATCH (c:Comment {comment_id: $comment_id})
+RETURN c.summary AS summary
+LIMIT 1
+"""
+
+
+# ---------------------------------------------------------------------------
+# 6. Hybrid Retrieval Cypher (semantic + keyword)
+# ---------------------------------------------------------------------------
 
 HYBRID_MOVIE_RECOMMEND_WEIGHTED: Final[
     str
@@ -442,12 +548,18 @@ OPTIONAL MATCH (m)-[:HAS_MOOD]->(md:Mood)
 WHERE md.name IN $query_moods
 WITH m, vec_score, kw_hits, theme_hits, count(DISTINCT md) AS mood_hits
 
-// 4) User preference 가중치
-OPTIONAL MATCH (u:User {user_id: $user_id})-[p:PREFERS]->(x)
-WHERE x:Genre OR x:Theme OR x:Keyword
+// 4) Persona / User preference 가중치
+OPTIONAL MATCH (pe:Persona {persona_id: $persona_id})-[pref:PREFERS]->(x)
+WHERE $persona_id IS NOT NULL AND (x:Genre OR x:Theme OR x:Keyword)
 OPTIONAL MATCH (m)-[:HAS_GENRE|HAS_THEME|MENTIONS]->(x)
 WITH m, vec_score, kw_hits, theme_hits, mood_hits,
-     coalesce(sum(p.weight), 0.0) AS user_pref_score
+     coalesce(sum(pref.weight), 0.0) AS persona_pref_score
+
+OPTIONAL MATCH (u:User {user_id: $user_id})-[p:PREFERS]->(x2)
+WHERE $persona_id IS NULL AND (x2:Genre OR x2:Theme OR x2:Keyword)
+OPTIONAL MATCH (m)-[:HAS_GENRE|HAS_THEME|MENTIONS]->(x2)
+WITH m, vec_score, kw_hits, theme_hits, mood_hits,
+     coalesce(persona_pref_score, 0.0) + coalesce(sum(p.weight), 0.0) AS user_pref_score
 
 // 5) 최종 스코어 산출
 WITH m,
@@ -466,6 +578,66 @@ RETURN m.movie_id     AS movie_id,
 """
 
 
+HYBRID_FEED_RECOMMEND_WEIGHTED: Final[
+    str
+] = """
+// 1) summary_embedding 기반 후보군 확보 (vec_top_k * 버퍼 배수)
+MATCH (f:Feed)
+WHERE f.summary_embedding IS NOT NULL
+  AND coalesce(f.deleted, false) = false
+WITH f, vector.similarity.cosine(f.summary_embedding, $query_embedding) AS vec_score
+ORDER BY vec_score DESC
+LIMIT toInteger($vec_top_k * 5)   // 필터 손실 보정용 버퍼
+
+// 2) toxicity / spoiler 필터
+WITH f, vec_score
+WHERE coalesce(f.toxicity_score, 0.0) <= $max_toxicity
+
+// 3) Keyword 부스트
+OPTIONAL MATCH (f)-[:MENTIONS]->(k:Keyword)
+WHERE k.normalized IN $query_keywords
+WITH f, vec_score, count(DISTINCT k) AS kw_hits
+
+// 4) Theme 부스트 (피드가 연결된 영화의 테마)
+OPTIONAL MATCH (f)-[:ABOUT_MOVIE]->(:Movie)-[:HAS_THEME]->(t:Theme)
+WHERE t.name IN $query_themes
+WITH f, vec_score, kw_hits, count(DISTINCT t) AS theme_hits
+
+// 5) Mood/Emotion 부스트
+OPTIONAL MATCH (f)-[:HAS_EMOTION]->(em:Emotion)
+WHERE em.tag IN $query_moods
+WITH f, vec_score, kw_hits, theme_hits, count(DISTINCT em) AS mood_hits
+
+// 6) Persona / User preference 가중치
+OPTIONAL MATCH (pe:Persona {persona_id: $persona_id})-[pref:PREFERS]->(x)
+WHERE $persona_id IS NOT NULL AND (x:Genre OR x:Theme OR x:Keyword OR x:Category)
+OPTIONAL MATCH (f)-[:MENTIONS|HAS_CATEGORY]->(x)
+WITH f, vec_score, kw_hits, theme_hits, mood_hits,
+     coalesce(sum(pref.weight), 0.0) AS persona_pref_score
+
+OPTIONAL MATCH (u:User {user_id: $user_id})-[p:PREFERS]->(x2)
+WHERE $persona_id IS NULL AND (x2:Genre OR x2:Theme OR x2:Keyword OR x2:Category)
+OPTIONAL MATCH (f)-[:MENTIONS|HAS_CATEGORY]->(x2)
+WITH f, vec_score, kw_hits, theme_hits, mood_hits,
+     coalesce(persona_pref_score, 0.0) + coalesce(sum(p.weight), 0.0) AS user_pref_score
+
+// 7) 최종 스코어 산출
+WITH f,
+     ($w_vec   * vec_score)
+   + ($w_kw    * (1.0 - exp(-toFloat(kw_hits))))
+   + ($w_theme * (1.0 - exp(-toFloat(theme_hits))))
+   + ($w_mood  * (1.0 - exp(-toFloat(mood_hits))))
+   + ($w_user  * tanh(user_pref_score)) AS score
+ORDER BY score DESC
+LIMIT $top_k
+
+RETURN f.feed_id         AS feed_id,
+       f.summary         AS summary,
+       f.sentiment_score AS sentiment_score,
+       score
+"""
+
+
 __all__ = [
     "NODE_CONSTRAINTS",
     "NODE_PROPERTY_INDEXES",
@@ -478,8 +650,18 @@ __all__ = [
     "UPSERT_MOVIE_WITH_ONTOLOGY",
     "UPSERT_FEED_WITH_ONTOLOGY",
     "UPSERT_COMMENT_WITH_ONTOLOGY",
-    "HYBRID_MOVIE_RECOMMEND",
+    "LIKE_FEED_WITH_PERSONA",
+    "UNLIKE_FEED_WITH_PERSONA",
+    "LIKE_COMMENT_WITH_PERSONA",
+    "UNLIKE_COMMENT_WITH_PERSONA",
+    "JUDGE_MOVIE_WITH_PERSONA",
+    "JUDGE_PERSON_WITH_PERSONA",
+    "SOFT_DELETE_FEED",
+    "SOFT_DELETE_COMMENT",
+    "GET_FEED_SUMMARY",
+    "GET_COMMENT_SUMMARY",
     "HYBRID_MOVIE_RECOMMEND_WEIGHTED",
+    "HYBRID_FEED_RECOMMEND_WEIGHTED",
     "build_upsert_movie_with_ontology",
     "vector_index_statements_for_version",
 ]

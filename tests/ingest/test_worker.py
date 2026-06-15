@@ -21,6 +21,7 @@ def test_nack_moves_to_dlq_after_max_attempts() -> None:
     row = {
         "id": 1,
         "aggregate_type": "movie",
+        "aggregate_id": "m-1",
         "op": "upsert",
         "payload": {},
         "prompt_version": "1.0",
@@ -137,3 +138,115 @@ def test_dispatcher_unknown_aggregate_raises() -> None:
     d = IngestDispatcher()
     with pytest.raises(ValueError, match="No handler"):
         d.dispatch("unknown", {})
+
+
+# ---------------------------------------------------------------------------
+# Dependency waiting / sweep 테스트
+# ---------------------------------------------------------------------------
+
+from src.ingest.dependency import Dependency, DependencyResolver
+
+
+def test_process_row_marks_waiting_when_deps_unmet() -> None:
+    """comment 가 feed(done) 없이 도착하면 waiting 전이."""
+    dispatcher = MagicMock(spec=IngestDispatcher)
+    resolver = DependencyResolver()
+    worker = IngestWorker(dispatcher, dependency_resolver=resolver)
+    row = {
+        "id": 10,
+        "aggregate_type": "comment",
+        "aggregate_id": "c-1",
+        "op": "upsert",
+        "payload": {"comment_id": "c-1", "feed_id": "f-1", "user_id": "u-1", "content": "hello"},
+        "prompt_version": "1.0",
+        "model_name": "test",
+        "attempts": 0,
+    }
+    with patch("src.ingest.worker.get_settings") as mock_settings:
+        mock_settings.return_value.ontology.prompt_version = "1.0"
+        with patch.object(worker, "mark_waiting") as mock_wait:
+            with patch.object(worker, "_check_deps") as mock_check:
+                mock_check.return_value = [Dependency("feed", "f-1")]
+                worker.process_row(row)
+
+    mock_wait.assert_called_once()
+    deps_arg = mock_wait.call_args[0][1]
+    assert Dependency("feed", "f-1") in deps_arg
+    dispatcher.dispatch.assert_not_called()
+
+
+def test_process_row_dispatches_when_deps_met() -> None:
+    """comment 의 선행 feed 가 done 이면 정상 dispatch."""
+    dispatcher = MagicMock(spec=IngestDispatcher)
+    resolver = DependencyResolver()
+    worker = IngestWorker(dispatcher, dependency_resolver=resolver)
+    row = {
+        "id": 11,
+        "aggregate_type": "comment",
+        "aggregate_id": "c-2",
+        "op": "upsert",
+        "payload": {"comment_id": "c-2", "feed_id": "f-1", "user_id": "u-1", "content": "hi"},
+        "prompt_version": "1.0",
+        "model_name": "test",
+        "attempts": 0,
+    }
+    with patch("src.ingest.worker.get_settings") as mock_settings:
+        mock_settings.return_value.ontology.prompt_version = "1.0"
+        with patch.object(worker, "_check_deps", return_value=None):
+            with patch.object(worker, "ack") as mock_ack:
+                worker.process_row(row)
+    dispatcher.dispatch.assert_called_once()
+    mock_ack.assert_called_once_with(11)
+
+
+def test_release_ready_calls_sweep_sql() -> None:
+    """release_ready 가 sweep SQL 을 실행하는지 확인."""
+    dispatcher = MagicMock(spec=IngestDispatcher)
+    worker = IngestWorker(dispatcher)
+    with patch.object(worker, "_connect") as mock_conn:
+        conn = MagicMock()
+        cur = MagicMock()
+        cur.rowcount = 2
+        mock_conn.return_value.__enter__ = MagicMock(return_value=conn)
+        mock_conn.return_value.__exit__ = MagicMock(return_value=False)
+        conn.cursor.return_value.__enter__ = MagicMock(return_value=cur)
+        conn.cursor.return_value.__exit__ = MagicMock(return_value=False)
+        released = worker.release_ready()
+    assert released == 2
+    sql = cur.execute.call_args[0][0]
+    assert "waiting" in sql
+    assert "ingest_dependencies" in sql
+
+
+def test_run_once_calls_release_ready_before_claim() -> None:
+    """run_once 는 claim_batch 전에 release_ready 를 호출한다."""
+    dispatcher = MagicMock(spec=IngestDispatcher)
+    worker = IngestWorker(dispatcher)
+    call_order = []
+    with patch.object(worker, "release_ready", side_effect=lambda: call_order.append("release")):
+        with patch.object(worker, "claim_batch", side_effect=lambda: (call_order.append("claim"), [])[1]):
+            worker.run_once()
+    assert call_order == ["release", "claim"]
+
+
+def test_no_deps_aggregate_dispatches_directly() -> None:
+    """movie 는 deps 없이 바로 dispatch."""
+    dispatcher = MagicMock(spec=IngestDispatcher)
+    resolver = DependencyResolver()
+    worker = IngestWorker(dispatcher, dependency_resolver=resolver)
+    row = {
+        "id": 12,
+        "aggregate_type": "movie",
+        "aggregate_id": "m-1",
+        "op": "upsert",
+        "payload": {"movie_id": "m-1", "title": "test"},
+        "prompt_version": "1.0",
+        "model_name": "test",
+        "attempts": 0,
+    }
+    with patch("src.ingest.worker.get_settings") as mock_settings:
+        mock_settings.return_value.ontology.prompt_version = "1.0"
+        with patch.object(worker, "_check_deps", return_value=None):
+            with patch.object(worker, "ack"):
+                worker.process_row(row)
+    dispatcher.dispatch.assert_called_once_with("movie", row["payload"])

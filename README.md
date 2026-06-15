@@ -154,19 +154,21 @@ EMBED_DIMENSION=1024
 
 ## 5. 추천 알고리즘 한눈에
 
-`HYBRID_MOVIE_RECOMMEND` (`src/graph/cypher_statements.py`) 의 가중합:
+> **Persona** `(user_id, persona_id)` 가 추천의 최소 단위이다. 상세: [docs/persona_recommendation.md](docs/persona_recommendation.md)
+
+`HYBRID_MOVIE_RECOMMEND_WEIGHTED` (`src/graph/cypher_statements.py`) 의 가중합:
 
 ```
 score = 0.55 · vector_similarity
       + 0.15 · (1 - exp(-keyword_hits))
       + 0.10 · (1 - exp(-theme_hits))
       + 0.05 · (1 - exp(-mood_hits))
-      + 0.15 · tanh(user_pref_score)
+      + 0.15 · tanh(persona_pref_score)   // persona_id 존재 시
 ```
 
 - **vector_similarity** : `plot_embedding` 의 cosine 유사도 → semantic
 - **keyword/theme/mood** : 사용자 질의에서 추출된 정규화 표제어 매칭 → keyword
-- **user_pref_score** : `(:User)-[:PREFERS]->(:Genre|:Theme|:Keyword)` 누적치
+- **persona_pref_score** : `(:Persona)-[:PREFERS]->(:Genre|:Theme|:Keyword)` 누적치 (`persona_id` 없으면 User fallback)
 
 상세는 `docs/architecture.md` §5 참고.
 
@@ -191,13 +193,13 @@ score = 0.55 · vector_similarity
 
 | 영역                      | 모듈                                         | 문서                                                         |
 | ----------------------- | ------------------------------------------ | ---------------------------------------------------------- |
-| Cypher Template         | `src/graph/template_*`                     | [docs/cypher_templates.md](docs/cypher_templates.md)       |
+| Cypher Template         | `src/graph/template_`*                     | [docs/cypher_templates.md](docs/cypher_templates.md)       |
 | Versioned Embedding     | `src/embedding/version_*`                  | [docs/versioned_embedding.md](docs/versioned_embedding.md) |
 | Auto Vocabulary         | `src/vocab/*`                              | [docs/auto_vocab.md](docs/auto_vocab.md)                   |
 | Outbox Ingest           | `src/ingest/*`                             | [docs/outbox_ingest.md](docs/outbox_ingest.md)             |
 | Bandit Weights          | `src/recommend/*` (Postgres write-through) | [docs/bandit_weights.md](docs/bandit_weights.md)           |
 | LLM Judge               | `src/eval/*`                               | [docs/llm_judge.md](docs/llm_judge.md)                     |
-| **LangGraph + FastAPI** | `src/chat/`*, `src/api/*`                  | [docs/api.md](docs/api.md)                                 |
+| **LangGraph + FastAPI** | `src/chat/`*, `src/api/`*                  | [docs/api.md](docs/api.md)                                 |
 
 
 통합 smoke: [docs/smoke_test.md](docs/smoke_test.md)

@@ -11,7 +11,13 @@ from src.persistence.chat_history import ChatSession
 router = APIRouter()
 
 
-@router.get("/chat/list", response_model=list[ChatSession])
+@router.get(
+    "/chat/list",
+    response_model=list[ChatSession],
+    tags=["chat"],
+    summary="세션 목록",
+    description="세션 목록을 조회합니다.",
+)
 def chat_list(
     user_id: str = Query(min_length=1),
     cursor: int | None = Query(default=None, ge=1),

@@ -1,4 +1,4 @@
-"""Outbox worker (SKIP LOCKED + backoff + DLQ)."""
+"""Outbox worker (SKIP LOCKED + backoff + DLQ + dependency waiting)."""
 
 from __future__ import annotations
 
@@ -7,11 +7,12 @@ import json
 import logging
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
-from typing import Any, Iterator, Optional
+from typing import Any, Iterator, Optional, Sequence
 
 import psycopg
 
 from src.config.settings import PostgresSettings, get_settings
+from src.ingest.dependency import Dependency, DependencyResolver
 from src.ingest.dispatcher import IngestDispatcher
 from src.ingest.outbox_writer import OutboxWriter
 from src.persistence.db import get_connection
@@ -21,6 +22,35 @@ logger = logging.getLogger(__name__)
 MAX_ATTEMPTS = 3
 BATCH_SIZE = 10
 
+_RELEASE_READY_SQL = """
+UPDATE ingest_outbox o
+SET status = 'pending', updated_at = NOW()
+WHERE o.status = 'waiting'
+  AND NOT EXISTS (
+    SELECT 1 FROM ingest_dependencies d
+    WHERE d.outbox_id = o.id
+      AND NOT EXISTS (
+        SELECT 1 FROM ingest_outbox p
+        WHERE p.aggregate_type = d.dep_type
+          AND p.aggregate_id = d.dep_id
+          AND p.status = 'done'
+      )
+  )
+"""
+
+_CHECK_DEPS_MET_SQL = """
+SELECT d.dep_type, d.dep_id
+FROM ingest_dependencies d
+WHERE d.outbox_id = %s
+  AND NOT EXISTS (
+    SELECT 1 FROM ingest_outbox p
+    WHERE p.aggregate_type = d.dep_type
+      AND p.aggregate_id = d.dep_id
+      AND p.status = 'done'
+  )
+LIMIT 1
+"""
+
 
 class IngestWorker:
     def __init__(
@@ -29,10 +59,12 @@ class IngestWorker:
         settings: Optional[PostgresSettings] = None,
         *,
         outbox_writer: Optional[OutboxWriter] = None,
+        dependency_resolver: Optional[DependencyResolver] = None,
     ) -> None:
         self._dispatcher = dispatcher
         self._settings = settings or get_settings().postgres
         self._outbox = outbox_writer or OutboxWriter(self._settings)
+        self._resolver = dependency_resolver or DependencyResolver()
 
     @contextmanager
     def _connect(self) -> Iterator[psycopg.Connection]:
@@ -44,6 +76,22 @@ class IngestWorker:
         with get_connection(self._settings) as conn:
             yield conn
 
+    # ------------------------------------------------------------------
+    # Sweep: waiting → pending (모든 dep 충족)
+    # ------------------------------------------------------------------
+    def release_ready(self) -> int:
+        """waiting 상태 row 중 모든 의존성이 done 인 것을 pending 으로 복귀."""
+        with self._connect() as conn, conn.cursor() as cur:
+            cur.execute(_RELEASE_READY_SQL)
+            released = cur.rowcount
+            conn.commit()
+        if released:
+            logger.info("Released %d waiting rows to pending", released)
+        return released
+
+    # ------------------------------------------------------------------
+    # Claim
+    # ------------------------------------------------------------------
     def claim_batch(self) -> list[dict[str, Any]]:
         with self._connect() as conn, conn.cursor() as cur:
             cur.execute(
@@ -80,6 +128,9 @@ class IngestWorker:
                 for r in rows
             ]
 
+    # ------------------------------------------------------------------
+    # Ack / Nack
+    # ------------------------------------------------------------------
     def ack(self, outbox_id: int) -> None:
         with self._connect() as conn, conn.cursor() as cur:
             cur.execute(
@@ -127,6 +178,59 @@ class IngestWorker:
                 )
             conn.commit()
 
+    # ------------------------------------------------------------------
+    # Dependency: mark_waiting
+    # ------------------------------------------------------------------
+    def mark_waiting(
+        self, row: dict[str, Any], deps: Sequence[Dependency]
+    ) -> None:
+        """processing → waiting 전이 + ingest_dependencies 기록.
+
+        트랜잭션 내에서 dep 을 insert 한 뒤 이미 모두 충족됐으면 바로 pending 으로 복귀.
+        """
+        with self._connect() as conn, conn.cursor() as cur:
+            cur.execute(
+                "UPDATE ingest_outbox SET status='waiting', updated_at=NOW() WHERE id=%s",
+                (row["id"],),
+            )
+            for dep in deps:
+                cur.execute(
+                    "INSERT INTO ingest_dependencies (outbox_id, dep_type, dep_id) VALUES (%s, %s, %s)",
+                    (row["id"], dep.dep_type, dep.dep_id),
+                )
+            cur.execute(_CHECK_DEPS_MET_SQL, (row["id"],))
+            unmet = cur.fetchone()
+            if unmet is None:
+                cur.execute(
+                    "UPDATE ingest_outbox SET status='pending', updated_at=NOW() WHERE id=%s",
+                    (row["id"],),
+                )
+                logger.info("Deps already met for id=%s, back to pending", row["id"])
+            else:
+                logger.info(
+                    "Waiting id=%s for dep_type=%s dep_id=%s",
+                    row["id"], unmet[0], unmet[1],
+                )
+            conn.commit()
+
+    def _check_deps(self, row: dict[str, Any]) -> Sequence[Dependency] | None:
+        """의존성 해석 후 미충족 dep 이 있으면 전체 dep 목록 반환, 없으면 None."""
+        deps = self._resolver.resolve(row["aggregate_type"], row["payload"])
+        if not deps:
+            return None
+        with self._connect() as conn, conn.cursor() as cur:
+            for dep in deps:
+                cur.execute(
+                    "SELECT 1 FROM ingest_outbox WHERE aggregate_type=%s AND aggregate_id=%s AND status='done' LIMIT 1",
+                    (dep.dep_type, dep.dep_id),
+                )
+                if cur.fetchone() is None:
+                    return deps
+        return None
+
+    # ------------------------------------------------------------------
+    # Re-process / Dispatch
+    # ------------------------------------------------------------------
     def needs_reprocess(self, row: dict[str, Any]) -> bool:
         """payload 또는 row 의 prompt_version 이 현재 설정과 다르면 재적재."""
         current = get_settings().ontology.prompt_version
@@ -139,6 +243,7 @@ class IngestWorker:
     def reenqueue(self, row: dict[str, Any]) -> int:
         new_id = self._outbox.enqueue(
             aggregate_type=row["aggregate_type"],
+            aggregate_id=row.get("aggregate_id", ""),
             op=row.get("op", "upsert"),
             payload=row["payload"],
         )
@@ -155,10 +260,20 @@ class IngestWorker:
             self.reenqueue(row)
             self.ack(row["id"])
             return
+
+        unmet_deps = self._check_deps(row)
+        if unmet_deps is not None:
+            self.mark_waiting(row, unmet_deps)
+            return
+
         self._dispatcher.dispatch(row["aggregate_type"], row["payload"])
         self.ack(row["id"])
 
+    # ------------------------------------------------------------------
+    # Run loop
+    # ------------------------------------------------------------------
     def run_once(self) -> int:
+        self.release_ready()
         rows = self.claim_batch()
         for row in rows:
             try:

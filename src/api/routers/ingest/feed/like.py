@@ -12,7 +12,13 @@ from src.api.schemas import IngestFeedLikeEnvelope, IngestResponse
 router = APIRouter()
 
 
-@router.post("/ingest/feed/like", response_model=IngestResponse)
+@router.post(
+    "/ingest/feed/like",
+    response_model=IngestResponse,
+    tags=["feed"],
+    summary="피드 좋아요",
+    description="피드 좋아요/취소 이벤트를 ingest outbox에 적재합니다.",
+)
 def ingest_feed_like(
     env: IngestFeedLikeEnvelope,
     container: AppContainer = Depends(get_app_container),

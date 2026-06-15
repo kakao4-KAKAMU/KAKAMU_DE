@@ -104,6 +104,22 @@ def test_vector_index_statements_for_version() -> None:
     assert len(vector_index_statements(1024)) == 3
 
 
+def test_embedding_version_meta_schema_statements() -> None:
+    from src.graph.cypher_statements import NODE_CONSTRAINTS, NODE_PROPERTY_INDEXES
+
+    constraints = "\n".join(NODE_CONSTRAINTS)
+    indexes = "\n".join(NODE_PROPERTY_INDEXES)
+
+    assert "EmbeddingVersionMeta" in constraints
+    assert "e.version IS UNIQUE" in constraints
+    assert "e.property_key IS UNIQUE" in constraints
+    assert "EmbeddingVersionMeta" in indexes
+    assert "e.role" in indexes
+    assert "e.dimension" in indexes
+    assert "e.model_name" in indexes
+    assert "e.created_at" in indexes
+
+
 def test_module_register_version_helper(settings: EmbeddingSettings) -> None:
     store = FakeStore()
     v = register_version("3", role="shadow", client=store, settings=settings)

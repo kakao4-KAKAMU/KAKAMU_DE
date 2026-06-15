@@ -12,9 +12,20 @@ from src.api.schemas import IngestCommentLikeEnvelope, IngestResponse
 router = APIRouter()
 
 
-@router.post("/ingest/comment/like", response_model=IngestResponse)
+@router.post(
+    "/ingest/comment/like",
+    response_model=IngestResponse,
+    tags=["comment"],
+    summary="댓글 좋아요",
+    description="댓글 좋아요/취소 이벤트를 ingest outbox에 적재합니다.",
+)
 def ingest_comment_like(
     env: IngestCommentLikeEnvelope,
     container: AppContainer = Depends(get_app_container),
 ) -> IngestResponse:
-    return enqueue(container, aggregate_type="comment_like", env=env)
+    return enqueue(
+        container,
+        aggregate_type="comment_like",
+        aggregate_id=f"{env.payload.comment_id}_{env.payload.user_id}",
+        env=env,
+    )
