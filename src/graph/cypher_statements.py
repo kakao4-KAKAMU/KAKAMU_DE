@@ -592,6 +592,60 @@ RETURN m.movie_id     AS movie_id,
 """
 
 
+HYBRID_FEED_RECOMMEND_WEIGHTED: Final[
+    str
+] = """
+// 1) summary_embedding 기반 후보군 확보 (vec_top_k * 버퍼 배수)
+MATCH (f:Feed)
+WHERE f.summary_embedding IS NOT NULL
+  AND coalesce(f.deleted, false) = false
+WITH f, vector.similarity.cosine(f.summary_embedding, $query_embedding) AS vec_score
+ORDER BY vec_score DESC
+LIMIT toInteger($vec_top_k * 5)   // 필터 손실 보정용 버퍼
+
+// 2) toxicity / spoiler 필터
+WITH f, vec_score
+WHERE coalesce(f.toxicity_score, 0.0) <= $max_toxicity
+
+// 3) Keyword 부스트
+OPTIONAL MATCH (f)-[:MENTIONS]->(k:Keyword)
+WHERE k.normalized IN $query_keywords
+WITH f, vec_score, count(DISTINCT k) AS kw_hits
+
+// 4) Theme 부스트 (피드가 연결된 영화의 테마)
+OPTIONAL MATCH (f)-[:ABOUT_MOVIE]->(:Movie)-[:HAS_THEME]->(t:Theme)
+WHERE t.name IN $query_themes
+WITH f, vec_score, kw_hits, count(DISTINCT t) AS theme_hits
+
+// 5) Mood/Emotion 부스트
+OPTIONAL MATCH (f)-[:HAS_EMOTION]->(em:Emotion)
+WHERE em.tag IN $query_moods
+WITH f, vec_score, kw_hits, theme_hits, count(DISTINCT em) AS mood_hits
+
+// 6) User preference 가중치
+OPTIONAL MATCH (u:User {user_id: $user_id})-[p:PREFERS]->(x)
+WHERE x:Genre OR x:Theme OR x:Keyword OR x:Category
+OPTIONAL MATCH (f)-[:MENTIONS|HAS_CATEGORY]->(x)
+WITH f, vec_score, kw_hits, theme_hits, mood_hits,
+     coalesce(sum(p.weight), 0.0) AS user_pref_score
+
+// 7) 최종 스코어 산출
+WITH f,
+     ($w_vec   * vec_score)
+   + ($w_kw    * (1.0 - exp(-toFloat(kw_hits))))
+   + ($w_theme * (1.0 - exp(-toFloat(theme_hits))))
+   + ($w_mood  * (1.0 - exp(-toFloat(mood_hits))))
+   + ($w_user  * tanh(user_pref_score)) AS score
+ORDER BY score DESC
+LIMIT $top_k
+
+RETURN f.feed_id         AS feed_id,
+       f.summary         AS summary,
+       f.sentiment_score AS sentiment_score,
+       score
+"""
+
+
 __all__ = [
     "NODE_CONSTRAINTS",
     "NODE_PROPERTY_INDEXES",
@@ -616,6 +670,7 @@ __all__ = [
     "GET_COMMENT_SUMMARY",
     "HYBRID_MOVIE_RECOMMEND",
     "HYBRID_MOVIE_RECOMMEND_WEIGHTED",
+    "HYBRID_FEED_RECOMMEND_WEIGHTED",
     "build_upsert_movie_with_ontology",
     "vector_index_statements_for_version",
 ]

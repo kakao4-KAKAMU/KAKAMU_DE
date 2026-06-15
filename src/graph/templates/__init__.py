@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from src.graph.cypher_statements import HYBRID_MOVIE_RECOMMEND_WEIGHTED
+from src.graph.cypher_statements import (
+    HYBRID_FEED_RECOMMEND_WEIGHTED,
+    HYBRID_MOVIE_RECOMMEND_WEIGHTED,
+)
 from src.graph.template_registry import CypherTemplate, TemplateRegistry
 
 FEED_ABOUT_MOVIE = """
@@ -66,6 +69,29 @@ def build_default_registry() -> TemplateRegistry:
             },
             max_limit=100,
             description="Hybrid semantic+keyword+preference movie recommendation",
+        )
+    )
+    registry.register(
+        CypherTemplate(
+            id="hybrid_feed_recommend",
+            cypher=HYBRID_FEED_RECOMMEND_WEIGHTED,
+            params_schema={
+                "user_id": "string",
+                "query_embedding": "float_list",
+                "query_keywords": "string_list",
+                "query_themes": "string_list",
+                "query_moods": "string_list",
+                "top_k": "int",
+                "vec_top_k": "int",
+                "w_vec": "float",
+                "w_kw": "float",
+                "w_theme": "float",
+                "w_mood": "float",
+                "w_user": "float",
+                "max_toxicity": "float",
+            },
+            max_limit=100,
+            description="Hybrid semantic+keyword+preference feed recommendation",
         )
     )
     registry.register(

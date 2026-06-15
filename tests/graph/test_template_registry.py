@@ -10,10 +10,11 @@ from src.graph.template_registry import (
 from src.graph.templates import build_default_registry
 
 
-def test_default_registry_has_five_templates() -> None:
+def test_default_registry_has_six_templates() -> None:
     reg = build_default_registry()
-    assert len(reg.list_ids()) == 5
+    assert len(reg.list_ids()) == 6
     assert "hybrid_recommend" in reg.list_ids()
+    assert "hybrid_feed_recommend" in reg.list_ids()
 
 
 def test_rejects_write_operations() -> None:
