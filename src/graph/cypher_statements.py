@@ -548,15 +548,20 @@ OPTIONAL MATCH (m)-[:HAS_MOOD]->(md:Mood)
 WHERE md.name IN $query_moods
 WITH m, vec_score, kw_hits, theme_hits, count(DISTINCT md) AS mood_hits
 
-// 4) Persona / User preference 가중치
-OPTIONAL MATCH (pe:Persona {persona_id: $persona_id})-[pref:PREFERS]->(x)
-WHERE $persona_id IS NOT NULL AND (x:Genre OR x:Theme OR x:Keyword)
+// 4) Persona / User preference 가중치 (persona_id optional)
+OPTIONAL MATCH (pe:Persona)-[pref:PREFERS]->(x)
+WHERE $persona_id IS NOT NULL
+  AND pe.persona_id = $persona_id
+  AND (x:Genre OR x:Theme OR x:Keyword)
 OPTIONAL MATCH (m)-[:HAS_GENRE|HAS_THEME|MENTIONS]->(x)
 WITH m, vec_score, kw_hits, theme_hits, mood_hits,
      coalesce(sum(pref.weight), 0.0) AS persona_pref_score
 
-OPTIONAL MATCH (u:User {user_id: $user_id})-[p:PREFERS]->(x2)
-WHERE $persona_id IS NULL AND (x2:Genre OR x2:Theme OR x2:Keyword)
+OPTIONAL MATCH (u:User)-[p:PREFERS]->(x2)
+WHERE $persona_id IS NULL
+  AND $user_id IS NOT NULL
+  AND u.user_id = $user_id
+  AND (x2:Genre OR x2:Theme OR x2:Keyword)
 OPTIONAL MATCH (m)-[:HAS_GENRE|HAS_THEME|MENTIONS]->(x2)
 WITH m, vec_score, kw_hits, theme_hits, mood_hits,
      coalesce(persona_pref_score, 0.0) + coalesce(sum(p.weight), 0.0) AS user_pref_score
@@ -608,15 +613,20 @@ OPTIONAL MATCH (f)-[:HAS_EMOTION]->(em:Emotion)
 WHERE em.tag IN $query_moods
 WITH f, vec_score, kw_hits, theme_hits, count(DISTINCT em) AS mood_hits
 
-// 6) Persona / User preference 가중치
-OPTIONAL MATCH (pe:Persona {persona_id: $persona_id})-[pref:PREFERS]->(x)
-WHERE $persona_id IS NOT NULL AND (x:Genre OR x:Theme OR x:Keyword OR x:Category)
+// 6) Persona / User preference 가중치 (persona_id optional)
+OPTIONAL MATCH (pe:Persona)-[pref:PREFERS]->(x)
+WHERE $persona_id IS NOT NULL
+  AND pe.persona_id = $persona_id
+  AND (x:Genre OR x:Theme OR x:Keyword OR x:Category)
 OPTIONAL MATCH (f)-[:MENTIONS|HAS_CATEGORY]->(x)
 WITH f, vec_score, kw_hits, theme_hits, mood_hits,
      coalesce(sum(pref.weight), 0.0) AS persona_pref_score
 
-OPTIONAL MATCH (u:User {user_id: $user_id})-[p:PREFERS]->(x2)
-WHERE $persona_id IS NULL AND (x2:Genre OR x2:Theme OR x2:Keyword OR x2:Category)
+OPTIONAL MATCH (u:User)-[p:PREFERS]->(x2)
+WHERE $persona_id IS NULL
+  AND $user_id IS NOT NULL
+  AND u.user_id = $user_id
+  AND (x2:Genre OR x2:Theme OR x2:Keyword OR x2:Category)
 OPTIONAL MATCH (f)-[:MENTIONS|HAS_CATEGORY]->(x2)
 WITH f, vec_score, kw_hits, theme_hits, mood_hits,
      coalesce(persona_pref_score, 0.0) + coalesce(sum(p.weight), 0.0) AS user_pref_score
