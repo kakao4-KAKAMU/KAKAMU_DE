@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Optional
-
-from fastapi import APIRouter, Depends, Header, Query
+from fastapi import APIRouter, Depends, Query
 
 from src.api.dependencies import AppContainer
 from src.api.routers.deps import get_app_container
@@ -22,7 +20,6 @@ router = APIRouter()
 )
 def chat_session(
     session_id: str,
-    persona_id: Annotated[Optional[str], Header(alias="X-Persona-Id")] = None,
     user_id: str = Query(min_length=1),
     cursor: int | None = Query(default=None, ge=1),
     limit: int = Query(default=20, ge=1, le=200),
@@ -31,7 +28,6 @@ def chat_session(
     messages = container.chat_history.get_session_history(
         session_id=session_id,
         user_id=user_id,
-        persona_id=persona_id,
         cursor=cursor,
         limit=limit,
     )
