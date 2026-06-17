@@ -1,29 +1,211 @@
-# Movie Recommend System — Docker 이미지 통합 테스트용 Compose
-#
-# 컨테이너 간 통신은 호스트 localhost 가 아닌 Docker DNS(서비스명)를 사용합니다.
-# Linux / macOS / Windows Docker Desktop 에서 동일하게 동작합니다.
-#
-# 사용법
-# ------
-#   cp docker-compose.env.example docker-compose.env
-#
-#   docker build -f docker-image/base.Dockerfile -t movie-recommend-system-base:latest .
-#   docker compose build
-#   docker compose up -d neo4j postgres
-#   docker compose up -d api-smoke ingest-smoke
-#
-#   # 레지스트리 이미지 지정
-#   IMAGE_BOOTSTRAP=myuser/movie-recommend-system-bootstrap:1.42 \
-#   IMAGE_API=myuser/movie-recommend-system-api:1.42 \
-#   IMAGE_INGEST=myuser/movie-recommend-system-ingest-worker:1.42 \
-#   docker compose up --abort-on-container-exit --exit-code-from test-all
-#
-# 네트워크
-# --------
-#   - mrs-test (bridge): 모든 서비스가 동일 네트워크에 연결
-#   - 앱 → DB: bolt://neo4j:7687, postgres:5433 (서비스명 DNS)
-#   - 호스트 포트 충돌 시 docker-compose.env 에서 *_TEST_PORT 변경
+# # Movie Recommend System — Docker 이미지 통합 테스트용 Compose
+# #
+# # 컨테이너 간 통신은 호스트 localhost 가 아닌 Docker DNS(서비스명)를 사용합니다.
+# # Linux / macOS / Windows Docker Desktop 에서 동일하게 동작합니다.
+# #
+# # 사용법
+# # ------
+# #   cp docker-compose.env.example docker-compose.env
+# #
+# #   docker build -f docker-image/base.Dockerfile -t movie-recommend-system-base:latest .
+# #   docker compose build
+# #   docker compose up -d neo4j postgres
+# #   docker compose up -d api-smoke ingest-smoke
+# #
+# #   # 레지스트리 이미지 지정
+# #   IMAGE_BOOTSTRAP=myuser/movie-recommend-system-bootstrap:1.42 \
+# #   IMAGE_API=myuser/movie-recommend-system-api:1.42 \
+# #   IMAGE_INGEST=myuser/movie-recommend-system-ingest-worker:1.42 \
+# #   docker compose up --abort-on-container-exit --exit-code-from test-all
+# #
+# # 네트워크
+# # --------
+# #   - mrs-test (bridge): 모든 서비스가 동일 네트워크에 연결
+# #   - 앱 → DB: bolt://neo4j:7687, postgres:5433 (서비스명 DNS)
+# #   - 호스트 포트 충돌 시 docker-compose.env 에서 *_TEST_PORT 변경
 
+# name: movie-recommend-system-test
+
+# x-service-defaults: &service-defaults
+#   init: true
+#   restart: "no"
+#   networks:
+#     - mrs-test
+
+# x-app-env: &app-env
+#   env_file:
+#     - docker-compose.env
+#   environment:
+#     NEO4J_URI: bolt://neo4j:7687
+#     PG_HOST: postgres
+#     PG_PORT: "5432"
+#     EMBED_FALLBACK_PROVIDER: none
+
+# x-app-service: &app-service
+#   init: true
+#   restart: "no"
+#   networks:
+#     - mrs-test
+#   <<: *app-env
+
+# x-app-image-args: &app-image-args
+#   BASE_IMAGE: ${DOCKER_BASE_IMAGE:-movie-recommend-system-base:latest}
+
+# services:
+#   # ---------------------------------------------------------------------------
+#   # Storage
+#   # ---------------------------------------------------------------------------
+#   neo4j:
+#     <<: *service-defaults
+#     image: neo4j:2026.04.0-community
+#     hostname: neo4j
+#     expose:
+#       - "7474"
+#       - "7687"
+#     ports:
+#       - "${NEO4J_TEST_PORT:-7474}:7474"
+#       - "${NEO4J_BOLT_TEST_PORT:-7687}:7687"
+#     environment:
+#       NEO4J_AUTH: ${NEO4J_USER:-neo4j}/${NEO4J_PASSWORD:-neo4j}
+#       NEO4J_PLUGINS: '["apoc-extended", "graph-data-science"]'
+#       NEO4J_apoc_export_file_enabled: "true"
+#       NEO4J_apoc_import_file_enabled: "true"
+#       NEO4J_apoc_import_file_use__neo4j__config: "true"
+#       NEO4J_server_memory_heap_initial__size: 512m
+#       NEO4J_server_memory_heap_max__size: 512m
+#       NEO4J_server_memory_pagecache_size: 256m
+#       NEO4J_server_default__listen__address: 0.0.0.0
+#     volumes:
+#       - neo4j-test-data:/data
+#     healthcheck:
+#       test:
+#         [
+#           "CMD-SHELL",
+#           "wget --no-verbose --tries=1 --spider http://127.0.0.1:7474 || exit 1",
+#         ]
+#       interval: 5s
+#       timeout: 5s
+#       retries: 24
+#       start_period: 30s
+#     networks:
+#       mrs-test:
+#         aliases:
+#           - neo4j
+#           - graphdb
+
+#   postgres:
+#     <<: *service-defaults
+#     image: postgres:18-alpine
+#     hostname: postgres
+#     expose:
+#       - "5432"
+#     ports:
+#       - "${PG_TEST_PORT:-5433}:5432"
+#     environment:
+#       POSTGRES_DB: ${PG_DATABASE:-chatbot}
+#       POSTGRES_USER: ${PG_USER:-postgres}
+#       POSTGRES_PASSWORD: ${PG_PASSWORD:-postgres}
+#     volumes:
+#       - /Users/mac/Documents/KAKAMU_DE/postgres/:/var/lib/postgresql/18/docker
+#     healthcheck:
+#       test:
+#         [
+#           "CMD-SHELL",
+#           "pg_isready -h 127.0.0.1 -p 5432 -U ${PG_USER:-postgres} -d ${PG_DATABASE:-chatbot}",
+#         ]
+#       interval: 3s
+#       timeout: 5s
+#       retries: 20
+#     networks:
+#       mrs-test:
+#         aliases:
+#           - postgres
+#           - db
+
+#   # ---------------------------------------------------------------------------
+#   # One-shot: schema bootstrap
+#   # ---------------------------------------------------------------------------
+#   bootstrap:
+#     <<: *app-service
+#     image: ${IMAGE_BOOTSTRAP:-movie-recommend-system-bootstrap:latest}
+#     build:
+#       context: .
+#       dockerfile: docker-image/bootstrap.Dockerfile
+#       args:
+#         <<: *app-image-args
+#     depends_on:
+#       neo4j:
+#         condition: service_healthy
+#       postgres:
+#         condition: service_healthy
+#     command: ["python", "scripts/bootstrap_schema.py"]
+#     restart: "no"
+
+#   # ---------------------------------------------------------------------------
+#   # One-shot: API smoke (기동 + /healthz 확인 후 종료)
+#   # ---------------------------------------------------------------------------
+#   api-smoke:
+#     <<: *app-service
+#     image: ${IMAGE_API:-movie-recommend-system-api:latest}
+#     build:
+#       context: .
+#       dockerfile: docker-image/api.Dockerfile
+#       args:
+#         <<: *app-image-args
+#     expose:
+#       - "8080"
+#     ports:
+#       - "${API_TEST_PORT:-8080}:8080"
+#     depends_on:
+#       bootstrap:
+#         condition: service_completed_successfully
+#     command:
+#       ["uvicorn", "src.api.app:app", "--host", "0.0.0.0", "--port", "8080"]
+
+#   # ---------------------------------------------------------------------------
+#   # One-shot: ingest worker smoke (mock dispatcher, 1회 처리 후 종료)
+#   # ---------------------------------------------------------------------------
+#   ingest-smoke:
+#     <<: *app-service
+#     image: ${IMAGE_INGEST:-movie-recommend-system-ingest-worker:latest}
+#     build:
+#       context: .
+#       dockerfile: docker-image/ingest-worker.Dockerfile
+#       args:
+#         <<: *app-image-args
+#     depends_on:
+#       bootstrap:
+#         condition: service_completed_successfully
+#     command: ["python", "scripts/run_ingest_worker.py", "--concurrency", "1"]
+
+#   # ---------------------------------------------------------------------------
+#   # Orchestrator
+#   # ---------------------------------------------------------------------------
+#   test-all:
+#     <<: *service-defaults
+#     image: alpine:3.21
+#     depends_on:
+#       bootstrap:
+#         condition: service_completed_successfully
+#       api-smoke:
+#         condition: service_completed_successfully
+#       ingest-smoke:
+#         condition: service_completed_successfully
+#     command:
+#       - sh
+#       - -c
+#       - echo "All component smoke tests passed (bootstrap, api, ingest-worker)"
+
+# volumes:
+#   neo4j-test-data:
+#   postgres-test-data:
+
+# networks:
+#   mrs-test:
+#     driver: bridge
+#     enable_ipv6: false
+
+# Movie Recommend System — Docker 이미지 통합 테스트용 Compose
 name: movie-recommend-system-test
 
 x-service-defaults: &service-defaults
@@ -40,6 +222,8 @@ x-app-env: &app-env
     PG_HOST: postgres
     PG_PORT: "5432"
     EMBED_FALLBACK_PROVIDER: none
+    # ★ 추가: 워커와 API가 바라볼 임베딩 모델 서버 주소를 Docker 내부 DNS인 vllm으로 지정합니다.
+    VLLM_EMBEDDING_URL: http://vllm:8000/v1
 
 x-app-service: &app-service
   init: true
@@ -123,6 +307,41 @@ services:
           - db
 
   # ---------------------------------------------------------------------------
+  # AI Model Service (★ 신규 추가)
+  # ---------------------------------------------------------------------------
+  vllm:
+    <<: *app-service
+    image: vllm/vllm-openai:latest
+    hostname: vllm
+    expose:
+      - "8000"
+    ports:
+      - "8000:8000"  # 호스트 조회를 위해 8000포트 개방
+    command: [
+      "${VLLM_EMBED__MODEL_NAME:-Qwen/Qwen3-Embedding-0.6B}",
+      "--gpu-memory-utilization", "0.3",
+      "--enforce-eager",
+      "--max-model-len", "4096"
+    ]
+    volumes:
+      # 모델 다운로드 캐시가 지워지지 않도록 호스트 볼륨 연결
+      - ~/.cache/huggingface:/root/.cache/huggingface
+    # 내 컴퓨터에 NVIDIA 그래픽카드가 있다면 아래 주석(#)을 해제하여 GPU를 활성화하세요.
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://127.0.0.1:8000/v1/models || exit 1"]
+      interval: 15s       # 15초마다 검사
+      timeout: 10s
+      retries: 30         # ★ 기존 10회에서 30회로 대폭 증가! (총 450초, 약 7분 30초 동안 기다려줍니다)
+      start_period: 60s
+
+  # ---------------------------------------------------------------------------
   # One-shot: schema bootstrap
   # ---------------------------------------------------------------------------
   bootstrap:
@@ -142,7 +361,7 @@ services:
     restart: "no"
 
   # ---------------------------------------------------------------------------
-  # One-shot: API smoke (기동 + /healthz 확인 후 종료)
+  # One-shot: API smoke
   # ---------------------------------------------------------------------------
   api-smoke:
     <<: *app-service
@@ -156,14 +375,23 @@ services:
       - "8080"
     ports:
       - "${API_TEST_PORT:-8080}:8080"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     depends_on:
       bootstrap:
         condition: service_completed_successfully
+      vllm:                       # ★ 변경: vllm 모델 공장이 완전히 켜진 후 실행되도록 제한
+        condition: service_healthy
     command:
       ["uvicorn", "src.api.app:app", "--host", "0.0.0.0", "--port", "8080"]
 
   # ---------------------------------------------------------------------------
-  # One-shot: ingest worker smoke (mock dispatcher, 1회 처리 후 종료)
+  # One-shot: ingest worker smoke
   # ---------------------------------------------------------------------------
   ingest-smoke:
     <<: *app-service
@@ -173,9 +401,18 @@ services:
       dockerfile: docker-image/ingest-worker.Dockerfile
       args:
         <<: *app-image-args
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     depends_on:
       bootstrap:
         condition: service_completed_successfully
+      vllm:                       # ★ 변경: vllm 모델 공장이 완전히 켜진 후 실행되도록 제한
+        condition: service_healthy
     command: ["python", "scripts/run_ingest_worker.py", "--concurrency", "1"]
 
   # ---------------------------------------------------------------------------
@@ -194,7 +431,7 @@ services:
     command:
       - sh
       - -c
-      - echo "All component smoke tests passed (bootstrap, api, ingest-worker)"
+      - echo "All component smoke tests passed (bootstrap, api, ingest-worker with local vllm)"
 
 volumes:
   neo4j-test-data:

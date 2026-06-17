@@ -7,7 +7,7 @@ def connect_to_postgres():
         conn = psycopg.connect(
             host="127.0.0.1",
             port=5433,
-            dbname="postgres",
+            dbname="chatbot",
             user="postgres",
             password="postgres",
         )
@@ -24,16 +24,40 @@ def execute_query(conn, query):
 limit = 500
 offset = 500
 
+# query = f"""
+# select m.id, m.producing_year, m.nation, mg.genre, mt.title_name, ov.overview from 
+# (select m.id, m.producing_year, m.nation from movie as m
+# where m.is_rated and (m.is_adult is FALSE) and (producing_year is not null) and (tmdb_id is not null)
+# order by m.producing_year desc, m.id asc LIMIT {limit} offset {offset}) as m
+# left join (select mgr.movie_id, STRING_AGG(CAST(g.genre_name AS VARCHAR), ',') as genre from movie_genre_relation mgr
+#       left join genre g on mgr.genre_id = g.id
+#       group by mgr.movie_id) as mg on mg.movie_id = m.id
+#   left join overview ov on ov.movie_id = m.id
+#     left join movie_original_title as mt on m.id = mt.movie_id;
+# """
+
 query = f"""
 select m.id, m.producing_year, m.nation, mg.genre, mt.title_name, ov.overview from 
-(select m.id, m.producing_year, m.nation from movie as m
-where m.is_rated and (m.is_adult is FALSE) and (producing_year is not null) and (tmdb_id is not null)
-order by m.producing_year desc, m.id asc LIMIT {limit} offset {offset}) as m
-left join (select mgr.movie_id, STRING_AGG(CAST(g.genre_name AS VARCHAR), ',') as genre from movie_genre_relation mgr
-      left join genre g on mgr.genre_id = g.id
-      group by mgr.movie_id) as mg on mg.movie_id = m.id
-  left join overview ov on ov.movie_id = m.id
-    left join movie_original_title as mt on m.id = mt.movie_id;
+(
+    -- 1. 조건에 맞는 영화 500개 먼저 추출
+    select m.id, m.producing_year, m.nation from movie as m
+    where m.is_rated and (m.is_adult is FALSE) and (producing_year is not null) and (tmdb_id is not null)
+    order by m.producing_year desc, m.id asc 
+    LIMIT {limit} offset {offset}
+) as m
+left join (
+    -- 2. 장르 데이터를 쉼표(,)로 묶어서 한 줄로 조립
+    select mgr.movie_id, STRING_AGG(CAST(g.genre_name AS VARCHAR), ',') as genre 
+    from movie_genre_relation mgr
+    left join genre g on mgr.genre_id = g.id
+    group by mgr.movie_id
+) as mg on mg.movie_id = m.id
+left join overview ov on ov.movie_id = m.id
+left join (
+    -- 3. ★ 핵심: 영화 ID당 제목을 딱 하나만 골라내어 중복 조인 방지
+    SELECT DISTINCT ON (movie_id) movie_id, title_name 
+    FROM movie_title
+) as mt on m.id = mt.movie_id;
 """
 
 if __name__ == "__main__":
