@@ -7,7 +7,7 @@ import json
 import logging
 
 from fastapi import APIRouter, Depends
-from fastapi.sse import EventSourceResponse, ServerSentEvent
+from sse_starlette.sse import EventSourceResponse
 from fastapi import HTTPException
 from src.api.dependencies import AppContainer
 from src.api.routers.chat.utils import initial_chat_state, jsonify
@@ -34,7 +34,7 @@ router = APIRouter()
 async def chat_stream(
     req: ChatRequest,
     container: AppContainer = Depends(get_app_container),
-) -> AsyncIterable[ServerSentEvent]:
+) -> EventSourceResponse:
     """노드 단위 SSE 스트리밍 (디버깅/관측용)."""
     session_id = req.ensure_session_id()
     msg_id = None
