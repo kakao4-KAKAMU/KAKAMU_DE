@@ -55,7 +55,7 @@ CREATE INDEX IF NOT EXISTS idx_chat_message_user_time
 class ChatSession(BaseModel):
     session_id: UUID
     user_id: str
-    persona_id: str
+    persona_id: Optional[str]
     started_at: datetime
     last_active: datetime
     metadata: dict[str, Any]
@@ -83,7 +83,7 @@ class ChatHistoryStore:
             cur.execute(DDL)
             conn.commit()
 
-    def open_session(self, *, session_id: str, user_id: str, persona_id: str, metadata: dict | None = None) -> None:
+    def open_session(self, *, session_id: str, user_id: str, persona_id: Optional[str] = None, metadata: dict | None = None) -> None:
         with get_connection(self._settings) as conn, conn.cursor() as cur:
             cur.execute(
                 """
