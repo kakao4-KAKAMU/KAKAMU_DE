@@ -16,6 +16,7 @@ from typing import Mapping, Optional, Sequence
 from src.embedding.version_registry import EmbeddingVersionRegistry
 from src.graph.client import Neo4jClient
 from src.graph.cypher_statements import (
+    DELETE_PERSONA,
     JUDGE_MOVIE_WITH_PERSONA,
     JUDGE_PERSON_WITH_PERSONA,
     LIKE_COMMENT_WITH_PERSONA,
@@ -27,6 +28,8 @@ from src.graph.cypher_statements import (
     UPSERT_COMMENT_WITH_ONTOLOGY,
     UPSERT_FEED_WITH_ONTOLOGY,
     UPSERT_MOVIE_WITH_ONTOLOGY,
+    UPSERT_PERSONA,
+    UPSERT_USER,
     build_upsert_comment_with_ontology,
     build_upsert_feed_with_ontology,
     build_upsert_movie_with_ontology,
@@ -93,6 +96,64 @@ class OntologyLoader:
         if not extra_props:
             return UPSERT_COMMENT_WITH_ONTOLOGY
         return build_upsert_comment_with_ontology(embedding_properties=extra_props)
+
+    # ------------------------------------------------------------------
+    # User
+    # ------------------------------------------------------------------
+    def upsert_user(
+        self,
+        *,
+        user_id: str,
+        nickname: Optional[str] = None,
+        created_at: Optional[datetime] = None,
+    ) -> None:
+        ts_val = created_at or datetime.now(timezone.utc)
+        self._neo4j.execute_write(
+            UPSERT_USER,
+            {"user_id": user_id, "nickname": nickname, "created_at": ts_val},
+        )
+        logger.info("Upserted user %s", user_id)
+
+    # ------------------------------------------------------------------
+    # Persona
+    # ------------------------------------------------------------------
+    def upsert_persona(
+        self,
+        *,
+        persona_id: str,
+        user_id: str,
+        label: Optional[str] = None,
+        genres: Sequence[str],
+        movies: Sequence[str],
+        persons: Sequence[str],
+        created_at: Optional[datetime] = None,
+        modified_at: Optional[datetime] = None,
+    ) -> None:
+        ts_val = modified_at or created_at or datetime.now(timezone.utc)
+        self._neo4j.execute_write(
+            UPSERT_PERSONA,
+            {
+                "persona_id": persona_id,
+                "user_id": user_id,
+                "label": label,
+                "genres": list(genres),
+                "movies": list(movies),
+                "persons": list(persons),
+                "created_at": created_at or ts_val,
+                "ts": ts_val,
+            },
+        )
+        logger.info(
+            "Upserted persona %s (genres=%d, movies=%d, persons=%d)",
+            persona_id,
+            len(genres),
+            len(movies),
+            len(persons),
+        )
+
+    def delete_persona(self, *, persona_id: str) -> None:
+        self._neo4j.execute_write(DELETE_PERSONA, {"persona_id": persona_id})
+        logger.info("Deleted persona %s", persona_id)
 
     # ------------------------------------------------------------------
     # Movie

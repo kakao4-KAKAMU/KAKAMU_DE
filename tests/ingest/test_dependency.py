@@ -84,6 +84,49 @@ def test_person_judge_has_no_deps() -> None:
     assert deps == ()
 
 
+def test_user_has_no_deps() -> None:
+    deps = _resolver().resolve("user", {"user_id": "u-1", "nickname": "nick"})
+    assert deps == ()
+
+
+def test_persona_depends_on_user_and_movies() -> None:
+    deps = _resolver().resolve(
+        "persona",
+        {
+            "persona_id": "movie_buff",
+            "user_id": "u-1",
+            "movies": ["m-1", "m-2"],
+            "genres": ["SF"],
+        },
+    )
+    assert Dependency("user", "u-1") in deps
+    assert Dependency("movie", "m-1") in deps
+    assert Dependency("movie", "m-2") in deps
+    assert len(deps) == 3
+
+
+def test_persona_modify_depends_on_persona_user_and_movies() -> None:
+    deps = _resolver().resolve(
+        "persona_modify",
+        {
+            "persona_id": "movie_buff",
+            "user_id": "u-1",
+            "movies": ["m-1"],
+        },
+    )
+    assert Dependency("persona", "movie_buff") in deps
+    assert Dependency("user", "u-1") in deps
+    assert Dependency("movie", "m-1") in deps
+
+
+def test_persona_delete_depends_on_persona() -> None:
+    deps = _resolver().resolve(
+        "persona_delete",
+        {"persona_id": "movie_buff", "user_id": "u-1"},
+    )
+    assert deps == (Dependency("persona", "movie_buff"),)
+
+
 def test_unknown_aggregate_type_has_no_deps() -> None:
     deps = _resolver().resolve("unknown_type", {"foo": "bar"})
     assert deps == ()
