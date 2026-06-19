@@ -6,24 +6,25 @@ from typing import Mapping, Optional, Sequence
 
 from src.embedding.version_registry import EmbeddingVersion, EmbeddingVersionRegistry
 from src.graph.client import Neo4jClient
+from src.graph.cypher_statements.movie import build_update_movie_plot_embedding
+from src.graph.cypher_statements.properties import build_embedding_set_clause
 
 
 def build_movie_embedding_set_clause(versions: Sequence[EmbeddingVersion]) -> str:
     """Build SET fragment: m.plot_embedding_vN = $embedding, ..."""
     if not versions:
         raise ValueError("At least one embedding version is required")
-    parts = [f"m.{v.property_key} = $embedding" for v in versions]
-    return ",\n    ".join(parts)
+    return build_embedding_set_clause(
+        "m",
+        "plot_embedding",
+        "embedding",
+        [v.property_key for v in versions],
+    )
 
 
 def build_upsert_movie_embedding_cypher(versions: Sequence[EmbeddingVersion]) -> str:
-    set_clause = build_movie_embedding_set_clause(versions)
-    return f"""
-MATCH (m:Movie {{movie_id: $movie_id}})
-SET {set_clause},
-    m.updated_at = datetime()
-RETURN m.movie_id AS movie_id
-"""
+    version_props = [v.property_key for v in versions]
+    return build_update_movie_plot_embedding(version_props)
 
 
 class PlotEmbeddingDualWriter:
@@ -53,7 +54,7 @@ class PlotEmbeddingDualWriter:
         cypher = build_upsert_movie_embedding_cypher(versions)
         params: dict[str, object] = {
             "movie_id": movie_id,
-            "embedding": list(embedding),
+            "plot_embedding": list(embedding),
         }
         if extra_params:
             params.update(extra_params)

@@ -46,14 +46,21 @@ class FakeStore:
             self.by_role[params["role"]] = vid
             return [row]
         if "promote" in cypher.lower() or "shadow.role = 'active'" in cypher:
-            active_id = self.by_role.get("active")
-            shadow_id = self.by_role.get("shadow")
-            if not active_id or not shadow_id:
+            version = params.get("version")
+            shadow_id = None
+            for vid, node in self.nodes.items():
+                if node.get("role") == "shadow" and node.get("version") == version:
+                    shadow_id = vid
+                    break
+            if not shadow_id:
                 return []
-            self.nodes[active_id]["role"] = "retired"
+            active_id = self.by_role.get("active")
+            if active_id:
+                self.nodes[active_id]["role"] = "retired"
+                del self.by_role["active"]
             self.nodes[shadow_id]["role"] = "active"
-            del self.by_role["active"]
-            del self.by_role["shadow"]
+            if "shadow" in self.by_role:
+                del self.by_role["shadow"]
             self.by_role["active"] = shadow_id
             return [self.nodes[shadow_id]]
         return []
@@ -82,6 +89,28 @@ def test_register_and_get_active(registry: EmbeddingVersionRegistry) -> None:
     assert active is not None
     assert active.version == "1"
     assert active.role == "active"
+
+
+def test_promote_shadow_without_active(registry: EmbeddingVersionRegistry) -> None:
+    registry.register_version("2", role="shadow")
+    promoted = registry.promote_shadow_to_active("2")
+    assert promoted is not None
+    assert promoted.version == "2"
+    assert promoted.role == "active"
+    assert registry.get_active_version() is not None
+    assert registry.get_active_version().version == "2"
+    assert registry.get_shadow_version() is None
+
+
+def test_promote_shadow_retires_existing_active(registry: EmbeddingVersionRegistry) -> None:
+    registry.register_version("1", role="active")
+    registry.register_version("2", role="shadow")
+    promoted = registry.promote_shadow_to_active("2")
+    assert promoted is not None
+    assert promoted.version == "2"
+    assert registry.get_active_version() is not None
+    assert registry.get_active_version().version == "2"
+    assert registry.get_shadow_version() is None
 
 
 def test_write_targets_includes_shadow(registry: EmbeddingVersionRegistry) -> None:

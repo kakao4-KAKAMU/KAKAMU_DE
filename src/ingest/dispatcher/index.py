@@ -25,11 +25,19 @@ from src.ingest.dispatcher.comment import build_comment_handler
 from src.ingest.dispatcher.like import build_feed_like_handler, build_comment_like_handler
 from src.ingest.dispatcher.judge import build_movie_judge_handler, build_person_judge_handler
 from src.ingest.dispatcher.delete import build_feed_delete_handler, build_comment_delete_handler
+from src.ingest.dispatcher.reembed import (
+    build_comment_reembed_handler,
+    build_feed_reembed_handler,
+    build_movie_reembed_handler,
+)
+from src.embedding.dual_writer import PlotEmbeddingDualWriter
+from src.embedding.version_registry import EmbeddingVersionRegistry
 
 logger = logging.getLogger(__name__)
 
 ALL_AGGREGATE_TYPES = (
     "movie", "feed", "comment",
+    "movie_reembed", "feed_reembed", "comment_reembed",
     "feed_modify", "feed_delete", "feed_like",
     "comment_modify", "comment_delete", "comment_like",
     "movie_judge", "person_judge",
@@ -92,10 +100,12 @@ def build_production_dispatcher(
     embedder: Embedder,
     loader: OntologyLoader,
     neo4j: Neo4jClient,
+    embedding_registry: EmbeddingVersionRegistry | None = None,
 ) -> IngestDispatcher:
     """실 Extractor + Embedder + Loader 를 묶은 production dispatcher."""
     context_reader = Neo4jCommentContextReader(neo4j)
     d = IngestDispatcher()
+    registry = embedding_registry
 
     movie_handler = build_movie_handler(
         extractor=MoviePlotExtractor(llm), embedder=embedder, loader=loader,
@@ -111,6 +121,29 @@ def build_production_dispatcher(
     d.register("movie", movie_handler)
     d.register("feed", feed_handler)
     d.register("comment", comment_handler)
+
+    if registry is not None:
+        dual_writer = PlotEmbeddingDualWriter(neo4j, registry)
+        d.register(
+            "movie_reembed",
+            build_movie_reembed_handler(embedder=embedder, dual_writer=dual_writer),
+        )
+    d.register(
+        "feed_reembed",
+        build_feed_reembed_handler(
+            embedder=embedder,
+            neo4j=neo4j,
+            embedding_registry=registry,
+        ),
+    )
+    d.register(
+        "comment_reembed",
+        build_comment_reembed_handler(
+            embedder=embedder,
+            neo4j=neo4j,
+            embedding_registry=registry,
+        ),
+    )
 
     # modify 는 create 와 동일한 MERGE/SET 로직 (멱등)
     d.register("feed_modify", feed_handler)

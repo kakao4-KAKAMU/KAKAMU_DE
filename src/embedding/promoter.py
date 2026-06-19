@@ -37,7 +37,7 @@ def promote_shadow_if_ready(
     """Promote shadow → active in Neo4j when metrics pass thresholds."""
     if not should_promote(result, thresholds):
         return None
-    return registry.promote_shadow_to_active()
+    return registry.promote_shadow_to_active(result.shadow.version)
 
 
 __all__ = [

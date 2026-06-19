@@ -85,7 +85,7 @@ class VLLMEmbedSettings(BaseSettings):
 class EmbeddingSettings(BaseSettings):
     """임베딩 메타. Neo4j Vector Index 차원과 일치해야 한다."""
 
-    model_name: str = Field(default="BAAI/bge-m3")
+    model_name: str = Field(validation_alias="EMBED__MODEL_NAME", default="BAAI/bge-m3")
     dimension: int = Field(default=1024)
     normalize: bool = Field(default=True)
 
