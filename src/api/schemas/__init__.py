@@ -4,6 +4,8 @@ from .feed import IngestFeedPayload, IngestFeedDeletePayload, IngestFeedLikePayl
 from .chat import ChatRequest, ChatSessionResponse, ChatSessionRequest
 from .movie import IngestMoviePayload, IngestMovieJudgePayload
 from .person import IngestPersonPayload, IngestPersonJudgePayload
+from .user import IngestUserPayload
+from .persona import IngestPersonaPayload, IngestPersonaDeletePayload
 from .ingest import (
     IngestEnvelope,
     IngestMovieEnvelope,
@@ -15,6 +17,9 @@ from .ingest import (
     IngestCommentEnvelope,
     IngestCommentDeleteEnvelope,
     IngestCommentLikeEnvelope,
+    IngestUserEnvelope,
+    IngestPersonaEnvelope,
+    IngestPersonaDeleteEnvelope,
     IngestResponse,
 )
 from .feedback import FeedbackRequest, FeedbackResponse
@@ -38,6 +43,10 @@ __all__ = [
   "IngestPersonPayload",
   "IngestPersonJudgePayload",
 
+  "IngestUserPayload",
+  "IngestPersonaPayload",
+  "IngestPersonaDeletePayload",
+
   "ChatRequest",
   "ChatSessionResponse",
   "ChatSessionRequest",
@@ -52,6 +61,9 @@ __all__ = [
   "IngestCommentEnvelope",
   "IngestCommentDeleteEnvelope",
   "IngestCommentLikeEnvelope",
+  "IngestUserEnvelope",
+  "IngestPersonaEnvelope",
+  "IngestPersonaDeleteEnvelope",
   "IngestResponse",
 
   "FeedbackRequest",
