@@ -59,14 +59,14 @@ async def chat_stream(
     config = {"configurable": {"thread_id": session_id}}
 
     async def event_gen():
-        yield {"event": "open", "data": {"session_id": session_id, "message_id": msg_id}}
+        yield {"event": "open", "data": json.dumps({"session_id": session_id, "message_id": msg_id})}
         try:
             async for chunk in container.chat_graph.astream(state, config=config):
-                yield {"event": "node", "data": jsonify(chunk)}
+                yield {"event": "node", "data": json.dumps(jsonify(chunk))}
         except Exception as exc:
             logger.exception("chat stream failed")
-            yield {"event": "error", "data": {"detail": str(exc)}}
+            yield {"event": "error", "data":  json.dumps({"detail": str(exc)})}
         await asyncio.sleep(0.1)
-        yield {"event": "done", "data": {"session_id": session_id}}
+        yield {"event": "done", "data": json.dumps({"session_id": session_id})}
 
     return EventSourceResponse(event_gen())
