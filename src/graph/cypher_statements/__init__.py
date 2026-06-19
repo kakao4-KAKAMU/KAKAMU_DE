@@ -37,12 +37,14 @@ from .properties import (
     summary_embedding_property,
     versioned_embedding_property,
 )
+from .persona import DELETE_PERSONA, UPSERT_PERSONA
 from .retrieval import (
     HYBRID_FEED_RECOMMEND_WEIGHTED,
     HYBRID_MOVIE_RECOMMEND_WEIGHTED,
     build_hybrid_feed_recommend_weighted,
     build_hybrid_movie_recommend_weighted,
 )
+from .user import UPSERT_USER
 from .schema import (
     FULLTEXT_INDEXES,
     NODE_CONSTRAINTS,
@@ -73,8 +75,11 @@ __all__ = [
     "SEED_EMOTIONS",
     "SEED_MERGE_CATEGORY",
     "SEED_MERGE_EMOTION",
+    "DELETE_PERSONA",
     "SOFT_DELETE_COMMENT",
     "SOFT_DELETE_FEED",
+    "UPSERT_PERSONA",
+    "UPSERT_USER",
     "UNLIKE_COMMENT_WITH_PERSONA",
     "UNLIKE_FEED_WITH_PERSONA",
     "UPDATE_COMMENT_SUMMARY_EMBEDDING",

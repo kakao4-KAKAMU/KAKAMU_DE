@@ -19,6 +19,8 @@ from src.api.schemas.comment import (
     IngestCommentDeletePayload,
 )
 from src.api.schemas.person import IngestPersonJudgePayload
+from src.api.schemas.user import IngestUserPayload
+from src.api.schemas.persona import IngestPersonaPayload, IngestPersonaDeletePayload
 from src.api.schemas.shared import IngestPayload
 from pydantic import BaseModel
 
@@ -63,6 +65,20 @@ class IngestCommentLikeEnvelope(IngestEnvelope):
     payload: IngestCommentLikePayload
 
 
+# ------- USER -------
+class IngestUserEnvelope(IngestEnvelope):
+    payload: IngestUserPayload
+
+
+# ------- PERSONA -------
+class IngestPersonaEnvelope(IngestEnvelope):
+    payload: IngestPersonaPayload
+
+
+class IngestPersonaDeleteEnvelope(IngestEnvelope):
+    payload: IngestPersonaDeletePayload
+
+
 # ------- RESPONSE -------
 class IngestResponse(BaseModel):
     outbox_id: int
@@ -79,5 +95,8 @@ __all__ = [
     "IngestCommentEnvelope",
     "IngestCommentDeleteEnvelope",
     "IngestCommentLikeEnvelope",
+    "IngestUserEnvelope",
+    "IngestPersonaEnvelope",
+    "IngestPersonaDeleteEnvelope",
     "IngestResponse",
 ]

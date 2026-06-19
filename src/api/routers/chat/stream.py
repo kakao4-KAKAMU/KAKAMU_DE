@@ -7,7 +7,7 @@ import json
 import logging
 
 from fastapi import APIRouter, Depends
-from fastapi.sse import EventSourceResponse, ServerSentEvent
+from sse_starlette.sse import EventSourceResponse, ServerSentEvent
 from fastapi import HTTPException
 from src.api.dependencies import AppContainer
 from src.api.routers.chat.utils import initial_chat_state, jsonify
@@ -34,7 +34,7 @@ router = APIRouter()
 async def chat_stream(
     req: ChatRequest,
     container: AppContainer = Depends(get_app_container),
-) -> AsyncIterable[ServerSentEvent]:
+) -> EventSourceResponse:
     """노드 단위 SSE 스트리밍 (디버깅/관측용)."""
     session_id = req.ensure_session_id()
     msg_id = None
@@ -62,7 +62,7 @@ async def chat_stream(
         yield ServerSentEvent(event="open", data=json.dumps({"session_id": session_id, "message_id": msg_id}))
         try:
             async for chunk in container.chat_graph.astream(state, config=config):
-                yield ServerSentEvent(event="node", data=json.dumps(jsonify(chunk), ensure_ascii=False)) 
+                yield ServerSentEvent(event="node", data=json.dumps(jsonify(chunk)))
         except Exception as exc:
             logger.exception("chat stream failed")
             yield ServerSentEvent(event="error", data=json.dumps({"detail": str(exc)}))
