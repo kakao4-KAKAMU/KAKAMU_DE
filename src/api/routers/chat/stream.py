@@ -7,7 +7,7 @@ import json
 import logging
 
 from fastapi import APIRouter, Depends
-from sse_starlette.sse import EventSourceResponse
+from sse_starlette.sse import EventSourceResponse, ServerSentEvent
 from fastapi import HTTPException
 from src.api.dependencies import AppContainer
 from src.api.routers.chat.utils import initial_chat_state, jsonify
@@ -59,14 +59,14 @@ async def chat_stream(
     config = {"configurable": {"thread_id": session_id}}
 
     async def event_gen():
-        yield {"event": "open", "data": json.dumps({"session_id": session_id, "message_id": msg_id})}
+        yield ServerSentEvent(event="open", data=json.dumps({"session_id": session_id, "message_id": msg_id}))
         try:
             async for chunk in container.chat_graph.astream(state, config=config):
-                yield {"event": "node", "data": json.dumps(jsonify(chunk))}
+                yield ServerSentEvent(event="node", data=json.dumps(jsonify(chunk)))
         except Exception as exc:
             logger.exception("chat stream failed")
-            yield {"event": "error", "data":  json.dumps({"detail": str(exc)})}
+            yield ServerSentEvent(event="error", data=json.dumps({"detail": str(exc)}))
         await asyncio.sleep(0.1)
-        yield {"event": "done", "data": json.dumps({"session_id": session_id})}
+        yield ServerSentEvent(event="done", data=json.dumps({"session_id": session_id}))
 
     return EventSourceResponse(event_gen())
