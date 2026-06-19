@@ -25,6 +25,8 @@ from src.ingest.dispatcher.comment import build_comment_handler
 from src.ingest.dispatcher.like import build_feed_like_handler, build_comment_like_handler
 from src.ingest.dispatcher.judge import build_movie_judge_handler, build_person_judge_handler
 from src.ingest.dispatcher.delete import build_feed_delete_handler, build_comment_delete_handler
+from src.ingest.dispatcher.user import build_user_handler
+from src.ingest.dispatcher.persona import build_persona_handler, build_persona_delete_handler
 from src.ingest.dispatcher.reembed import (
     build_comment_reembed_handler,
     build_feed_reembed_handler,
@@ -41,6 +43,7 @@ ALL_AGGREGATE_TYPES = (
     "feed_modify", "feed_delete", "feed_like",
     "comment_modify", "comment_delete", "comment_like",
     "movie_judge", "person_judge",
+    "user", "persona", "persona_modify", "persona_delete",
 )
 
 
@@ -157,6 +160,13 @@ def build_production_dispatcher(
 
     d.register("feed_delete", build_feed_delete_handler(loader=loader))
     d.register("comment_delete", build_comment_delete_handler(loader=loader))
+
+    user_handler = build_user_handler(loader=loader)
+    persona_handler = build_persona_handler(loader=loader)
+    d.register("user", user_handler)
+    d.register("persona", persona_handler)
+    d.register("persona_modify", persona_handler)
+    d.register("persona_delete", build_persona_delete_handler(loader=loader))
 
     return d
 

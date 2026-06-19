@@ -27,7 +27,10 @@ class DependencyResolver:
     - comment_modify/delete/like → comment(comment_id)
     - feed_modify/delete/like   → feed(feed_id)
     - movie_judge        → movie(movie_id)
-    - movie / feed / person_judge → 선행 없음
+    - persona            → user(user_id), [movie(movie_id)…]
+    - persona_modify     → persona(persona_id), user(user_id), [movie(movie_id)…]
+    - persona_delete     → persona(persona_id)
+    - movie / feed / person_judge / user → 선행 없음
     """
 
     def resolve(
@@ -59,6 +62,27 @@ def _resolve_movie_judge(payload: Mapping[str, Any]) -> Sequence[Dependency]:
     return (Dependency("movie", payload["movie_id"]),)
 
 
+def _resolve_persona(payload: Mapping[str, Any]) -> Sequence[Dependency]:
+    deps: list[Dependency] = [Dependency("user", payload["user_id"])]
+    for movie_id in payload.get("movies") or ():
+        deps.append(Dependency("movie", movie_id))
+    return deps
+
+
+def _resolve_persona_modify(payload: Mapping[str, Any]) -> Sequence[Dependency]:
+    deps: list[Dependency] = [
+        Dependency("persona", payload["persona_id"]),
+        Dependency("user", payload["user_id"]),
+    ]
+    for movie_id in payload.get("movies") or ():
+        deps.append(Dependency("movie", movie_id))
+    return deps
+
+
+def _resolve_persona_delete(payload: Mapping[str, Any]) -> Sequence[Dependency]:
+    return (Dependency("persona", payload["persona_id"]),)
+
+
 _RESOLVERS: dict[str, Any] = {
     "comment": _resolve_comment,
     "comment_modify": _resolve_comment_action,
@@ -68,6 +92,9 @@ _RESOLVERS: dict[str, Any] = {
     "feed_delete": _resolve_feed_action,
     "feed_like": _resolve_feed_action,
     "movie_judge": _resolve_movie_judge,
+    "persona": _resolve_persona,
+    "persona_modify": _resolve_persona_modify,
+    "persona_delete": _resolve_persona_delete,
 }
 
 
