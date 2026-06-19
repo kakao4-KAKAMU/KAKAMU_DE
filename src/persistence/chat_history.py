@@ -23,7 +23,7 @@ DDL = """
 CREATE TABLE IF NOT EXISTS chat_session (
     session_id   UUID PRIMARY KEY,
     user_id      TEXT NOT NULL,
-    persona_id   TEXT NOT NULL,
+    persona_id   TEXT DEFAULT NULL,
     started_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     last_active  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     metadata     JSONB DEFAULT '{}'::jsonb
@@ -120,7 +120,7 @@ class ChatHistoryStore:
         with get_connection(self._settings) as conn, conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT session_id, user_id, started_at, last_active, metadata
+                SELECT session_id, user_id, persona_id, started_at, last_active, metadata
                 FROM chat_session
                 WHERE user_id = %s
                 ORDER BY started_at DESC
@@ -132,9 +132,10 @@ class ChatHistoryStore:
                 ChatSession(
                     session_id=r[0],
                     user_id=r[1],
-                    started_at=r[2],
-                    last_active=r[3],
-                    metadata=r[4],
+                    persona_id=r[2],
+                    started_at=r[3],
+                    last_active=r[4],
+                    metadata=r[5],
                 )
                 for r in rows
             ]
