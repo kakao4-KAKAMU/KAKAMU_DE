@@ -27,14 +27,20 @@ from src.api.routers.ingest.feed.modify import router as ingest_feed_modify_rout
 from src.api.routers.ingest.movie.judge import router as ingest_movie_judge_router
 from src.api.routers.ingest.movie.regist import router as ingest_movie_regist_router
 from src.api.routers.ingest.person.judge import router as ingest_person_judge_router
-from src.api.routers.recommend.post import router as recommend_router
+from src.api.routers.ingest.persona.create import router as ingest_persona_create_router
+from src.api.routers.ingest.persona.delete import router as ingest_persona_delete_router
+from src.api.routers.ingest.persona.modify import router as ingest_persona_modify_router
+from src.api.routers.ingest.user.regist import router as ingest_user_regist_router
+from src.api.routers.recommend.feed import router as recommend_feed_router
+from src.api.routers.recommend.movie import router as recommend_movie_router
 
 router = APIRouter()
 router.include_router(healthz_router)
 router.include_router(chat_list_router)
 router.include_router(chat_history_router)
 router.include_router(chat_stream_router)
-router.include_router(recommend_router)
+router.include_router(recommend_movie_router)
+router.include_router(recommend_feed_router)
 router.include_router(ingest_movie_regist_router)
 router.include_router(ingest_movie_judge_router)
 router.include_router(ingest_feed_create_router)
@@ -47,5 +53,9 @@ router.include_router(ingest_comment_delete_router)
 router.include_router(ingest_comment_like_router)
 router.include_router(feedback_router)
 router.include_router(ingest_person_judge_router)
+router.include_router(ingest_user_regist_router)
+router.include_router(ingest_persona_create_router)
+router.include_router(ingest_persona_modify_router)
+router.include_router(ingest_persona_delete_router)
 
 __all__ = ["get_app_container", "router"]

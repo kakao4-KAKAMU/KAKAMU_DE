@@ -54,6 +54,7 @@ def test_build_cypher_includes_movie_id() -> None:
     versions = [EmbeddingVersion("1", 1024, "active", "m", "plot_embedding_v1")]
     cypher = build_upsert_movie_embedding_cypher(versions)
     assert "movie_id: $movie_id" in cypher
+    assert "plot_embedding = $plot_embedding" in cypher
     assert "plot_embedding_v1" in cypher
 
 
@@ -66,7 +67,7 @@ def test_dual_write_executes_both_properties(
     assert "plot_embedding_v1" in store.last_cypher
     assert "plot_embedding_v2" in store.last_cypher
     assert store.last_params["movie_id"] == "mv-1"
-    assert len(store.last_params["embedding"]) == 1024
+    assert len(store.last_params["plot_embedding"]) == 1024
 
 
 def test_target_versions_requires_registry() -> None:

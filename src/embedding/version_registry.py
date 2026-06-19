@@ -8,14 +8,9 @@ from typing import Literal, Optional, Protocol
 
 from src.config.settings import EmbeddingSettings, get_settings
 from src.graph.client import Neo4jClient
+from src.graph.cypher_statements.properties import plot_embedding_property, summary_embedding_property
 
 VersionRole = Literal["active", "shadow", "retired"]
-
-
-def plot_embedding_property(version: str) -> str:
-    """Versioned Movie plot embedding property name."""
-    return f"plot_embedding_v{version}"
-
 
 @dataclass(frozen=True)
 class EmbeddingVersion:
@@ -78,10 +73,15 @@ RETURN m.version AS version,
 """
 
 _PROMOTE_SHADOW = """
-MATCH (shadow:EmbeddingVersionMeta {role: 'shadow'})
-MATCH (active:EmbeddingVersionMeta {role: 'active'})
-SET active.role = 'retired',
-    shadow.role = 'active'
+MATCH (shadow:EmbeddingVersionMeta {role: 'shadow', version: $version})
+OPTIONAL MATCH (active:EmbeddingVersionMeta {role: 'active'})
+WHERE active IS NULL OR active <> shadow
+FOREACH (_ IN CASE WHEN active IS NOT NULL THEN [1] ELSE [] END |
+  SET active.role = 'retired',
+      active.updated_at = datetime()
+)
+SET shadow.role = 'active',
+    shadow.updated_at = datetime()
 RETURN shadow.version AS version,
        shadow.dimension AS dimension,
        shadow.role AS role,
@@ -89,7 +89,6 @@ RETURN shadow.version AS version,
        shadow.property_key AS property_key,
        shadow.created_at AS created_at
 """
-
 
 class EmbeddingVersionRegistry:
     """CRUD for :EmbeddingVersionMeta nodes."""
@@ -136,8 +135,8 @@ class EmbeddingVersionRegistry:
             raise RuntimeError(f"Failed to register embedding version {version!r}")
         return EmbeddingVersion.from_record(rows[0])
 
-    def promote_shadow_to_active(self) -> Optional[EmbeddingVersion]:
-        rows = self._store.execute_write(_PROMOTE_SHADOW)
+    def promote_shadow_to_active(self, version: str) -> Optional[EmbeddingVersion]:
+        rows = self._store.execute_write(_PROMOTE_SHADOW, {"version": version})
         return EmbeddingVersion.from_record(rows[0]) if rows else None
 
     def write_targets(self) -> list[EmbeddingVersion]:
@@ -188,5 +187,6 @@ __all__ = [
     "VersionStore",
     "get_active_version",
     "plot_embedding_property",
+    "summary_embedding_property",
     "register_version",
 ]

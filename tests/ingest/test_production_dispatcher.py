@@ -182,9 +182,11 @@ def test_production_dispatcher_registers_all_aggregates() -> None:
     )
     expected = {
         "movie", "feed", "comment",
+        "feed_reembed", "comment_reembed",
         "feed_modify", "feed_delete", "feed_like",
         "comment_modify", "comment_delete", "comment_like",
         "movie_judge", "person_judge",
+        "user", "persona", "persona_modify", "persona_delete",
     }
     assert set(dispatcher._handlers.keys()) == expected  # noqa: SLF001
 
@@ -255,3 +257,48 @@ def test_comment_delete_handler_calls_loader() -> None:
     handler({"comment_id": "c-1", "user_id": "u-1"})
     loader.delete_comment.assert_called_once()
     assert loader.delete_comment.call_args.kwargs["comment_id"] == "c-1"
+
+
+def test_user_handler_calls_loader() -> None:
+    loader = MagicMock()
+    from src.ingest.dispatcher.user import build_user_handler
+
+    handler = build_user_handler(loader=loader)
+    handler({"user_id": "u-1", "nickname": "영화광"})
+    loader.upsert_user.assert_called_once()
+    kwargs = loader.upsert_user.call_args.kwargs
+    assert kwargs["user_id"] == "u-1"
+    assert kwargs["nickname"] == "영화광"
+
+
+def test_persona_handler_calls_loader() -> None:
+    loader = MagicMock()
+    from src.ingest.dispatcher.persona import build_persona_handler
+
+    handler = build_persona_handler(loader=loader)
+    handler(
+        {
+            "persona_id": "movie_buff",
+            "user_id": "u-1",
+            "label": "영화 덕후",
+            "genres": ["SF", "스릴러"],
+            "movies": ["m-1", "m-2"],
+            "persons": ["p-1"],
+        }
+    )
+    loader.upsert_persona.assert_called_once()
+    kwargs = loader.upsert_persona.call_args.kwargs
+    assert kwargs["persona_id"] == "movie_buff"
+    assert kwargs["genres"] == ["SF", "스릴러"]
+    assert kwargs["movies"] == ["m-1", "m-2"]
+    assert kwargs["persons"] == ["p-1"]
+
+
+def test_persona_delete_handler_calls_loader() -> None:
+    loader = MagicMock()
+    from src.ingest.dispatcher.persona import build_persona_delete_handler
+
+    handler = build_persona_delete_handler(loader=loader)
+    handler({"persona_id": "movie_buff", "user_id": "u-1"})
+    loader.delete_persona.assert_called_once()
+    assert loader.delete_persona.call_args.kwargs["persona_id"] == "movie_buff"
