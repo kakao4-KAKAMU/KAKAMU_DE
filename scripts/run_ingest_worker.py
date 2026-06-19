@@ -37,6 +37,7 @@ def _build_production_dispatcher() -> IngestDispatcher:
         embedder=VLLMEmbeddingClient(settings.vllm_embed, settings.embedding),
         loader=loader,
         neo4j=neo4j,
+        embedding_registry=registry,
     )
 
 
