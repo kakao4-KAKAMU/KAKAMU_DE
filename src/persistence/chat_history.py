@@ -67,7 +67,6 @@ class ChatMessage(BaseModel):
     id: int
     session_id: UUID
     user_id: str
-    persona_id: str
     role: str
     content: str
     created_at: datetime
