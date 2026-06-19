@@ -27,7 +27,10 @@ from src.graph.cypher_statements import (
     UPSERT_COMMENT_WITH_ONTOLOGY,
     UPSERT_FEED_WITH_ONTOLOGY,
     UPSERT_MOVIE_WITH_ONTOLOGY,
+    build_upsert_comment_with_ontology,
+    build_upsert_feed_with_ontology,
     build_upsert_movie_with_ontology,
+    summary_embedding_property,
 )
 from src.ontology.schema import (
     CommentOntology,
@@ -70,6 +73,26 @@ class OntologyLoader:
         if not extra_props:
             return UPSERT_MOVIE_WITH_ONTOLOGY
         return build_upsert_movie_with_ontology(embedding_properties=extra_props)
+
+    def _summary_embedding_properties(self) -> list[str]:
+        if self._embedding_registry is None:
+            return []
+        return [
+            summary_embedding_property(v.version)
+            for v in self._embedding_registry.write_targets()
+        ]
+
+    def _feed_upsert_cypher(self) -> str:
+        extra_props = self._summary_embedding_properties()
+        if not extra_props:
+            return UPSERT_FEED_WITH_ONTOLOGY
+        return build_upsert_feed_with_ontology(embedding_properties=extra_props)
+
+    def _comment_upsert_cypher(self) -> str:
+        extra_props = self._summary_embedding_properties()
+        if not extra_props:
+            return UPSERT_COMMENT_WITH_ONTOLOGY
+        return build_upsert_comment_with_ontology(embedding_properties=extra_props)
 
     # ------------------------------------------------------------------
     # Movie
@@ -158,7 +181,7 @@ class OntologyLoader:
             "keywords": [k.model_dump() for k in ontology.keywords],
             "created_at": (created_at or datetime.now(timezone.utc)),
         }
-        self._neo4j.execute_write(UPSERT_FEED_WITH_ONTOLOGY, params)
+        self._neo4j.execute_write(self._feed_upsert_cypher(), params)
         logger.info(
             "Upserted feed %s (cats=%d, keywords=%d)",
             feed_id,
@@ -199,7 +222,7 @@ class OntologyLoader:
             "keywords": [k.model_dump() for k in ontology.keywords],
             "created_at": (created_at or datetime.now(timezone.utc)),
         }
-        self._neo4j.execute_write(UPSERT_COMMENT_WITH_ONTOLOGY, params)
+        self._neo4j.execute_write(self._comment_upsert_cypher(), params)
         logger.info("Upserted comment %s on feed %s", comment_id, feed_id)
 
     # ------------------------------------------------------------------

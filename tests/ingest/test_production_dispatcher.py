@@ -182,6 +182,7 @@ def test_production_dispatcher_registers_all_aggregates() -> None:
     )
     expected = {
         "movie", "feed", "comment",
+        "feed_reembed", "comment_reembed",
         "feed_modify", "feed_delete", "feed_like",
         "comment_modify", "comment_delete", "comment_like",
         "movie_judge", "person_judge",
