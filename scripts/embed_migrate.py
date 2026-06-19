@@ -16,6 +16,7 @@ from src.embedding.version_registry import (
     EmbeddingVersionRegistry,
     get_active_version,
     plot_embedding_property,
+    register_version,
 )
 from src.graph.client import Neo4jClient
 from src.graph.cypher_statements import vector_index_statements_for_version
@@ -40,9 +41,22 @@ def main() -> int:
         default="2",
         help="Shadow/target version id to plan (default: 2)",
     )
+    parser.add_argument(
+        "--regist",
+        default=False,
+        action="store_true",
+        help="Register shadow version (default: False)",
+    )
+    parser.add_argument(
+        "--will-activate-target-version",
+        default=False,
+        action="store_true",
+        help="Will activate the shadow version (default: False)",
+    )
     args = parser.parse_args()
 
     settings = get_settings()
+    print(settings)
     dim = settings.embedding.dimension
     target_prop = plot_embedding_property(args.target_version)
 
@@ -52,11 +66,26 @@ def main() -> int:
     print()
 
     with Neo4jClient() as client:
+        if args.regist:
+            register_version(
+                args.target_version,
+                role="shadow",
+                model_name=settings.embedding.model_name,
+                dimension=settings.embedding.dimension,
+                client=client,
+                settings=settings,
+            )
+
         movie_count = _count_movies(client)
         legacy_count = _count_legacy_embeddings(client)
         active = get_active_version(client)
         registry = EmbeddingVersionRegistry(client)
         shadow = registry.get_shadow_version()
+
+        if args.will_activate_target_version:
+            promoted = registry.promote_shadow_to_active(args.target_version)
+            print(f"Promoted shadow version {args.target_version!r} to active: {promoted.version if promoted else '(none)'}")
+
 
         print(f"Movies in graph              : {movie_count}")
         print(f"Movies with plot_embedding   : {legacy_count}")
