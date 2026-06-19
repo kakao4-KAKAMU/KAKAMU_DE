@@ -8,14 +8,9 @@ from typing import Literal, Optional, Protocol
 
 from src.config.settings import EmbeddingSettings, get_settings
 from src.graph.client import Neo4jClient
+from src.graph.cypher_statements.properties import plot_embedding_property, summary_embedding_property
 
 VersionRole = Literal["active", "shadow", "retired"]
-
-
-def plot_embedding_property(version: str) -> str:
-    """Versioned Movie plot embedding property name."""
-    return f"plot_embedding_v{version}"
-
 
 @dataclass(frozen=True)
 class EmbeddingVersion:
@@ -192,5 +187,6 @@ __all__ = [
     "VersionStore",
     "get_active_version",
     "plot_embedding_property",
+    "summary_embedding_property",
     "register_version",
 ]
