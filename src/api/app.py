@@ -34,7 +34,7 @@ def create_app() -> FastAPI:
         docs_url="/docs",
         redoc_url="/redoc",
         openapi_url="/openapi.json",
-        root_path="/chat",
+        root_path="/chat-api",
     )
 
     def custom_openapi():
