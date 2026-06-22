@@ -12,6 +12,7 @@ from typing import Any, Literal, Optional, TypedDict
 
 
 MediaType = Literal["movie", "feed"]
+IntentScope = Literal["movie", "feed", "both", "none"]
 
 
 class ChatMetadata(TypedDict, total=False):
@@ -35,6 +36,11 @@ class ChatState(TypedDict, total=False):
     moods: list[str]
 
     media_type: MediaType
+    intent_scope: IntentScope
+
+    movie_filters: dict[str, Any]
+    feed_filters: dict[str, Any]
+    direct_reply_hint: str
 
     arm_id: str
     weights: dict[str, float]
@@ -43,6 +49,8 @@ class ChatState(TypedDict, total=False):
     max_toxicity: float
 
     retrieved: list[dict[str, Any]]
+    retrieved_movies: list[dict[str, Any]]
+    retrieved_feeds: list[dict[str, Any]]
     reply: str
 
     reply_metadata: Optional[ChatMetadata]
@@ -50,4 +58,4 @@ class ChatState(TypedDict, total=False):
     ontology_ref: dict[str, Any]
 
 
-__all__ = ["ChatState", "ChatMetadata", "MediaType"]
+__all__ = ["ChatState", "ChatMetadata", "IntentScope", "MediaType"]

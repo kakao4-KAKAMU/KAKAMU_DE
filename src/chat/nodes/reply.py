@@ -1,6 +1,6 @@
-"""generate_reply 노드: 추천 후보를 근거로 한국어 답변 생성.
+"""generate_reply 노드: 분석·필터링 결과를 근거로 한국어 답변 생성.
 
-매체(영화 / 피드)에 따라 시스템 프롬프트와 응답 스키마를 분기한다.
+intent_scope 에 따라 시스템 프롬프트와 응답 스키마를 분기한다.
 
 SOLID
 -----
@@ -17,7 +17,7 @@ from textwrap import dedent
 from typing import Any
 
 from src.chat.nodes.dependencies import ChatGraphDependencies
-from src.chat.state import ChatState, MediaType
+from src.chat.state import ChatState, IntentScope, MediaType
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +28,18 @@ class _ReplyProfile:
     response_format: dict[str, Any]
 
 
-def _response_format(name: str, media: MediaType) -> dict[str, Any]:
+def _response_format(name: str, *, media_types: list[str]) -> dict[str, Any]:
+    metadata_props: dict[str, Any] = {}
+    for media in media_types:
+        metadata_props[media] = {
+            "type": "object",
+            "properties": {
+                "type": {"type": "string", "enum": [media]},
+                "id": {"type": "string"},
+            },
+            "required": ["type", "id"],
+            "additionalProperties": False,
+        }
     return {
         "type": "json_schema",
         "json_schema": {
@@ -40,12 +51,13 @@ def _response_format(name: str, media: MediaType) -> dict[str, Any]:
                     "reply": {"type": "string"},
                     "metadata": {
                         "type": "object",
-                        "properties": {
-                            "type": {"type": "string", "enum": [media]},
-                            "id": {"type": "string"},
-                        },
+                        "properties": metadata_props,
+                        "required": media_types,
+                        "additionalProperties": False,
                     },
                 },
+                "required": ["reply", "metadata"],
+                "additionalProperties": False,
             },
         },
     }
@@ -57,11 +69,11 @@ _MOVIE_PROFILE = _ReplyProfile(
         너는 한국어 영화 추천 도우미다.
         아래 추천 후보 목록(JSON)을 근거로 사용자의 요청에 1~3 문장으로 답하라.
         추천된 영화가 없다면 다른 키워드를 제시하라.
-        출력은 단일 JSON 객체: {"reply": "문장", "metadata": { "type": "movie", "id": "<영화 ID>" }}.
-        metadata 는 추천 결과의 타입과 ID를 나타낸다.
+        출력은 단일 JSON 객체:
+        {"reply": "문장", "metadata": {"movie": {"type": "movie", "id": "<영화 ID>"}}}.
         """
     ).strip(),
-    response_format=_response_format("reply_movie_ontology", "movie"),
+    response_format=_response_format("reply_movie_ontology", media_types=["movie"]),
 )
 
 _FEED_PROFILE = _ReplyProfile(
@@ -70,31 +82,140 @@ _FEED_PROFILE = _ReplyProfile(
         너는 한국어 영화 감상 피드 추천 도우미다.
         아래 추천 피드 후보 목록(JSON)을 근거로 사용자의 요청에 1~3 문장으로 답하라.
         추천된 피드가 없다면 다른 키워드를 제시하라.
-        출력은 단일 JSON 객체: {"reply": "문장", "metadata": { "type": "feed", "id": "<피드 ID>" }}.
-        metadata 는 추천 결과의 타입과 ID를 나타낸다.
+        출력은 단일 JSON 객체:
+        {"reply": "문장", "metadata": {"feed": {"type": "feed", "id": "<피드 ID>"}}}.
         """
     ).strip(),
-    response_format=_response_format("reply_feed_ontology", "feed"),
+    response_format=_response_format("reply_feed_ontology", media_types=["feed"]),
 )
 
-_REPLY_PROFILES: dict[MediaType, _ReplyProfile] = {
+_BOTH_PROFILE = _ReplyProfile(
+    system_prompt=dedent(
+        """
+        너는 한국어 영화·피드 추천 도우미다.
+        아래 영화 후보와 피드 후보(JSON)를 모두 근거로 사용자 요청에 2~4 문장으로 답하라.
+        영화 추천과 피드 추천을 모두 포함해야 한다.
+        출력은 단일 JSON 객체:
+        {
+          "reply": "문장",
+          "metadata": {
+            "movie": {"type": "movie", "id": "<영화 ID>"},
+            "feed": {"type": "feed", "id": "<피드 ID>"}
+          }
+        }.
+        """
+    ).strip(),
+    response_format=_response_format(
+        "reply_both_ontology", media_types=["movie", "feed"]
+    ),
+)
+
+_NONE_PROFILE = _ReplyProfile(
+    system_prompt=dedent(
+        """
+        너는 한국어 영화 추천 서비스 도우미다.
+        사용자 질의는 영화/피드 추천과 무관하다. 친절하게 1~3 문장으로 답하라.
+        추천 후보가 없으므로 일반 대화로 응답한다.
+        출력은 단일 JSON 객체:
+        {"reply": "문장", "metadata": {}}.
+        """
+    ).strip(),
+    response_format={
+        "type": "json_schema",
+        "json_schema": {
+            "name": "reply_none_ontology",
+            "strict": True,
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "reply": {"type": "string"},
+                    "metadata": {
+                        "type": "object",
+                        "properties": {},
+                        "required": [],
+                        "additionalProperties": False,
+                    },
+                },
+                "required": ["reply", "metadata"],
+                "additionalProperties": False,
+            },
+        },
+    },
+)
+
+_REPLY_PROFILES: dict[str, _ReplyProfile] = {
     "movie": _MOVIE_PROFILE,
     "feed": _FEED_PROFILE,
+    "both": _BOTH_PROFILE,
+    "none": _NONE_PROFILE,
 }
 
 
-def generate_reply(state: ChatState, deps: ChatGraphDependencies) -> ChatState:
-    media: MediaType = state.get("media_type") or "movie"
-    profile = _REPLY_PROFILES.get(media, _MOVIE_PROFILE)
+def _resolve_scope(state: ChatState) -> IntentScope:
+    scope = state.get("intent_scope")
+    if scope in ("movie", "feed", "both", "none"):
+        return scope
+    media = state.get("media_type")
+    if media in ("movie", "feed"):
+        return media
+    return "none"
 
+
+def _build_payload(state: ChatState, deps: ChatGraphDependencies, scope: IntentScope) -> dict[str, Any]:
     user_query = state.get("query", "")
-    retrieved = state.get("retrieved") or []
-    payload = {
+    top_k = deps.default_top_k
+    if scope == "both":
+        return {
+            "query": user_query,
+            "intent_scope": scope,
+            "movie_candidates": (state.get("retrieved_movies") or [])[:top_k],
+            "feed_candidates": (state.get("retrieved_feeds") or [])[:top_k],
+            "movie_filters": state.get("movie_filters") or {},
+            "feed_filters": state.get("feed_filters") or {},
+            **deps.extra_user_payload,
+        }
+    if scope == "none":
+        return {
+            "query": user_query,
+            "intent_scope": scope,
+            "direct_reply_hint": state.get("direct_reply_hint") or "",
+            **deps.extra_user_payload,
+        }
+    media: MediaType = scope if scope in ("movie", "feed") else "movie"
+    return {
         "query": user_query,
+        "intent_scope": scope,
         "media_type": media,
-        "candidates": retrieved[: deps.default_top_k],
+        "candidates": (state.get("retrieved") or [])[:top_k],
         **deps.extra_user_payload,
     }
+
+
+def _normalize_metadata(raw: dict[str, Any], scope: IntentScope) -> dict[str, Any] | None:
+    metadata = raw.get("metadata")
+    if not isinstance(metadata, dict):
+        return None
+    if scope == "both":
+        movie_meta = metadata.get("movie")
+        if isinstance(movie_meta, dict) and movie_meta.get("id"):
+            return movie_meta
+        feed_meta = metadata.get("feed")
+        if isinstance(feed_meta, dict) and feed_meta.get("id"):
+            return feed_meta
+        return None
+    if scope in ("movie", "feed"):
+        entry = metadata.get(scope)
+        if isinstance(entry, dict):
+            return entry
+        if metadata.get("type") in ("movie", "feed"):
+            return metadata
+    return None
+
+
+def generate_reply(state: ChatState, deps: ChatGraphDependencies) -> ChatState:
+    scope = _resolve_scope(state)
+    profile = _REPLY_PROFILES.get(scope, _NONE_PROFILE)
+    payload = _build_payload(state, deps, scope)
     messages = [
         {"role": "system", "content": profile.system_prompt},
         {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
@@ -111,16 +232,32 @@ def generate_reply(state: ChatState, deps: ChatGraphDependencies) -> ChatState:
         reply = str(raw.get("reply") or "").strip()
     except Exception:
         logger.exception("Reply generation failed; falling back to deterministic answer.")
-        reply = _fallback_reply(media, retrieved)
+        reply = _fallback_reply(scope, state)
     if not reply:
-        reply = _fallback_reply(media, retrieved)
-    return {"reply": reply, "reply_metadata": raw.get("metadata")}
+        reply = _fallback_reply(scope, state)
+    return {"reply": reply, "reply_metadata": _normalize_metadata(raw, scope)}
 
 
-def _fallback_reply(media: MediaType, retrieved: list[dict[str, Any]]) -> str:
+def _fallback_reply(scope: IntentScope, state: ChatState) -> str:
+    if scope == "none":
+        hint = str(state.get("direct_reply_hint") or "").strip()
+        return hint or "안녕하세요! 영화나 감상 피드 추천이 필요하시면 말씀해 주세요."
+    if scope == "both":
+        movies = state.get("retrieved_movies") or []
+        feeds = state.get("retrieved_feeds") or []
+        if not movies and not feeds:
+            return "조건에 맞는 추천을 찾지 못했어요. 다른 키워드로 시도해 보세요."
+        movie_titles = ", ".join(
+            str(r.get("title") or r.get("movie_id")) for r in movies[:2]
+        )
+        feed_snippets = ", ".join(
+            str(r.get("summary") or r.get("feed_id")) for r in feeds[:2]
+        )
+        return f"영화 추천: {movie_titles or '없음'}. 피드 추천: {feed_snippets or '없음'}."
+    retrieved = state.get("retrieved") or []
     if not retrieved:
         return "조건에 맞는 추천을 찾지 못했어요. 다른 키워드로 시도해 보세요."
-    if media == "feed":
+    if scope == "feed":
         snippets = ", ".join(
             str(r.get("summary") or r.get("feed_id")) for r in retrieved[:3]
         )

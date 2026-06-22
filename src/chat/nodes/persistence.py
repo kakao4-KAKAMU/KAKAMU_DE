@@ -6,27 +6,39 @@ import logging
 from typing import Any
 
 from src.chat.nodes.dependencies import ChatGraphDependencies
-from src.chat.state import ChatState
+from src.chat.state import ChatState, IntentScope
 
 logger = logging.getLogger(__name__)
 
 
 def _build_ontology_ref(state: ChatState) -> dict[str, Any]:
-    retrieved = state.get("retrieved") or []
-    media = state.get("media_type") or "movie"
+    scope: IntentScope = state.get("intent_scope") or state.get("media_type") or "movie"  # type: ignore[assignment]
+    retrieved_movies = state.get("retrieved_movies") or []
+    retrieved_feeds = state.get("retrieved_feeds") or []
+    if not retrieved_movies and scope in ("movie", "both"):
+        retrieved_movies = [
+            r for r in (state.get("retrieved") or []) if r.get("movie_id")
+        ]
+    if not retrieved_feeds and scope in ("feed", "both"):
+        retrieved_feeds = [
+            r for r in (state.get("retrieved") or []) if r.get("feed_id")
+        ]
+
     ontology_ref: dict[str, Any] = {
+        "intent_scope": scope,
         "arm_id": state.get("arm_id"),
-        "media_type": media,
         "themes": state.get("themes") or [],
         "moods": state.get("moods") or [],
+        "movie_filters": state.get("movie_filters") or {},
+        "feed_filters": state.get("feed_filters") or {},
     }
-    if media == "feed":
-        ontology_ref["feed_ids"] = [
-            str(r.get("feed_id")) for r in retrieved if r.get("feed_id")
-        ]
-    else:
+    if retrieved_movies:
         ontology_ref["movie_ids"] = [
-            str(r.get("movie_id")) for r in retrieved if r.get("movie_id")
+            str(r.get("movie_id")) for r in retrieved_movies if r.get("movie_id")
+        ]
+    if retrieved_feeds:
+        ontology_ref["feed_ids"] = [
+            str(r.get("feed_id")) for r in retrieved_feeds if r.get("feed_id")
         ]
     return ontology_ref
 

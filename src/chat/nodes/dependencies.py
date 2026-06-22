@@ -17,15 +17,20 @@ from src.chat.nodes.protocols import (
     MediaClassifierLike,
 )
 from src.graph.template_executor import TemplateExecutor
+from src.graph.templates import (
+    CHAT_FEED_FILTER_TEMPLATE_ID,
+    CHAT_MOVIE_FILTER_TEMPLATE_ID,
+)
 from src.persistence.chat_history import ChatHistoryStore
 from src.recommend.intent_resolver import IntentResolver
 from src.recommend.media_classifier import LLMMediaClassifier
 from src.recommend.policy import RecommendPolicy
+from src.recommend.query_analyzer import LLMQueryAnalyzer
 
-DEFAULT_MOVIE_TEMPLATE_ID = "hybrid_recommend"
-DEFAULT_FEED_TEMPLATE_ID = "hybrid_feed_recommend"
+DEFAULT_MOVIE_TEMPLATE_ID = CHAT_MOVIE_FILTER_TEMPLATE_ID
+DEFAULT_FEED_TEMPLATE_ID = CHAT_FEED_FILTER_TEMPLATE_ID
 
-# retrieve 노드의 기본 하이브리드 가중치 (arm 미선택 시 fallback).
+# filter 노드의 기본 하이브리드 가중치 (arm 미선택 시 fallback).
 DEFAULT_WEIGHTS: dict[str, float] = {
     "w_vec": 0.55,
     "w_kw": 0.15,
@@ -46,6 +51,7 @@ class ChatGraphDependencies:
     llm: ChatLLMLike
     history: Optional[ChatHistoryStore] = None
     media_classifier: Optional[MediaClassifierLike] = None
+    query_analyzer: Optional[LLMQueryAnalyzer] = None
     default_top_k: int = 10
     default_vec_top_k: int = 30
     default_max_toxicity: float = 0.7
@@ -56,9 +62,13 @@ class ChatGraphDependencies:
     extra_user_payload: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        # 미지정 시 주입된 LLM 으로 LLM 기반 분류기를 구성한다.
         if self.media_classifier is None:
             self.media_classifier = LLMMediaClassifier(self.llm)
+        if self.query_analyzer is None:
+            self.query_analyzer = LLMQueryAnalyzer(
+                self.llm,
+                intent_resolver=self.intent_resolver,
+            )
 
 
 __all__ = [
