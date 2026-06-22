@@ -64,7 +64,7 @@ _QUERY_ANALYSIS_SCHEMA_BASE: Final[dict[str, Any]] = {
                     "moods": {"type": "array", "items": {"type": "string"}},
                     "keywords": {"type": "array", "items": _KEYWORD_ITEM_SCHEMA},
                     "person_names": {"type": "array", "items": {"type": "string"}},
-                    "person_jobs": {"type": "array", "items": {"type": "string"}},
+                    # "person_jobs": {"type": "array", "items": {"type": "string"}},
                     "country": {"type": "string"},
                     "min_year": {"type": "integer"},
                     "max_year": {"type": "integer"},
@@ -75,7 +75,7 @@ _QUERY_ANALYSIS_SCHEMA_BASE: Final[dict[str, Any]] = {
                     "moods",
                     "keywords",
                     "person_names",
-                    "person_jobs",
+                    # "person_jobs",
                     "country",
                     "min_year",
                     "max_year",
@@ -130,7 +130,7 @@ _QUERY_ANALYSIS_GUIDE: Final[str] = dedent(
     - genres/themes/moods: 질의에서 드러난 장르·주제·무드. 근거 없으면 [].
     - keywords: 영화 지표(era/environment/key_object/source_form/culture_code/entity/other).
       themes/moods 와 중복 금지. normalized 는 snake_case.
-    - person_names/person_jobs: 감독·배우 등 인물 언급 시 채운다.
+    - person_names: 감독·배우 등 인물 언급 시 채운다.
     - country: 제작국 언급 시. 없으면 빈 문자열.
     - min_year/max_year: 연도 범위. 없으면 0.
 
