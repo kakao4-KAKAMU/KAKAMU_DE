@@ -32,13 +32,16 @@ def _response_format(name: str, *, media_types: list[str]) -> dict[str, Any]:
     metadata_props: dict[str, Any] = {}
     for media in media_types:
         metadata_props[media] = {
-            "type": "object",
-            "properties": {
-                "type": {"type": "string", "enum": [media]},
-                "id": {"type": "string"},
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "type": {"type": "string", "enum": [media]},
+                    "id": {"type": "string"},
+                },
+                "required": ["type", "id"],
+                "additionalProperties": False,
             },
-            "required": ["type", "id"],
-            "additionalProperties": False,
         }
     return {
         "type": "json_schema",
@@ -69,8 +72,9 @@ _MOVIE_PROFILE = _ReplyProfile(
         너는 한국어 영화 추천 도우미다.
         아래 추천 후보 목록(JSON)을 근거로 사용자의 요청에 1~3 문장으로 답하라.
         추천된 영화가 없다면 다른 키워드를 제시하라.
+        답변에 언급한 추천 영화마다 metadata.movie 배열에 항목을 추가하라 (1~3개).
         출력은 단일 JSON 객체:
-        {"reply": "문장", "metadata": {"movie": {"type": "movie", "id": "<영화 ID>"}}}.
+        {"reply": "문장", "metadata": {"movie": [{"type": "movie", "id": "<영화 ID>"}]}}.
         """
     ).strip(),
     response_format=_response_format("reply_movie_ontology", media_types=["movie"]),
@@ -82,8 +86,9 @@ _FEED_PROFILE = _ReplyProfile(
         너는 한국어 영화 감상 피드 추천 도우미다.
         아래 추천 피드 후보 목록(JSON)을 근거로 사용자의 요청에 1~3 문장으로 답하라.
         추천된 피드가 없다면 다른 키워드를 제시하라.
+        답변에 언급한 추천 피드마다 metadata.feed 배열에 항목을 추가하라 (1~3개).
         출력은 단일 JSON 객체:
-        {"reply": "문장", "metadata": {"feed": {"type": "feed", "id": "<피드 ID>"}}}.
+        {"reply": "문장", "metadata": {"feed": [{"type": "feed", "id": "<피드 ID>"}]}}.
         """
     ).strip(),
     response_format=_response_format("reply_feed_ontology", media_types=["feed"]),
@@ -95,12 +100,13 @@ _BOTH_PROFILE = _ReplyProfile(
         너는 한국어 영화·피드 추천 도우미다.
         아래 영화 후보와 피드 후보(JSON)를 모두 근거로 사용자 요청에 2~4 문장으로 답하라.
         영화 추천과 피드 추천을 모두 포함해야 한다.
+        답변에 언급한 추천마다 metadata.movie / metadata.feed 배열에 항목을 추가하라 (각 1~3개).
         출력은 단일 JSON 객체:
         {
           "reply": "문장",
           "metadata": {
-            "movie": {"type": "movie", "id": "<영화 ID>"},
-            "feed": {"type": "feed", "id": "<피드 ID>"}
+            "movie": [{"type": "movie", "id": "<영화 ID>"}],
+            "feed": [{"type": "feed", "id": "<피드 ID>"}]
           }
         }.
         """
@@ -164,16 +170,6 @@ def _resolve_scope(state: ChatState) -> IntentScope:
 def _build_payload(state: ChatState, deps: ChatGraphDependencies, scope: IntentScope) -> dict[str, Any]:
     user_query = state.get("query", "")
     top_k = deps.default_top_k
-    if scope == "both":
-        return {
-            "query": user_query,
-            "intent_scope": scope,
-            "movie_candidates": (state.get("retrieved_movies") or [])[:top_k],
-            "feed_candidates": (state.get("retrieved_feeds") or [])[:top_k],
-            "movie_filters": state.get("movie_filters") or {},
-            "feed_filters": state.get("feed_filters") or {},
-            **deps.extra_user_payload,
-        }
     if scope == "none":
         return {
             "query": user_query,
@@ -182,34 +178,83 @@ def _build_payload(state: ChatState, deps: ChatGraphDependencies, scope: IntentS
             **deps.extra_user_payload,
         }
     media: MediaType = scope if scope in ("movie", "feed") else "movie"
+
+    payload = {}
+    if scope == "movie" or scope == "both":
+        payload["movie_filters"] = state.get("movie_filters") or {}
+        payload["movie_candidates"] = (state.get("retrieved_movies") or [])[:top_k]
+    if scope == "feed" or scope == "both":
+        payload["feed_filters"] = state.get("feed_filters") or {}
+        payload["feed_candidates"] = (state.get("retrieved_feeds") or [])[:top_k]
     return {
         "query": user_query,
         "intent_scope": scope,
-        "media_type": media,
-        "candidates": (state.get("retrieved") or [])[:top_k],
+        **payload,
         **deps.extra_user_payload,
     }
+
+
+def _normalize_entry(value: Any, media: str) -> dict[str, Any] | None:
+    if not isinstance(value, dict) or not value.get("id"):
+        return None
+    entry_type = value.get("type")
+    if entry_type in ("movie", "feed"):
+        return {"type": entry_type, "id": str(value["id"])}
+    return {"type": media, "id": str(value["id"])}
+
+
+def _normalize_entry_list(value: Any, media: str) -> list[dict[str, Any]]:
+    if isinstance(value, list):
+        return [
+            entry
+            for item in value
+            if (entry := _normalize_entry(item, media)) is not None
+        ]
+    entry = _normalize_entry(value, media)
+    return [entry] if entry else []
 
 
 def _normalize_metadata(raw: dict[str, Any], scope: IntentScope) -> dict[str, Any] | None:
     metadata = raw.get("metadata")
     if not isinstance(metadata, dict):
         return None
-    if scope == "both":
-        movie_meta = metadata.get("movie")
-        if isinstance(movie_meta, dict) and movie_meta.get("id"):
-            return movie_meta
-        feed_meta = metadata.get("feed")
-        if isinstance(feed_meta, dict) and feed_meta.get("id"):
-            return feed_meta
-        return None
-    if scope in ("movie", "feed"):
-        entry = metadata.get(scope)
-        if isinstance(entry, dict):
-            return entry
-        if metadata.get("type") in ("movie", "feed"):
-            return metadata
-    return None
+    if scope in ("movie", "feed") and metadata.get("type") in ("movie", "feed"):
+        items = _normalize_entry_list(metadata, scope)
+        return {scope: items} if items else None
+
+    result: dict[str, Any] = {}
+    if scope in ("movie", "both"):
+        movie_items = _normalize_entry_list(metadata.get("movie"), "movie")
+        if movie_items:
+            result["movie"] = movie_items
+    if scope in ("feed", "both"):
+        feed_items = _normalize_entry_list(metadata.get("feed"), "feed")
+        if feed_items:
+            result["feed"] = feed_items
+    return result or None
+
+
+def _fallback_metadata(
+    scope: IntentScope, state: ChatState, top_k: int
+) -> dict[str, Any] | None:
+    result: dict[str, Any] = {}
+    if scope in ("movie", "both"):
+        movie_items = [
+            {"type": "movie", "id": str(row["movie_id"])}
+            for row in (state.get("retrieved_movies") or [])[:top_k]
+            if row.get("movie_id")
+        ]
+        if movie_items:
+            result["movie"] = movie_items
+    if scope in ("feed", "both"):
+        feed_items = [
+            {"type": "feed", "id": str(row["feed_id"])}
+            for row in (state.get("retrieved_feeds") or [])[:top_k]
+            if row.get("feed_id")
+        ]
+        if feed_items:
+            result["feed"] = feed_items
+    return result or None
 
 
 def generate_reply(state: ChatState, deps: ChatGraphDependencies) -> ChatState:
@@ -235,7 +280,10 @@ def generate_reply(state: ChatState, deps: ChatGraphDependencies) -> ChatState:
         reply = _fallback_reply(scope, state)
     if not reply:
         reply = _fallback_reply(scope, state)
-    return {"reply": reply, "reply_metadata": _normalize_metadata(raw, scope)}
+    reply_metadata = _normalize_metadata(raw, scope)
+    if reply_metadata is None and scope != "none":
+        reply_metadata = _fallback_metadata(scope, state, deps.default_top_k)
+    return {"reply": reply, "reply_metadata": reply_metadata}
 
 
 def _fallback_reply(scope: IntentScope, state: ChatState) -> str:
@@ -254,15 +302,18 @@ def _fallback_reply(scope: IntentScope, state: ChatState) -> str:
             str(r.get("summary") or r.get("feed_id")) for r in feeds[:2]
         )
         return f"영화 추천: {movie_titles or '없음'}. 피드 추천: {feed_snippets or '없음'}."
-    retrieved = state.get("retrieved") or []
-    if not retrieved:
-        return "조건에 맞는 추천을 찾지 못했어요. 다른 키워드로 시도해 보세요."
     if scope == "feed":
+        feeds = state.get("retrieved_feeds") or []
+        if not feeds:
+            return "조건에 맞는 추천을 찾지 못했어요. 다른 키워드로 시도해 보세요."
         snippets = ", ".join(
-            str(r.get("summary") or r.get("feed_id")) for r in retrieved[:3]
+            str(r.get("summary") or r.get("feed_id")) for r in feeds[:3]
         )
         return f"이런 감상 피드를 추천드려요: {snippets}."
-    titles = ", ".join(str(r.get("title") or r.get("movie_id")) for r in retrieved[:3])
+    movies = state.get("retrieved_movies") or []
+    if not movies:
+        return "조건에 맞는 추천을 찾지 못했어요. 다른 키워드로 시도해 보세요."
+    titles = ", ".join(str(r.get("title") or r.get("movie_id")) for r in movies[:3])
     return f"이런 영화를 추천드려요: {titles}."
 
 

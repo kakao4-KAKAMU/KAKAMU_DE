@@ -40,7 +40,7 @@ def _build_fake_container() -> AppContainer:
     chat_graph.invoke.return_value = {
         "reply": "추천드려요",
         "arm_id": "balanced",
-        "retrieved": [{"movie_id": "m1", "title": "Movie 1"}],
+        "retrieved_movies": [{"movie_id": "m1", "title": "Movie 1"}],
         "ontology_ref": {"movie_ids": ["m1"]},
     }
 

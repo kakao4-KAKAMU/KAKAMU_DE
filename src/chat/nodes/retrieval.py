@@ -113,10 +113,8 @@ def filter_movies(state: ChatState, deps: ChatGraphDependencies) -> ChatState:
     rows = deps.template_executor.execute(
         deps.movie_template_id, params, fallback=True
     )
-    retrieved = list(rows)
     return {
-        "retrieved": retrieved,
-        "retrieved_movies": retrieved,
+        "retrieved_movies": list(rows),
         "arm_id": arm_id,
         "weights": arm_weights or DEFAULT_WEIGHTS,
     }
@@ -127,10 +125,8 @@ def filter_feeds(state: ChatState, deps: ChatGraphDependencies) -> ChatState:
     rows = deps.template_executor.execute(
         deps.feed_template_id, params, fallback=False
     )
-    retrieved = list(rows)
     return {
-        "retrieved": retrieved,
-        "retrieved_feeds": retrieved,
+        "retrieved_feeds": list(rows),
         "arm_id": arm_id,
         "weights": arm_weights or DEFAULT_WEIGHTS,
     }
@@ -142,8 +138,6 @@ def filter_both(state: ChatState, deps: ChatGraphDependencies) -> ChatState:
     return {
         "retrieved_movies": movie_out.get("retrieved_movies") or [],
         "retrieved_feeds": feed_out.get("retrieved_feeds") or [],
-        "retrieved": (movie_out.get("retrieved_movies") or [])
-        + (feed_out.get("retrieved_feeds") or []),
         "arm_id": movie_out.get("arm_id"),
         "weights": movie_out.get("weights") or feed_out.get("weights") or DEFAULT_WEIGHTS,
     }

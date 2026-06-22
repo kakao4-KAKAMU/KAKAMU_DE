@@ -15,9 +15,18 @@ MediaType = Literal["movie", "feed"]
 IntentScope = Literal["movie", "feed", "both", "none"]
 
 
-class ChatMetadata(TypedDict, total=False):
+class MediaMetadataItem(TypedDict):
     type: MediaType
     id: str
+
+
+class ReplyMetadata(TypedDict, total=False):
+    movie: list[MediaMetadataItem]
+    feed: list[MediaMetadataItem]
+
+
+# 하위 호환 alias
+ChatMetadata = MediaMetadataItem
 
 class ChatState(TypedDict, total=False):
     """LangGraph 노드 간 공유 상태.
@@ -48,14 +57,20 @@ class ChatState(TypedDict, total=False):
     vec_top_k: int
     max_toxicity: float
 
-    retrieved: list[dict[str, Any]]
     retrieved_movies: list[dict[str, Any]]
     retrieved_feeds: list[dict[str, Any]]
     reply: str
 
-    reply_metadata: Optional[ChatMetadata]
+    reply_metadata: Optional[ReplyMetadata]
 
     ontology_ref: dict[str, Any]
 
 
-__all__ = ["ChatState", "ChatMetadata", "IntentScope", "MediaType"]
+__all__ = [
+    "ChatMetadata",
+    "ChatState",
+    "IntentScope",
+    "MediaMetadataItem",
+    "MediaType",
+    "ReplyMetadata",
+]
