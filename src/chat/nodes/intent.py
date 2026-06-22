@@ -1,20 +1,61 @@
-"""plan_intent 노드: 질의 → 정규화된 (keywords, themes, moods)."""
+"""analyze_query 노드: LLM 기반 질의 → 영화/피드 온톨로지 필터 분석."""
 
 from __future__ import annotations
 
 from src.chat.nodes.dependencies import ChatGraphDependencies
-from src.chat.state import ChatState
-from src.recommend.intent_resolver import ResolvedIntent
+from src.chat.state import ChatState, MediaType
+from src.recommend.query_analyzer import QueryAnalysis
 
 
-def plan_intent(state: ChatState, deps: ChatGraphDependencies) -> ChatState:
-    query = state.get("query", "")
-    intent: ResolvedIntent = deps.intent_resolver.resolve(query)
+def _analysis_to_state(analysis: QueryAnalysis) -> ChatState:
+    movie = analysis.movie
+    media_type: MediaType | None
+    if analysis.intent_scope == "both":
+        media_type = None
+    elif analysis.intent_scope in ("movie", "feed"):
+        media_type = analysis.intent_scope
+    else:
+        media_type = None
+
     return {
-        "keywords": list(intent.keywords),
-        "themes": list(intent.themes),
-        "moods": list(intent.moods),
+        "intent_scope": analysis.intent_scope,
+        "media_type": media_type,
+        "keywords": list(movie.keywords),
+        "themes": list(movie.themes),
+        "moods": list(movie.moods),
+        "movie_filters": {
+            "genres": list(movie.genres),
+            "themes": list(movie.themes),
+            "moods": list(movie.moods),
+            "keywords": list(movie.keywords),
+            "person_names": list(movie.person_names),
+            "person_jobs": list(movie.person_jobs),
+            "country": movie.country,
+            "min_year": movie.min_year,
+            "max_year": movie.max_year,
+        },
+        "feed_filters": {
+            "categories": list(analysis.feed.categories),
+            "emotions": list(analysis.feed.emotions),
+            "keywords": list(analysis.feed.keywords),
+            "sentiment": analysis.feed.sentiment,
+            "contains_spoiler": analysis.feed.contains_spoiler,
+            "related_movie_title": analysis.feed.related_movie_title,
+        },
+        "direct_reply_hint": analysis.direct_reply_hint,
     }
 
 
-__all__ = ["plan_intent"]
+def analyze_query(state: ChatState, deps: ChatGraphDependencies) -> ChatState:
+    query = state.get("query", "")
+    analysis = deps.query_analyzer.analyze(
+        query, user_id=state.get("user_id")
+    )
+    return _analysis_to_state(analysis)
+
+
+# 하위 호환 alias
+plan_intent = analyze_query
+
+
+__all__ = ["analyze_query", "plan_intent"]

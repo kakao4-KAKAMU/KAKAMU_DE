@@ -8,10 +8,9 @@ LangGraph 의 closure 와 단위 테스트 모두에서 재사용 가능하다.
 - ``protocols``    : 노드가 의존하는 최소 인터페이스(Protocol).
 - ``dependencies`` : ``ChatGraphDependencies`` 의존성 컨테이너 + 기본값.
 - ``embedding``    : ``embed_query``.
-- ``intent``       : ``plan_intent``.
-- ``media``        : ``classify_media`` + ``route_media`` (conditional_edges).
-- ``weights``      : ``select_weights``.
-- ``retrieval``    : ``retrieve_movies`` / ``retrieve_feeds``.
+- ``intent``       : ``analyze_query``.
+- ``media``        : ``route_after_analysis`` (conditional_edges).
+- ``retrieval``    : ``filter_movies`` / ``filter_feeds`` / ``filter_both``.
 - ``reply``        : ``generate_reply``.
 - ``persistence``  : ``persist_history``.
 
@@ -30,8 +29,8 @@ from src.chat.nodes.dependencies import (
     ChatGraphDependencies,
 )
 from src.chat.nodes.embedding import embed_query
-from src.chat.nodes.intent import plan_intent
-from src.chat.nodes.media import classify_media, route_media
+from src.chat.nodes.intent import analyze_query, plan_intent
+from src.chat.nodes.media import route_after_analysis, route_media
 from src.chat.nodes.persistence import persist_history
 from src.chat.nodes.protocols import (
     ChatLLMLike,
@@ -39,7 +38,13 @@ from src.chat.nodes.protocols import (
     MediaClassifierLike,
 )
 from src.chat.nodes.reply import generate_reply
-from src.chat.nodes.retrieval import retrieve_feeds, retrieve_movies
+from src.chat.nodes.retrieval import (
+    filter_both,
+    filter_feeds,
+    filter_movies,
+    retrieve_feeds,
+    retrieve_movies,
+)
 from src.chat.nodes.weights import select_weights
 
 __all__ = [
@@ -50,13 +55,17 @@ __all__ = [
     "DEFAULT_FEED_TEMPLATE_ID",
     "DEFAULT_MOVIE_TEMPLATE_ID",
     "DEFAULT_WEIGHTS",
-    "classify_media",
+    "analyze_query",
     "embed_query",
+    "filter_both",
+    "filter_feeds",
+    "filter_movies",
     "generate_reply",
     "persist_history",
     "plan_intent",
     "retrieve_feeds",
     "retrieve_movies",
+    "route_after_analysis",
     "route_media",
     "select_weights",
 ]
