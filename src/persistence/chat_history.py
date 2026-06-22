@@ -18,7 +18,7 @@ from uuid import UUID
 from pydantic import BaseModel
 from src.config.settings import PostgresSettings, get_settings
 from src.persistence.db import get_connection
-from src.chat.state import ChatMetadata
+from src.chat.state import ReplyMetadata
 DDL = """
 CREATE TABLE IF NOT EXISTS chat_session (
     session_id   UUID PRIMARY KEY,
@@ -70,7 +70,7 @@ class ChatMessage(BaseModel):
     role: str
     content: str
     created_at: datetime
-    reply_metadata: Optional[ChatMetadata]
+    reply_metadata: Optional[ReplyMetadata]
 
 
 class ChatHistoryStore:

@@ -32,13 +32,16 @@ def _response_format(name: str, *, media_types: list[str]) -> dict[str, Any]:
     metadata_props: dict[str, Any] = {}
     for media in media_types:
         metadata_props[media] = {
-            "type": "object",
-            "properties": {
-                "type": {"type": "string", "enum": [media]},
-                "id": {"type": "string"},
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "type": {"type": "string", "enum": [media]},
+                    "id": {"type": "string"},
+                },
+                "required": ["type", "id"],
+                "additionalProperties": False,
             },
-            "required": ["type", "id"],
-            "additionalProperties": False,
         }
     return {
         "type": "json_schema",
@@ -69,8 +72,9 @@ _MOVIE_PROFILE = _ReplyProfile(
         너는 한국어 영화 추천 도우미다.
         아래 추천 후보 목록(JSON)을 근거로 사용자의 요청에 1~3 문장으로 답하라.
         추천된 영화가 없다면 다른 키워드를 제시하라.
+        답변에 언급한 추천 영화마다 metadata.movie 배열에 항목을 추가하라 (1~3개).
         출력은 단일 JSON 객체:
-        {"reply": "문장", "metadata": {"movie": {"type": "movie", "id": "<영화 ID>"}}}.
+        {"reply": "문장", "metadata": {"movie": [{"type": "movie", "id": "<영화 ID>"}]}}.
         """
     ).strip(),
     response_format=_response_format("reply_movie_ontology", media_types=["movie"]),
@@ -82,8 +86,9 @@ _FEED_PROFILE = _ReplyProfile(
         너는 한국어 영화 감상 피드 추천 도우미다.
         아래 추천 피드 후보 목록(JSON)을 근거로 사용자의 요청에 1~3 문장으로 답하라.
         추천된 피드가 없다면 다른 키워드를 제시하라.
+        답변에 언급한 추천 피드마다 metadata.feed 배열에 항목을 추가하라 (1~3개).
         출력은 단일 JSON 객체:
-        {"reply": "문장", "metadata": {"feed": {"type": "feed", "id": "<피드 ID>"}}}.
+        {"reply": "문장", "metadata": {"feed": [{"type": "feed", "id": "<피드 ID>"}]}}.
         """
     ).strip(),
     response_format=_response_format("reply_feed_ontology", media_types=["feed"]),
@@ -95,12 +100,13 @@ _BOTH_PROFILE = _ReplyProfile(
         너는 한국어 영화·피드 추천 도우미다.
         아래 영화 후보와 피드 후보(JSON)를 모두 근거로 사용자 요청에 2~4 문장으로 답하라.
         영화 추천과 피드 추천을 모두 포함해야 한다.
+        답변에 언급한 추천마다 metadata.movie / metadata.feed 배열에 항목을 추가하라 (각 1~3개).
         출력은 단일 JSON 객체:
         {
           "reply": "문장",
           "metadata": {
-            "movie": {"type": "movie", "id": "<영화 ID>"},
-            "feed": {"type": "feed", "id": "<피드 ID>"}
+            "movie": [{"type": "movie", "id": "<영화 ID>"}],
+            "feed": [{"type": "feed", "id": "<피드 ID>"}]
           }
         }.
         """
@@ -188,25 +194,67 @@ def _build_payload(state: ChatState, deps: ChatGraphDependencies, scope: IntentS
     }
 
 
+def _normalize_entry(value: Any, media: str) -> dict[str, Any] | None:
+    if not isinstance(value, dict) or not value.get("id"):
+        return None
+    entry_type = value.get("type")
+    if entry_type in ("movie", "feed"):
+        return {"type": entry_type, "id": str(value["id"])}
+    return {"type": media, "id": str(value["id"])}
+
+
+def _normalize_entry_list(value: Any, media: str) -> list[dict[str, Any]]:
+    if isinstance(value, list):
+        return [
+            entry
+            for item in value
+            if (entry := _normalize_entry(item, media)) is not None
+        ]
+    entry = _normalize_entry(value, media)
+    return [entry] if entry else []
+
+
 def _normalize_metadata(raw: dict[str, Any], scope: IntentScope) -> dict[str, Any] | None:
     metadata = raw.get("metadata")
     if not isinstance(metadata, dict):
         return None
-    if scope == "both":
-        movie_meta = metadata.get("movie")
-        if isinstance(movie_meta, dict) and movie_meta.get("id"):
-            return movie_meta
-        feed_meta = metadata.get("feed")
-        if isinstance(feed_meta, dict) and feed_meta.get("id"):
-            return feed_meta
-        return None
-    if scope in ("movie", "feed"):
-        entry = metadata.get(scope)
-        if isinstance(entry, dict):
-            return entry
-        if metadata.get("type") in ("movie", "feed"):
-            return metadata
-    return None
+    if scope in ("movie", "feed") and metadata.get("type") in ("movie", "feed"):
+        items = _normalize_entry_list(metadata, scope)
+        return {scope: items} if items else None
+
+    result: dict[str, Any] = {}
+    if scope in ("movie", "both"):
+        movie_items = _normalize_entry_list(metadata.get("movie"), "movie")
+        if movie_items:
+            result["movie"] = movie_items
+    if scope in ("feed", "both"):
+        feed_items = _normalize_entry_list(metadata.get("feed"), "feed")
+        if feed_items:
+            result["feed"] = feed_items
+    return result or None
+
+
+def _fallback_metadata(
+    scope: IntentScope, state: ChatState, top_k: int
+) -> dict[str, Any] | None:
+    result: dict[str, Any] = {}
+    if scope in ("movie", "both"):
+        movie_items = [
+            {"type": "movie", "id": str(row["movie_id"])}
+            for row in (state.get("retrieved_movies") or [])[:top_k]
+            if row.get("movie_id")
+        ]
+        if movie_items:
+            result["movie"] = movie_items
+    if scope in ("feed", "both"):
+        feed_items = [
+            {"type": "feed", "id": str(row["feed_id"])}
+            for row in (state.get("retrieved_feeds") or [])[:top_k]
+            if row.get("feed_id")
+        ]
+        if feed_items:
+            result["feed"] = feed_items
+    return result or None
 
 
 def generate_reply(state: ChatState, deps: ChatGraphDependencies) -> ChatState:
@@ -232,7 +280,10 @@ def generate_reply(state: ChatState, deps: ChatGraphDependencies) -> ChatState:
         reply = _fallback_reply(scope, state)
     if not reply:
         reply = _fallback_reply(scope, state)
-    return {"reply": reply, "reply_metadata": _normalize_metadata(raw, scope)}
+    reply_metadata = _normalize_metadata(raw, scope)
+    if reply_metadata is None and scope != "none":
+        reply_metadata = _fallback_metadata(scope, state, deps.default_top_k)
+    return {"reply": reply, "reply_metadata": reply_metadata}
 
 
 def _fallback_reply(scope: IntentScope, state: ChatState) -> str:

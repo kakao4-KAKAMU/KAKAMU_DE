@@ -45,7 +45,10 @@ def _deps() -> ChatGraphDependencies:
     ]
 
     llm = MagicMock()
-    llm.chat_json.return_value = {"reply": "이런 영화를 추천드려요"}
+    llm.chat_json.return_value = {
+        "reply": "이런 영화를 추천드려요",
+        "metadata": {"movie": [{"type": "movie", "id": "m1"}]},
+    }
 
     query_analyzer = MagicMock()
     query_analyzer.analyze.return_value = QueryAnalysis(
@@ -213,7 +216,7 @@ def test_build_chat_graph_routes_feed_query() -> None:
     ]
     deps.llm.chat_json.return_value = {
         "reply": "이런 피드를 추천드려요",
-        "metadata": {"feed": {"type": "feed", "id": "f1"}},
+        "metadata": {"feed": [{"type": "feed", "id": "f1"}]},
     }
     graph = build_chat_graph(deps)
     final = graph.invoke(
@@ -237,6 +240,7 @@ def test_generate_reply_uses_llm_json() -> None:
         deps,
     )
     assert out["reply"] == "이런 영화를 추천드려요"
+    assert out["reply_metadata"] == {"movie": [{"type": "movie", "id": "m1"}]}
 
 
 def test_generate_reply_falls_back_when_llm_raises() -> None:
@@ -251,6 +255,53 @@ def test_generate_reply_falls_back_when_llm_raises() -> None:
         deps,
     )
     assert "기생충" in out["reply"]
+    assert out["reply_metadata"] == {"movie": [{"type": "movie", "id": "m1"}]}
+
+
+def test_generate_reply_normalizes_multiple_movie_metadata() -> None:
+    deps = _deps()
+    deps.llm.chat_json.return_value = {
+        "reply": "세 편 추천",
+        "metadata": {
+            "movie": [
+                {"type": "movie", "id": "m1"},
+                {"type": "movie", "id": "m2"},
+                {"type": "movie", "id": "m3"},
+            ]
+        },
+    }
+    out = generate_reply(
+        {
+            "query": "추천",
+            "intent_scope": "movie",
+            "retrieved_movies": [
+                {"movie_id": "m1"},
+                {"movie_id": "m2"},
+                {"movie_id": "m3"},
+            ],
+        },
+        deps,
+    )
+    assert out["reply_metadata"] == {
+        "movie": [
+            {"type": "movie", "id": "m1"},
+            {"type": "movie", "id": "m2"},
+            {"type": "movie", "id": "m3"},
+        ]
+    }
+
+
+def test_generate_reply_accepts_legacy_single_object_metadata() -> None:
+    deps = _deps()
+    deps.llm.chat_json.return_value = {
+        "reply": "추천",
+        "metadata": {"movie": {"type": "movie", "id": "m1"}},
+    }
+    out = generate_reply(
+        {"query": "추천", "intent_scope": "movie", "retrieved_movies": [{"movie_id": "m1"}]},
+        deps,
+    )
+    assert out["reply_metadata"] == {"movie": [{"type": "movie", "id": "m1"}]}
 
 
 def test_generate_reply_none_scope_without_retrieval() -> None:
