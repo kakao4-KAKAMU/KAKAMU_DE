@@ -99,7 +99,7 @@ def build_chat_movie_filter_params(
         "query_genres": list(query_genres),
         "query_person_names": list(query_person_names),
         "query_person_jobs": list(query_person_jobs),
-        "filter_country": filter_country,
+        "filter_country": str(filter_country).lower(),
         "min_year": int(min_year),
         "max_year": int(max_year),
     }
