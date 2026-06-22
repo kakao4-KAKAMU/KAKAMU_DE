@@ -15,14 +15,6 @@ def _build_ontology_ref(state: ChatState) -> dict[str, Any]:
     scope: IntentScope = state.get("intent_scope") or state.get("media_type") or "movie"  # type: ignore[assignment]
     retrieved_movies = state.get("retrieved_movies") or []
     retrieved_feeds = state.get("retrieved_feeds") or []
-    if not retrieved_movies and scope in ("movie", "both"):
-        retrieved_movies = [
-            r for r in (state.get("retrieved") or []) if r.get("movie_id")
-        ]
-    if not retrieved_feeds and scope in ("feed", "both"):
-        retrieved_feeds = [
-            r for r in (state.get("retrieved") or []) if r.get("feed_id")
-        ]
 
     ontology_ref: dict[str, Any] = {
         "intent_scope": scope,

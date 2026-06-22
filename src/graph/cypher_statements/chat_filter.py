@@ -128,6 +128,8 @@ ORDER BY score DESC
 LIMIT $top_k
 
 RETURN m.movie_id     AS movie_id,
+       m.producing_year AS producing_year,
+       m.country AS country,
        m.title        AS title,
        m.plot_summary AS plot_summary,
        score

@@ -48,7 +48,6 @@ class ChatState(TypedDict, total=False):
     vec_top_k: int
     max_toxicity: float
 
-    retrieved: list[dict[str, Any]]
     retrieved_movies: list[dict[str, Any]]
     retrieved_feeds: list[dict[str, Any]]
     reply: str

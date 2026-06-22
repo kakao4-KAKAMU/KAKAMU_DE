@@ -164,16 +164,6 @@ def _resolve_scope(state: ChatState) -> IntentScope:
 def _build_payload(state: ChatState, deps: ChatGraphDependencies, scope: IntentScope) -> dict[str, Any]:
     user_query = state.get("query", "")
     top_k = deps.default_top_k
-    if scope == "both":
-        return {
-            "query": user_query,
-            "intent_scope": scope,
-            "movie_candidates": (state.get("retrieved_movies") or [])[:top_k],
-            "feed_candidates": (state.get("retrieved_feeds") or [])[:top_k],
-            "movie_filters": state.get("movie_filters") or {},
-            "feed_filters": state.get("feed_filters") or {},
-            **deps.extra_user_payload,
-        }
     if scope == "none":
         return {
             "query": user_query,
@@ -182,11 +172,18 @@ def _build_payload(state: ChatState, deps: ChatGraphDependencies, scope: IntentS
             **deps.extra_user_payload,
         }
     media: MediaType = scope if scope in ("movie", "feed") else "movie"
+
+    payload = {}
+    if scope == "movie" or scope == "both":
+        payload["movie_filters"] = state.get("movie_filters") or {}
+        payload["movie_candidates"] = (state.get("retrieved_movies") or [])[:top_k]
+    if scope == "feed" or scope == "both":
+        payload["feed_filters"] = state.get("feed_filters") or {}
+        payload["feed_candidates"] = (state.get("retrieved_feeds") or [])[:top_k]
     return {
         "query": user_query,
         "intent_scope": scope,
-        "media_type": media,
-        "candidates": (state.get("retrieved") or [])[:top_k],
+        **payload,
         **deps.extra_user_payload,
     }
 
@@ -254,15 +251,18 @@ def _fallback_reply(scope: IntentScope, state: ChatState) -> str:
             str(r.get("summary") or r.get("feed_id")) for r in feeds[:2]
         )
         return f"영화 추천: {movie_titles or '없음'}. 피드 추천: {feed_snippets or '없음'}."
-    retrieved = state.get("retrieved") or []
-    if not retrieved:
-        return "조건에 맞는 추천을 찾지 못했어요. 다른 키워드로 시도해 보세요."
     if scope == "feed":
+        feeds = state.get("retrieved_feeds") or []
+        if not feeds:
+            return "조건에 맞는 추천을 찾지 못했어요. 다른 키워드로 시도해 보세요."
         snippets = ", ".join(
-            str(r.get("summary") or r.get("feed_id")) for r in retrieved[:3]
+            str(r.get("summary") or r.get("feed_id")) for r in feeds[:3]
         )
         return f"이런 감상 피드를 추천드려요: {snippets}."
-    titles = ", ".join(str(r.get("title") or r.get("movie_id")) for r in retrieved[:3])
+    movies = state.get("retrieved_movies") or []
+    if not movies:
+        return "조건에 맞는 추천을 찾지 못했어요. 다른 키워드로 시도해 보세요."
+    titles = ", ".join(str(r.get("title") or r.get("movie_id")) for r in movies[:3])
     return f"이런 영화를 추천드려요: {titles}."
 
 
