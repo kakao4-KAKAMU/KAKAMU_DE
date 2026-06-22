@@ -38,14 +38,14 @@ WHERE coalesce(m.toxicity_score, 0.0) <= $max_toxicity
       WHERE p.name IN $query_person_names
     }
   )
+  AND (
+    size($query_person_jobs) = 0
+    OR EXISTS {
+      MATCH (m)-[hp:HAS_PERSON]->(:Person)
+      WHERE hp.job IN $query_person_jobs
+    }
+  )
 """
-# AND (
-#   size($query_person_jobs) = 0
-#   OR EXISTS {
-#     MATCH (m)-[hp:HAS_PERSON]->(:Person)
-#     WHERE hp.job IN $query_person_jobs
-#   }
-# )
 
 _CHAT_FEED_ONTOLOGY_FILTER: Final[str] = """
 // 온톨로지 기본 필터 (빈 값이면 조건 무시)

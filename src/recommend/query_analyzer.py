@@ -41,7 +41,7 @@ class MovieQueryFilters:
     moods: list[str] = field(default_factory=list)
     keywords: list[str] = field(default_factory=list)
     person_names: list[str] = field(default_factory=list)
-    # person_jobs: list[str] = field(default_factory=list)
+    person_jobs: list[str] = field(default_factory=list)
     country: str = ""
     min_year: int = 0
     max_year: int = 0
@@ -88,9 +88,9 @@ def _parse_movie_filters(raw: dict[str, Any] | None) -> MovieQueryFilters:
         person_names=[
             str(n).strip() for n in data.get("person_names") or [] if str(n).strip()
         ],
-        # person_jobs=[
-        #     str(j).strip() for j in data.get("person_jobs") or [] if str(j).strip()
-        # ],
+        person_jobs=[
+            str(j).strip() for j in data.get("person_jobs") or [] if str(j).strip()
+        ],
         country=str(data.get("country") or "").strip(),
         min_year=int(data.get("min_year") or 0),
         max_year=int(data.get("max_year") or 0),
