@@ -34,7 +34,7 @@ _CHAT_MOVIE_ONTOLOGY_FILTER: Final[str] = """
     size($query_person_names) = 0
     OR EXISTS {
       MATCH (m)-[hp:HAS_PERSON]->(p:Person)
-      WHERE hp.job STARTS WITH '출연' OR hp.job STARTS WITH '감독'
+      WHERE (hp.job STARTS WITH '출연' OR hp.job STARTS WITH '감독')
         AND p.name IN $query_person_names
     }
   )
