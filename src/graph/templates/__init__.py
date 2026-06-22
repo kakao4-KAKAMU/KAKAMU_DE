@@ -34,7 +34,7 @@ _CHAT_MOVIE_FILTER_PARAMS_SCHEMA: dict[str, str] = {
     **_HYBRID_BASE_PARAMS_SCHEMA,
     "query_genres": "string_list",
     "query_person_names": "string_list",
-    # "query_person_jobs": "string_list",
+    "query_person_jobs": "string_list",
     "filter_country": "string",
     "min_year": "int",
     "max_year": "int",

@@ -29,7 +29,7 @@ def _analysis_to_state(analysis: QueryAnalysis) -> ChatState:
             "moods": list(movie.moods),
             "keywords": list(movie.keywords),
             "person_names": list(movie.person_names),
-            # "person_jobs": list(movie.person_jobs),
+            "person_jobs": list(movie.person_jobs),
             "country": movie.country,
             "min_year": movie.min_year,
             "max_year": movie.max_year,

@@ -59,7 +59,7 @@ def test_build_chat_movie_filter_params_includes_ontology_filters() -> None:
         query_moods=["c"],
         query_genres=["drama"],
         query_person_names=["Kim"],
-        # query_person_jobs=["director"],
+        query_person_jobs=["director"],
         filter_country="KR",
         min_year=2010,
         max_year=2020,

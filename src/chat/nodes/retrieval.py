@@ -67,7 +67,7 @@ def _build_movie_filter_params(
         query_moods=moods,
         query_genres=list(filters.get("genres") or []),
         query_person_names=list(filters.get("person_names") or []),
-        # query_person_jobs=list(filters.get("person_jobs") or []),
+        query_person_jobs=list(filters.get("person_jobs") or []),
         filter_country=str(filters.get("country") or ""),
         min_year=int(filters.get("min_year") or 0),
         max_year=int(filters.get("max_year") or 0),
