@@ -130,8 +130,8 @@ _QUERY_ANALYSIS_GUIDE: Final[str] = dedent(
     - genres/themes/moods: 질의에서 드러난 장르·주제·무드. 근거 없으면 [].
     - keywords: 영화 지표(era/environment/key_object/source_form/culture_code/entity/other).
       themes/moods 와 중복 금지. normalized 는 snake_case.
-    - person_names/person_jobs: 감독·배우 등 인물 언급 시 채운다.
-    - country: 제작국 언급 시. 없으면 빈 문자열.
+    - person_names/person_jobs: 감독·배우 등 인물 언급 시 채운다. 표시 언어는 한글, 영문이다.
+    - country: 제작국 언급 시. 없으면 빈 문자열. 국가코드는 iso 2자리 코드.
     - min_year/max_year: 연도 범위. 없으면 0.
 
     [feed 필터 — Feed 온톨로지]
