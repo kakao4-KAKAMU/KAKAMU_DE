@@ -12,8 +12,7 @@ from src.graph.cypher_statements.properties import BASE_PLOT_EMBEDDING, BASE_SUM
 
 _CHAT_MOVIE_ONTOLOGY_FILTER: Final[str] = """
 // 온톨로지 기본 필터 (빈 값이면 조건 무시)
-WITH m, vec_score
-WHERE coalesce(m.toxicity_score, 0.0) <= $max_toxicity
+  AND coalesce(m.toxicity_score, 0.0) <= $max_toxicity
   AND ($min_year = 0 OR coalesce(m.producing_year, 0) >= $min_year)
   AND ($max_year = 0 OR coalesce(m.producing_year, 9999) <= $max_year)
   AND (
@@ -77,14 +76,15 @@ WHERE coalesce(f.toxicity_score, 0.0) <= $max_toxicity
 """
 
 CHAT_MOVIE_FILTER: Final[str] = f"""
-// 1) 후보군을 넉넉하게 확보 (vec_top_k * 버퍼 배수)
+// 0) 온톨로지 필터 우선 적용
 MATCH (m:Movie)
 WHERE m.{BASE_PLOT_EMBEDDING} IS NOT NULL
+{_CHAT_MOVIE_ONTOLOGY_FILTER}
+
+// 1) 후보군을 넉넉하게 확보 (vec_top_k * 버퍼 배수)
 WITH m, vector.similarity.cosine(m.{BASE_PLOT_EMBEDDING}, $query_embedding) AS vec_score
 ORDER BY vec_score DESC
 LIMIT toInteger($vec_top_k * 5)
-
-{_CHAT_MOVIE_ONTOLOGY_FILTER}
 
 // Keyword / Theme / Mood 부스트
 OPTIONAL MATCH (m)-[:MENTIONS]->(k:Keyword)
