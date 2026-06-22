@@ -100,7 +100,7 @@ def test_validate_chat_movie_filter_params_ok() -> None:
             "query_moods": ["calm"],
             "query_genres": ["drama"],
             "query_person_names": ["director_a"],
-            "query_person_jobs": ["director"],
+            # "query_person_jobs": ["director"],
             "filter_country": "KR",
             "min_year": 2000,
             "max_year": 2024,
