@@ -48,6 +48,9 @@ class FakeOutboxWriter:
         self.rows.append(kwargs)
         return row_id
 
+    def flush(self) -> None:
+        return None
+
 
 def test_fetch_reembed_candidates_movie_feed_comment() -> None:
     client = FakeNeo4j(

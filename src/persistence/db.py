@@ -46,6 +46,8 @@ def get_pool(
         conninfo=conninfo,
         min_size=min_size,
         max_size=max_size,
+        reconnect_timeout=300,
+        timeout=5,
         open=True,
         kwargs={"autocommit": False},
     )
