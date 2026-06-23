@@ -189,8 +189,11 @@ def enqueue_reembed_jobs(
             aggregate_id=candidate.aggregate_id,
             payload=payload.model_dump(mode="json"),
             model_name=settings.model_name,
+            wait=True,
         )
         enqueued[aggregate_type] += 1
+
+    outbox.flush()
 
     return ReembedEnqueueReport(
         target_embedding_version=target_version,

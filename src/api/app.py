@@ -12,6 +12,7 @@ SOLID
 from __future__ import annotations
 
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -28,13 +29,25 @@ origins = [
     'http://210.109.52.56',
 ]
 
+@asynccontextmanager
+async def _lifespan(app: FastAPI):
+    yield
+    try:
+        from src.api.dependencies import get_container
+
+        get_container().outbox.flush()
+    except Exception:
+        logger.exception("Failed to flush outbox on shutdown")
+
+
 def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(
         docs_url="/docs",
         redoc_url="/redoc",
         openapi_url="/openapi.json",
-        root_path="/chat",
+        root_path="/chat-api",
+        lifespan=_lifespan,
     )
 
     def custom_openapi():
