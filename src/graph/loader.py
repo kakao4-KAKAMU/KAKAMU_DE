@@ -201,7 +201,8 @@ class OntologyLoader:
                 for p in (persons or [])
             ],
         }
-        self._neo4j.execute_write(self._movie_upsert_cypher(), params)
+        result = self._neo4j.execute_write(self._movie_upsert_cypher(), params)
+        logger.info("Upserted movie result: %s", result)
         logger.info(
             "Upserted movie %s (themes=%d, keywords=%d, persons=%d)",
             movie_id,
