@@ -71,15 +71,17 @@ SEED_CATEGORIES: Final[List[str]] = FEED_CATEGORY_VALUES
 SEED_EMOTIONS: Final[List[str]] = EMOTION_TAG_VALUES
 
 SEED_MERGE_CATEGORY: Final[str] = """
-UNWIND $categories AS name
-MERGE (c:Category {name: name})
-ON CREATE SET c.created_at = datetime()
+FOREACH (name IN coalesce($categories, []) |
+  MERGE (c:Category {name: name})
+  ON CREATE SET c.created_at = datetime()
+)
 """
 
 SEED_MERGE_EMOTION: Final[str] = """
-UNWIND $emotions AS tag
-MERGE (e:Emotion {tag: tag})
-ON CREATE SET e.created_at = datetime()
+FOREACH (tag IN coalesce($emotions, []) |
+  MERGE (e:Emotion {tag: tag})
+  ON CREATE SET e.created_at = datetime()
+)
 """
 
 
