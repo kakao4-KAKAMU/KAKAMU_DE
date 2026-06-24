@@ -67,6 +67,7 @@ class Neo4jClient:
     def execute_write(
         self, cypher: str, params: Optional[Mapping[str, Any]] = None
     ) -> List[dict]:
+        logger.info("Executing write Cypher: %s", cypher, params)
         with self.session() as s:
             result = s.execute_write(
                 lambda tx: list(tx.run(cypher, params or {}))
