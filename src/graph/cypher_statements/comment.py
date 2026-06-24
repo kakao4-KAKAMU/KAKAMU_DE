@@ -15,20 +15,22 @@ CALL (c) {
   MERGE (c)-[:REPLY_TO]->(pc)
 }
 
-// emotions
-With c
-UNWIND $emotions AS e
+// emotions (optional)
+WITH c
+FOREACH (e IN coalesce($emotions, []) |
   MERGE (em:Emotion {tag: e.tag})
   MERGE (c)-[r:HAS_EMOTION]->(em)
     SET r.score = e.score
+)
 
-// keywords
-With c
-UNWIND $keywords AS kw
+// keywords (optional)
+WITH c
+FOREACH (kw IN coalesce($keywords, []) |
   MERGE (k:Keyword {normalized: kw.normalized})
     ON CREATE SET k.kind = kw.kind, k.term = kw.term
   MERGE (c)-[r:MENTIONS]->(k)
     SET r.weight = kw.weight
+)
 """
 
 UPSERT_COMMENT_WITH_ONTOLOGY: Final[str] = f"""
