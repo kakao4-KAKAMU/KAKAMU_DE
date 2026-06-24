@@ -15,26 +15,29 @@ CALL (f) {
   MERGE (f)-[:ABOUT_MOVIE]->(m)
 }
 
-// categories
+// categories (optional)
 WITH f
-UNWIND $categories AS cname
+FOREACH (cname IN coalesce($categories, []) |
   MERGE (c:Category {name: cname})
   MERGE (f)-[:HAS_CATEGORY]->(c)
+)
 
-// emotions
+// emotions (optional)
 WITH f
-UNWIND $emotions AS e
+FOREACH (e IN coalesce($emotions, []) |
   MERGE (em:Emotion {tag: e.tag})
   MERGE (f)-[r:HAS_EMOTION]->(em)
     SET r.score = e.score
+)
 
-// keywords
-With f
-UNWIND $keywords AS kw
+// keywords (optional)
+WITH f
+FOREACH (kw IN coalesce($keywords, []) |
   MERGE (k:Keyword {normalized: kw.normalized})
     ON CREATE SET k.kind = kw.kind, k.term = kw.term
   MERGE (f)-[r:MENTIONS]->(k)
     SET r.weight = kw.weight
+)
 """
 
 UPSERT_FEED_WITH_ONTOLOGY: Final[str] = f"""
