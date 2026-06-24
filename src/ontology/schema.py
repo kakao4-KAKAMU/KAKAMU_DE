@@ -51,6 +51,7 @@ class Sentiment(str, Enum):
     NEUTRAL = "neutral"
     POSITIVE = "positive"
     VERY_POSITIVE = "very_positive"
+    __str__ = __repr__ = lambda self: self.value
 
 
 SENTIMENT_VALUES: list[str] = enum_values(Sentiment)
@@ -71,6 +72,7 @@ class EmotionTag(str, Enum):
     BOREDOM = "boredom"
     CONFUSION = "confusion"
     ADMIRATION = "admiration"
+    __str__ = __repr__ = lambda self: self.value
 
 
 EMOTION_TAG_VALUES: list[str] = enum_values(EmotionTag)
@@ -89,6 +91,7 @@ class FeedCategory(str, Enum):
     COMPARISON = "comparison"  # 비교
     META = "meta"  # 메타(촬영기법/감독/배우)
     OFF_TOPIC = "off_topic"
+    __str__ = __repr__ = lambda self: self.value
 
 
 FEED_CATEGORY_VALUES: list[str] = enum_values(FeedCategory)
@@ -99,6 +102,7 @@ class CommentTarget(str, Enum):
 
     FEED = "feed"
     PARENT_COMMENT = "parent_comment"
+    __str__ = __repr__ = lambda self: self.value
 
 
 COMMENT_TARGET_VALUES: list[str] = enum_values(CommentTarget)
@@ -111,6 +115,7 @@ class CommentReaction(str, Enum):
     NEGATIVE = "negative"
     EMPATHY = "empathy"
     SUPPLEMENT = "supplement"
+    __str__ = __repr__ = lambda self: self.value
 
 
 COMMENT_REACTION_VALUES: list[str] = enum_values(CommentReaction)
@@ -126,6 +131,7 @@ class KeywordKind(str, Enum):
     CULTURE_CODE = "culture_code"
     ENTITY = "entity"
     OTHER = "other"
+    __str__ = __repr__ = lambda self: self.value
 
 
 KEYWORD_KIND_VALUES: list[str] = enum_values(KeywordKind)
