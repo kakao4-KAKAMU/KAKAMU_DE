@@ -21,7 +21,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import List, Literal, Optional, TypeVar
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 
 _E = TypeVar("_E", bound=Enum)
 
@@ -51,7 +51,6 @@ class Sentiment(str, Enum):
     NEUTRAL = "neutral"
     POSITIVE = "positive"
     VERY_POSITIVE = "very_positive"
-    __str__ = __repr__ = lambda self: self.value
 
 
 SENTIMENT_VALUES: list[str] = enum_values(Sentiment)
@@ -72,7 +71,6 @@ class EmotionTag(str, Enum):
     BOREDOM = "boredom"
     CONFUSION = "confusion"
     ADMIRATION = "admiration"
-    __str__ = __repr__ = lambda self: self.value
 
 
 EMOTION_TAG_VALUES: list[str] = enum_values(EmotionTag)
@@ -91,7 +89,6 @@ class FeedCategory(str, Enum):
     COMPARISON = "comparison"  # 비교
     META = "meta"  # 메타(촬영기법/감독/배우)
     OFF_TOPIC = "off_topic"
-    __str__ = __repr__ = lambda self: self.value
 
 
 FEED_CATEGORY_VALUES: list[str] = enum_values(FeedCategory)
@@ -102,7 +99,6 @@ class CommentTarget(str, Enum):
 
     FEED = "feed"
     PARENT_COMMENT = "parent_comment"
-    __str__ = __repr__ = lambda self: self.value
 
 
 COMMENT_TARGET_VALUES: list[str] = enum_values(CommentTarget)
@@ -115,7 +111,6 @@ class CommentReaction(str, Enum):
     NEGATIVE = "negative"
     EMPATHY = "empathy"
     SUPPLEMENT = "supplement"
-    __str__ = __repr__ = lambda self: self.value
 
 
 COMMENT_REACTION_VALUES: list[str] = enum_values(CommentReaction)
@@ -131,7 +126,6 @@ class KeywordKind(str, Enum):
     CULTURE_CODE = "culture_code"
     ENTITY = "entity"
     OTHER = "other"
-    __str__ = __repr__ = lambda self: self.value
 
 
 KEYWORD_KIND_VALUES: list[str] = enum_values(KeywordKind)
@@ -139,6 +133,7 @@ KEYWORD_KIND_VALUES: list[str] = enum_values(KeywordKind)
 
 class Keyword(BaseModel):
     """영화 지표·검색 anchor 가 되는 표준 키워드."""
+    model_config = ConfigDict(use_enum_values=True)
 
     term: str = Field(..., description="원문에서 추출된 표면형(surface form)")
     normalized: str = Field(
@@ -163,6 +158,7 @@ class Keyword(BaseModel):
 
 class EmotionScore(BaseModel):
     """감정 태그별 점수(0~1)."""
+    model_config = ConfigDict(use_enum_values=True)
 
     tag: EmotionTag
     score: float = Field(..., ge=0.0, le=1.0)
@@ -184,6 +180,7 @@ class OntologyResult(BaseModel):
 
 class MoviePlotOntology(OntologyResult):
     """영화 줄거리 정제 결과."""
+    model_config = ConfigDict(use_enum_values=True)
 
     summary: str = Field(
         ..., description="2~3문장으로 요약된 의미 보존 줄거리."
@@ -211,6 +208,7 @@ class MoviePlotOntology(OntologyResult):
 
 class FeedOntology(OntologyResult):
     """피드 본문 정제 결과."""
+    model_config = ConfigDict(use_enum_values=True)
 
     summary: str = Field(..., description="피드 본문의 1~2문장 요약.")
     category: FeedCategory = Field(..., description="피드 글 특성.")
@@ -247,6 +245,7 @@ class FeedOntology(OntologyResult):
 
 class CommentOntology(OntologyResult):
     """댓글 본문 정제 결과."""
+    model_config = ConfigDict(use_enum_values=True)
 
     summary: str = Field(..., description="댓글의 1문장 요약(짧으면 원문 그대로 가능).")
     target: CommentTarget = Field(..., description="댓글이 향하는 대상.")
