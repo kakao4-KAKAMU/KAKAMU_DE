@@ -30,21 +30,21 @@ WHERE ip.action = 'favorite'
 DELETE ip
 
 WITH p
-FOREACH (genre_name IN $genres |
+FOREACH (genre_name IN coalesce($genres, []) |
   MERGE (g:Genre {name: genre_name})
   MERGE (p)-[r:PREFERS]->(g)
   SET r.weight = 1.0, r.updated_at = datetime()
 )
 
 WITH p
-FOREACH (movie_id IN $movies |
+FOREACH (movie_id IN coalesce($movies, []) |
   MERGE (m:Movie {movie_id: movie_id})
   MERGE (p)-[r:INTERACTED]->(m)
   SET r.action = 'interest', r.weight = 1.0, r.ts = $ts
 )
 
 WITH p
-FOREACH (person_id IN $persons |
+FOREACH (person_id IN coalesce($persons, []) |
   MERGE (per:Person {person_id: person_id})
   MERGE (p)-[r:INTERACTED]->(per)
   SET r.action = 'favorite', r.weight = 1.0, r.ts = $ts

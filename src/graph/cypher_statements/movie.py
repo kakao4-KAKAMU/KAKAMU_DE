@@ -6,16 +6,47 @@ from typing import Final, Sequence
 
 from src.graph.cypher_statements.properties import BASE_PLOT_EMBEDDING, build_embedding_set_clause
 
-_MOVIE_ONTOLOGY_RELATIONS_TAIL: Final[str] = """
-// Person (director, actor, etc.)
+_MOVIE_TAXONOMY_RELATIONS: Final[str] = """
+// Genre (optional)
 WITH m
-CALL (m) {
-  UNWIND $persons AS pr
+FOREACH (gname IN coalesce($genres, []) |
+  MERGE (g:Genre {name: gname})
+  MERGE (m)-[:HAS_GENRE]->(g)
+)
+
+// Theme (optional)
+WITH m
+FOREACH (tname IN coalesce($themes, []) |
+  MERGE (t:Theme {name: tname})
+  MERGE (m)-[:HAS_THEME]->(t)
+)
+
+// Mood (optional)
+WITH m
+FOREACH (mdname IN coalesce($moods, []) |
+  MERGE (md:Mood {name: mdname})
+  MERGE (m)-[:HAS_MOOD]->(md)
+)
+
+// Keywords (optional)
+WITH m
+FOREACH (kw IN coalesce($keywords, []) |
+  MERGE (k:Keyword {normalized: kw.normalized})
+    ON CREATE SET k.kind = kw.kind, k.term = kw.term
+  MERGE (m)-[r:MENTIONS]->(k)
+    SET r.weight = kw.weight
+)
+"""
+
+_MOVIE_ONTOLOGY_RELATIONS_TAIL: Final[str] = """
+// Person (director, actor, etc., optional)
+WITH m
+FOREACH (pr IN coalesce($persons, []) |
   MERGE (p:Person {person_id: pr.person_id})
     SET p.name = pr.name
   MERGE (m)-[hp:HAS_PERSON]->(p)
     SET hp.job = pr.job
-}
+)
 
 // Country node (optional)
 WITH m
@@ -39,33 +70,7 @@ SET m.title          = $title,
     {build_embedding_set_clause("m", BASE_PLOT_EMBEDDING, "plot_embedding")},
     m.toxicity_score = $toxicity_score,
     m.updated_at     = datetime()
-
-// Genre
-WITH m
-UNWIND $genres AS gname
-  MERGE (g:Genre {{name: gname}})
-  MERGE (m)-[:HAS_GENRE]->(g)
-
-// Theme
-WITH m
-UNWIND $themes AS tname
-  MERGE (t:Theme {{name: tname}})
-  MERGE (m)-[:HAS_THEME]->(t)
-
-// Mood
-WITH m
-UNWIND $moods AS mdname
-  MERGE (md:Mood {{name: mdname}})
-  MERGE (m)-[:HAS_MOOD]->(md)
-
-// Keywords (semantic + keyword anchor)
-WITH m
-UNWIND $keywords AS kw
-  MERGE (k:Keyword {{normalized: kw.normalized}})
-    ON CREATE SET k.kind = kw.kind, k.term = kw.term
-  MERGE (m)-[r:MENTIONS]->(k)
-    SET r.weight = kw.weight
-""" + _MOVIE_ONTOLOGY_RELATIONS_TAIL
+""" + _MOVIE_TAXONOMY_RELATIONS + _MOVIE_ONTOLOGY_RELATIONS_TAIL
 
 
 def build_upsert_movie_with_ontology(
@@ -88,33 +93,7 @@ SET m.title          = $title,
     {embedding_clause},
     m.toxicity_score = $toxicity_score,
     m.updated_at     = datetime()
-
-// Genre
-WITH m
-UNWIND $genres AS gname
-  MERGE (g:Genre {{name: gname}})
-  MERGE (m)-[:HAS_GENRE]->(g)
-
-// Theme
-WITH m
-UNWIND $themes AS tname
-  MERGE (t:Theme {{name: tname}})
-  MERGE (m)-[:HAS_THEME]->(t)
-
-// Mood
-WITH m
-UNWIND $moods AS mdname
-  MERGE (md:Mood {{name: mdname}})
-  MERGE (m)-[:HAS_MOOD]->(md)
-
-// Keywords (semantic + keyword anchor)
-WITH m
-UNWIND $keywords AS kw
-  MERGE (k:Keyword {{normalized: kw.normalized}})
-    ON CREATE SET k.kind = kw.kind, k.term = kw.term
-  MERGE (m)-[r:MENTIONS]->(k)
-    SET r.weight = kw.weight
-""" + _MOVIE_ONTOLOGY_RELATIONS_TAIL
+""" + _MOVIE_TAXONOMY_RELATIONS + _MOVIE_ONTOLOGY_RELATIONS_TAIL
 
 
 def build_update_movie_plot_embedding(

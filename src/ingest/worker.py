@@ -246,6 +246,7 @@ class IngestWorker:
             aggregate_id=row.get("aggregate_id", ""),
             op=row.get("op", "upsert"),
             payload=row["payload"],
+            wait=False
         )
         logger.info(
             "Re-enqueued outbox id=%s -> new_id=%s (prompt_version=%s)",

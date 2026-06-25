@@ -21,7 +21,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import List, Literal, Optional, TypeVar
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 
 _E = TypeVar("_E", bound=Enum)
 
@@ -133,6 +133,7 @@ KEYWORD_KIND_VALUES: list[str] = enum_values(KeywordKind)
 
 class Keyword(BaseModel):
     """영화 지표·검색 anchor 가 되는 표준 키워드."""
+    model_config = ConfigDict(use_enum_values=True)
 
     term: str = Field(..., description="원문에서 추출된 표면형(surface form)")
     normalized: str = Field(
@@ -157,6 +158,7 @@ class Keyword(BaseModel):
 
 class EmotionScore(BaseModel):
     """감정 태그별 점수(0~1)."""
+    model_config = ConfigDict(use_enum_values=True)
 
     tag: EmotionTag
     score: float = Field(..., ge=0.0, le=1.0)
@@ -178,6 +180,7 @@ class OntologyResult(BaseModel):
 
 class MoviePlotOntology(OntologyResult):
     """영화 줄거리 정제 결과."""
+    model_config = ConfigDict(use_enum_values=True)
 
     summary: str = Field(
         ..., description="2~3문장으로 요약된 의미 보존 줄거리."
@@ -205,6 +208,7 @@ class MoviePlotOntology(OntologyResult):
 
 class FeedOntology(OntologyResult):
     """피드 본문 정제 결과."""
+    model_config = ConfigDict(use_enum_values=True)
 
     summary: str = Field(..., description="피드 본문의 1~2문장 요약.")
     category: FeedCategory = Field(..., description="피드 글 특성.")
@@ -241,6 +245,7 @@ class FeedOntology(OntologyResult):
 
 class CommentOntology(OntologyResult):
     """댓글 본문 정제 결과."""
+    model_config = ConfigDict(use_enum_values=True)
 
     summary: str = Field(..., description="댓글의 1문장 요약(짧으면 원문 그대로 가능).")
     target: CommentTarget = Field(..., description="댓글이 향하는 대상.")
