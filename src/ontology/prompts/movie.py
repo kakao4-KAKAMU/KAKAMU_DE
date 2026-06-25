@@ -2,41 +2,14 @@ from __future__ import annotations
 from typing import Any, Final
 from textwrap import dedent
 from .pipeline import OntologyPromptSpec
-from src.ontology.schema import SCHEMA_VERSION_VALUES
+from src.ontology.schema import MoviePlotOntology, build_llm_json_schema
 
 ONTOLOGY_MOVIE_CACHE_SALT: Final[str] = "ontology:movie_plot:v1.5"
 
-_MOVIE_PLOT_SCHEMA_BASE: Final[dict[str, Any]] = {
-    "name": "movie_knowledge_ontology",
-    "strict": True,
-    "schema": {
-        "type": "object",
-        "properties": {
-            "schema_version": {"type": "string", "enum": SCHEMA_VERSION_VALUES},
-            "source_id": {"type": "string"},
-            "language": {"type": "string"},
-            "summary": {"type": "string"},
-            "themes": {"type": "array", "items": {"type": "string"}},
-            "moods": {"type": "array", "items": {"type": "string"}},
-            "keywords": {
-                "type": "array",
-                "items": {"type": "object"},
-            },
-            "toxicity_score": {"type": "number"},
-        },
-        "required": [
-            "schema_version",
-            "source_id",
-            "language",
-            "summary",
-            "themes",
-            "moods",
-            "keywords",
-            "toxicity_score",
-        ],
-        "additionalProperties": False,
-    },
-}
+_MOVIE_PLOT_SCHEMA_BASE: Final[dict[str, Any]] = build_llm_json_schema(
+    MoviePlotOntology,
+    name="movie_knowledge_ontology",
+)
 
 
 _MOVIE_PLOT_GUIDE: Final[str] = dedent(
@@ -69,6 +42,9 @@ _SPEC = OntologyPromptSpec(
     guide=_MOVIE_PLOT_GUIDE,
     cache_salt=ONTOLOGY_MOVIE_CACHE_SALT,
     include_vocab_guide=True,
+    theme_fields=('themes',),
+    mood_fields=('moods',),
+    keyword_fields=('keywords',),
 )
 
 

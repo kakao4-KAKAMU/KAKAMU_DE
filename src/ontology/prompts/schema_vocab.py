@@ -15,7 +15,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
-from src.ontology.schema import KEYWORD_KIND_VALUES
+from src.ontology.schema import KEYWORD_KIND_VALUES, Keyword, build_strict_object_schema
 from src.vocab.normalizer import VocabularyNormalizer
 
 LIBRARY_PATH: Path = (
@@ -69,17 +69,26 @@ def string_array_enum(values: Sequence[str]) -> dict[str, Any]:
 
 
 def build_keyword_item_schema() -> dict[str, Any]:
-    return {
-        "type": "object",
-        "properties": {
-            "term": {"type": "string"},
-            "normalized": {"type": "string"},
-            "weight": {"type": "number"},
-            "kind": {"type": "string", "enum": list(KEYWORD_KINDS)},
-        },
-        "required": ["term", "normalized", "weight", "kind"],
-        "additionalProperties": False,
-    }
+    return build_strict_object_schema(Keyword)
+
+
+def _schema_root(json_schema: Mapping[str, Any]) -> dict[str, Any]:
+    root = json_schema.get("schema", json_schema)
+    if not isinstance(root, dict):
+        raise TypeError("json_schema must contain an object schema")
+    return root
+
+
+def _field_parent(root: dict[str, Any], path: str) -> tuple[dict[str, Any], str]:
+    """``movie.themes`` 같은 dotted path 의 부모 properties 와 필드명을 반환."""
+    parts = path.split(".")
+    node = root
+    for part in parts[:-1]:
+        props = node.get("properties")
+        if not isinstance(props, dict) or part not in props:
+            raise KeyError(path)
+        node = props[part]
+    return node, parts[-1]
 
 
 def apply_vocab_enums(
@@ -88,31 +97,39 @@ def apply_vocab_enums(
     genre_fields: Iterable[str] = ("genres",),
     theme_fields: Iterable[str] = ("themes",),
     mood_fields: Iterable[str] = ("moods",),
+    keyword_fields: Iterable[str] = ("keywords",),
+    static_genre_enums: Mapping[str, Sequence[str]] | None = None,
 ) -> dict[str, Any]:
     """JSON schema wrapper 에 vocabulary enum 을 주입한 deep copy 를 반환한다."""
 
     result = deepcopy(dict(json_schema))
-    root = result.get("schema", result)
+    root = _schema_root(result)
     properties = root.get("properties")
     if not isinstance(properties, dict):
         return result
 
-    for field in genre_fields:
-        if field in properties:
-            properties[field] = string_array_enum(vocab_genres())
-    for field in theme_fields:
-        if field in properties:
-            properties[field] = string_array_enum(vocab_themes())
-    for field in mood_fields:
-        if field in properties:
-            properties[field] = string_array_enum(vocab_moods())
+    static_genres = static_genre_enums or {}
 
-    if "keywords" in properties:
-        properties["keywords"] = {
-            "type": "array",
-            "maxItems": 10,
-            "items": build_keyword_item_schema(),
-        }
+    for field in genre_fields:
+        values = static_genres.get(field, vocab_genres())
+        parent, name = _field_parent(root, field)
+        parent.setdefault("properties", {})[name] = string_array_enum(values)
+    for field in theme_fields:
+        parent, name = _field_parent(root, field)
+        parent.setdefault("properties", {})[name] = string_array_enum(vocab_themes())
+    for field in mood_fields:
+        parent, name = _field_parent(root, field)
+        parent.setdefault("properties", {})[name] = string_array_enum(vocab_moods())
+
+    keyword_schema = {
+        "type": "array",
+        "maxItems": 10,
+        "items": build_keyword_item_schema(),
+    }
+    for field in keyword_fields:
+        parent, name = _field_parent(root, field)
+        parent.setdefault("properties", {})[name] = deepcopy(keyword_schema)
+
     return result
 
 

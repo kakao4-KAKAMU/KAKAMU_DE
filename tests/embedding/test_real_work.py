@@ -330,7 +330,7 @@ def _embedding_text_for_feed() -> str:
 
 def service_emotion_flags(ontology: FeedOntology) -> list[dict[str, Any]]:
     """Neo4j ``UPSERT_FEED_WITH_ONTOLOGY`` 의 ``$emotions`` 파라미터와 동일 형식."""
-    return [{"tag": e.tag.value, "score": e.score} for e in ontology.emotions]
+    return [{"tag": e.tag, "score": e.score} for e in ontology.emotions]
 
 
 def run_local_embedding_smoke(
