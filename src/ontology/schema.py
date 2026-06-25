@@ -20,7 +20,7 @@ from __future__ import annotations
 from copy import deepcopy
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, List, Literal, Optional, TypeVar, Final
+from typing import Any, Iterable, List, Literal, Mapping, Optional, TypeVar, Final
 
 from pydantic import BaseModel, Field, field_validator, ConfigDict
 
@@ -219,6 +219,28 @@ class Keyword(BaseModel):
         if not v:
             raise ValueError("term/normalized must not be empty")
         return v
+
+
+def keyword_search_terms(
+    keywords: Iterable[Keyword | str | Mapping[str, Any]] | None,
+) -> list[str]:
+    """Keyword/Pydantic/dict/str → Cypher ``query_keywords`` 용 normalized term 리스트."""
+    terms: list[str] = []
+    seen: set[str] = set()
+    for item in keywords or []:
+        token = ""
+        if isinstance(item, Keyword):
+            token = item.normalized.strip() or item.term.strip()
+        elif isinstance(item, str):
+            token = item.strip()
+        elif isinstance(item, Mapping):
+            normalized = str(item.get("normalized") or "").strip()
+            term = str(item.get("term") or "").strip()
+            token = normalized or term
+        if token and token not in seen:
+            seen.add(token)
+            terms.append(token)
+    return terms
 
 
 class EmotionScore(BaseModel):
@@ -471,6 +493,9 @@ def _make_strict_schema(node: dict[str, Any]) -> dict[str, Any]:
         current["anyOf"] = [_make_strict_schema(item) for item in current["anyOf"]]
         return current
 
+    if "const" in current and "enum" not in current:
+        current["enum"] = [current.pop("const")]
+
     return current
 
 
@@ -546,4 +571,5 @@ __all__ = [
     "build_llm_json_schema",
     "build_strict_object_schema",
     "enum_values",
+    "keyword_search_terms",
 ]
