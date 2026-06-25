@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.ingest.outbox_writer import OutboxWriter
+from src.ingest.outbox_writer import OutboxWriter, _build_batch_insert_sql, _flatten_rows
 
 
 def _connection_factory(fetchall_batches: list[list[tuple[int]]]):
@@ -57,6 +57,43 @@ def test_enqueue_flushes_when_batch_max_reached() -> None:
         writer.flush()
 
     assert ids == [0, 0, 0]
+
+
+def test_insert_batch_uses_single_execute_with_flattened_params() -> None:
+    writer = _make_writer()
+    rows = [
+        ("movie", "m1", "upsert", "{}", "pv1", "model1", "hash1"),
+        ("movie", "m2", "upsert", "{}", "pv1", "model1", "hash2"),
+    ]
+    captured: list[tuple] = []
+
+    def conn_ctx(*_a, **_k):
+        conn = MagicMock()
+        cur = MagicMock()
+
+        def _execute(sql, params):
+            captured.append((sql, params))
+
+        cur.execute.side_effect = _execute
+        cur.fetchall.return_value = [(1,), (2,)]
+        conn.cursor.return_value.__enter__.return_value = cur
+        conn.cursor.return_value.__exit__.return_value = None
+
+        @contextmanager
+        def _cm():
+            yield conn
+
+        return _cm()
+
+    with patch("src.ingest.outbox_writer.get_connection", side_effect=conn_ctx):
+        ids = writer._insert_batch(rows)
+
+    assert ids == [1, 2]
+    assert len(captured) == 1
+    sql, params = captured[0]
+    assert sql == _build_batch_insert_sql(len(rows))
+    assert sql.count("%s") == 7 * len(rows)
+    assert params == _flatten_rows(rows)
 
 
 def test_enqueue_flushes_after_interval() -> None:

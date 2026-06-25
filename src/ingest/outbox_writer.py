@@ -19,13 +19,23 @@ logger = logging.getLogger(__name__)
 DEFAULT_BATCH_MAX_SIZE = 100
 DEFAULT_FLUSH_INTERVAL_SEC = 1.0
 
-def build_insert_sql(rows: list[tuple[Any, ...]]) -> str:
-    return """
-    INSERT INTO ingest_outbox
-      (aggregate_type, aggregate_id, op, payload, prompt_version, model_name, content_hash)
-    VALUES %s
-    RETURNING id
-    """ % ", ".join(map(lambda row: "(%s, %s, %s, %s::jsonb, %s, %s, %s)", rows))
+_ROW_PLACEHOLDERS = "(%s, %s, %s, %s::jsonb, %s, %s, %s)"
+
+
+def _build_batch_insert_sql(row_count: int) -> str:
+    if row_count < 1:
+        raise ValueError("row_count must be >= 1")
+    values = ", ".join(_ROW_PLACEHOLDERS for _ in range(row_count))
+    return f"""
+INSERT INTO ingest_outbox
+  (aggregate_type, aggregate_id, op, payload, prompt_version, model_name, content_hash)
+VALUES {values}
+RETURNING id
+"""
+
+
+def _flatten_rows(rows: list[tuple[Any, ...]]) -> list[Any]:
+    return [value for row in rows for value in row]
 
 
 def json_dumps(payload: Mapping[str, Any] | BaseModel) -> str:
@@ -163,8 +173,10 @@ class OutboxWriter:
         logger.debug("Outbox batch flushed: count=%d", len(ids))
 
     def _insert_batch(self, rows: list[tuple[Any, ...]]) -> list[int]:
+        if not rows:
+            return []
         with get_connection(self._settings) as conn, conn.cursor() as cur:
-            cur.executemany(build_insert_sql(rows), rows, returning=True)
+            cur.execute(_build_batch_insert_sql(len(rows)), _flatten_rows(rows))
             ids = [int(row[0]) for row in cur.fetchall()]
             conn.commit()
         return ids
