@@ -15,6 +15,10 @@ _COMMENT_SCHEMA_BASE: Final[dict[str, Any]] = build_llm_json_schema(
 
 _COMMENT_GUIDE: Final[str] = dedent(
     """
+    [keywords — 키워드]
+    - keywords.normalized 는 snake_case이며 필수값입니다.
+    - keywords: 구체 표현(인물·작품·소재).
+
     [Comment]
     - target: feed=피드에 대한 댓글, parent_comment=부모 댓글에 대한 대댓글.
     - reaction: positive/negative/empathy=판단·공감, supplement=보충 설명.
@@ -35,6 +39,7 @@ _SPEC = OntologyPromptSpec(
     genre_fields=(),
     theme_fields=(),
     mood_fields=(),
+    keyword_fields=('keywords',),
 )
 
 
