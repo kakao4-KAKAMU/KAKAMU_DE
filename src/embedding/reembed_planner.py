@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Literal, Sequence
+from dataclasses import dataclass, field
+from typing import Literal, Sequence, Any
 
 from src.api.schemas.reembed import (
     ReembedCommentPayload,
@@ -66,6 +66,7 @@ class ReembedCandidate:
     entity_type: ReembedEntityType
     aggregate_id: str
     summary: str
+    metadata: dict[str, Any] = field(default_factory=dict)
     feed_id: str | None = None
 
 
@@ -109,6 +110,7 @@ def fetch_reembed_candidates(
                     entity_type="movie",
                     aggregate_id=str(row["aggregate_id"]),
                     summary=summary,
+                    metadata=row,
                 )
             )
 
@@ -154,9 +156,9 @@ def _build_payload(
         return ReembedMoviePayload(
             movie_id=candidate.aggregate_id,
             summary=candidate.summary,
-            title=candidate.title,
-            country=candidate.country,
-            producing_year=candidate.producing_year,
+            title=candidate.metadata["title"],
+            country=candidate.metadata["country"],
+            producing_year=candidate.metadata["producing_year"],
             target_embedding_version=target_version,
         )
     if candidate.entity_type == "feed":
