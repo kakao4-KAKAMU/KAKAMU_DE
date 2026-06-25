@@ -20,6 +20,7 @@ def enqueue(
             aggregate_type=aggregate_type,
             aggregate_id=aggregate_id,
             payload=env.payload,
+            wait=False
         )
     except Exception as exc:
         logger.exception("Ingest enqueue failed")

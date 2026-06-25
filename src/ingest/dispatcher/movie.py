@@ -26,7 +26,15 @@ def build_movie_handler(
             persons=persons,
             reviews=reviews,
         )
-        embedding = embedder.embed(ontology.summary or plot)
+        embedding = embedder.embed(
+            f"""
+Instruct: Represent this movie's narrative content for semantic similarity search
+Title: {payload.title}
+Summary: {ontology.summary or plot}
+Year: {payload.producing_year}
+Country: {payload.country}
+        """
+        )
         loader.upsert_movie(
             movie_id=payload.movie_id,
             title=payload.title,

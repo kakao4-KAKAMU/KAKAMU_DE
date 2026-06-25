@@ -12,6 +12,9 @@ class ReembedMoviePayload(IngestPayload):
 
     movie_id: str = Field(min_length=1)
     summary: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    country: str = Field(min_length=1)
+    producing_year: int = Field(min_length=1)
     target_embedding_version: str = Field(min_length=1)
 
 

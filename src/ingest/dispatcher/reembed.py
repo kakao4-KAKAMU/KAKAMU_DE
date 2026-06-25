@@ -23,7 +23,15 @@ def build_movie_reembed_handler(
 ) -> Handler:
     def _handler(payload: ReembedMoviePayload | dict) -> None:
         data = ReembedMoviePayload.model_validate(payload)
-        embedding = embedder.embed(data.summary)
+        embedding = embedder.embed(
+            f"""
+Instruct: Represent this movie's narrative content for semantic similarity search
+Title: {data.title}
+Summary: {data.summary}
+Year: {data.producing_year}
+Country: {data.country}
+        """
+        )
         dual_writer.write_movie_plot_embedding(data.movie_id, embedding)
 
     return _handler

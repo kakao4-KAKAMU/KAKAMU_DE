@@ -32,7 +32,10 @@ WHERE coalesce(m.plot_summary, '') <> ''
   )
   AND ($missing_target_only = false OR m[$target_property] IS NULL)
 RETURN m.movie_id AS aggregate_id,
-       m.plot_summary AS summary
+       m.title AS title,
+       m.plot_summary AS summary,
+       m.country AS country,
+       m.producing_year AS producing_year
 ORDER BY m.movie_id
 """
 
@@ -151,6 +154,9 @@ def _build_payload(
         return ReembedMoviePayload(
             movie_id=candidate.aggregate_id,
             summary=candidate.summary,
+            title=candidate.title,
+            country=candidate.country,
+            producing_year=candidate.producing_year,
             target_embedding_version=target_version,
         )
     if candidate.entity_type == "feed":
@@ -189,7 +195,7 @@ def enqueue_reembed_jobs(
             aggregate_id=candidate.aggregate_id,
             payload=payload.model_dump(mode="json"),
             model_name=settings.model_name,
-            wait=True,
+            wait=False,
         )
         enqueued[aggregate_type] += 1
 
