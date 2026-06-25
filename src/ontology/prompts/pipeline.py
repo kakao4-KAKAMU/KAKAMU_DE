@@ -8,8 +8,8 @@ SOLID
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any
+from dataclasses import dataclass, field
+from typing import Any, Mapping, Sequence
 
 from src.extractor.base import OntologyChatPayload
 from src.ontology.prompts.base import ONTOLOGY_SYSTEM_PROMPT
@@ -31,11 +31,23 @@ class OntologyPromptSpec:
     guide: str
     cache_salt: str
     include_vocab_guide: bool = False
+    genre_fields: tuple[str, ...] = ("genres",)
+    theme_fields: tuple[str, ...] = ("themes",)
+    mood_fields: tuple[str, ...] = ("moods",)
+    keyword_fields: tuple[str, ...] = ("keywords",)
+    static_genre_enums: Mapping[str, Sequence[str]] = field(default_factory=dict)
 
     def schema_json(self) -> dict[str, Any]:
         cached = _SCHEMA_CACHE.get(self.name)
         if cached is None:
-            cached = apply_vocab_enums(self.base_schema)
+            cached = apply_vocab_enums(
+                self.base_schema,
+                genre_fields=self.genre_fields,
+                theme_fields=self.theme_fields,
+                mood_fields=self.mood_fields,
+                keyword_fields=self.keyword_fields,
+                static_genre_enums=self.static_genre_enums,
+            )
             _SCHEMA_CACHE[self.name] = cached
         return cached
 

@@ -3,77 +3,21 @@ from typing import Any, Final
 from textwrap import dedent
 from .pipeline import OntologyPromptSpec
 
-from src.ontology.schema import (
-    EMOTION_TAG_VALUES,
-    FEED_CATEGORY_VALUES,
-    SCHEMA_VERSION_VALUES,
-    SENTIMENT_VALUES,
-)
+from src.ontology.schema import FeedOntology, build_llm_json_schema
 
 ONTOLOGY_FEED_CACHE_SALT: Final[str] = "ontology:feed:v3"
 
-_FEED_SCHEMA_BASE: Final[dict[str, Any]] = {
-    "name": "feed_knowledge_ontology",
-    "strict": True,
-    "schema": {
-        "type": "object",
-        "properties": {
-            "schema_version": {"type": "string", "enum": SCHEMA_VERSION_VALUES},
-            "source_id": {"type": "string"},
-            "language": {"type": "string"},
-            "summary": {"type": "string"},
-            "category": {"type": "string", "enum": FEED_CATEGORY_VALUES},
-            "sentiment": {"type": "string", "enum": SENTIMENT_VALUES},
-            "sentiment_score": {"type": "number"},
-            "emotions": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "tag": {
-                            "type": "string",
-                            "enum": EMOTION_TAG_VALUES,
-                        },
-                        "score": {"type": "number"},
-                    },
-                    "required": ["tag", "score"],
-                    "additionalProperties": False,
-                },
-            },
-            "keywords": {
-                "type": "array",
-                "items": {"type": "object"},
-            },
-            "referenced_movie_ids": {"type": "array", "items": {"type": "string"}},
-            "referenced_person_names": {
-                "type": "array",
-                "items": {"type": "string"},
-            },
-            "contains_spoiler": {"type": "boolean"},
-            "toxicity_score": {"type": "number"},
-        },
-        "required": [
-            "schema_version",
-            "source_id",
-            "language",
-            "summary",
-            "category",
-            "sentiment",
-            "sentiment_score",
-            "emotions",
-            "keywords",
-            "referenced_movie_ids",
-            "referenced_person_names",
-            "contains_spoiler",
-            "toxicity_score",
-        ],
-        "additionalProperties": False,
-    },
-}
-
+_FEED_SCHEMA_BASE: Final[dict[str, Any]] = build_llm_json_schema(
+    FeedOntology,
+    name="feed_knowledge_ontology",
+)
 
 _FEED_GUIDE: Final[str] = dedent(
     """
+    [keywords — 키워드]
+    - keywords: 구체 표현(인물·작품·소재).
+    - keywords.normalized 는 snake_case이며 필수값입니다.
+
     [Feed]
     - category: 글 특성 1개만 선택.
         - review: 감상평
@@ -88,7 +32,6 @@ _FEED_GUIDE: Final[str] = dedent(
         - off_topic: 관련 없음
     - sentiment/sentiment_score 일관 유지.
     - emotions: 본문에서 드러난 감정 1~5개.
-    - keywords: 본문의 구체 표현(인물·작품·소재 등). 5~10개 권장.
     - referenced_movie_ids: known_movie_ids 에 있는 ID 만.
     - contains_spoiler: 결말/반전 직접 서술 시 true.
     - toxicity_score: 욕설/공격성/혐오 수위(0.0~1.0).
@@ -101,6 +44,9 @@ _SPEC = OntologyPromptSpec(
     guide=_FEED_GUIDE,
     cache_salt=ONTOLOGY_FEED_CACHE_SALT,
     include_vocab_guide=False,
+    genre_fields=(),
+    theme_fields=(),
+    mood_fields=(),
 )
 
 
