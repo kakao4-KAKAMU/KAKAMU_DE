@@ -40,13 +40,6 @@ _CHAT_MOVIE_ONTOLOGY_FILTER: Final[str] = """
     }
   )
   AND (
-    size($query_keywords) = 0
-    OR EXISTS {
-      MATCH (m)-[:MENTIONS]->(k:Keyword)
-      WHERE k.normalized IN $query_keywords
-    }
-  )
-  AND (
     size($query_themes) = 0
     OR EXISTS {
       MATCH (m)-[:HAS_THEME]->(t:Theme)
@@ -62,10 +55,10 @@ _CHAT_MOVIE_ONTOLOGY_FILTER: Final[str] = """
   )
 """
 # AND (
-#   size($query_person_jobs) = 0
+#   size($query_keywords) = 0
 #   OR EXISTS {
-#     MATCH (m)-[hp:HAS_PERSON]->(:Person)
-#     WHERE hp.job IN $query_person_jobs
+#     MATCH (m)-[:MENTIONS]->(k:Keyword)
+#     WHERE k.normalized IN $query_keywords
 #   }
 # )
 
