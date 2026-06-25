@@ -231,13 +231,13 @@ class OntologyLoader:
             "content_raw": content_raw,
             "summary": ontology.summary,
             "summary_embedding": list(summary_embedding),
-            "sentiment": ontology.sentiment.value,
+            "sentiment": ontology.sentiment,
             "sentiment_score": ontology.sentiment_score,
             "contains_spoiler": ontology.contains_spoiler,
             "toxicity_score": ontology.toxicity_score,
-            "categories": [ontology.category.value],
+            "categories": [ontology.category],
             "emotions": [
-                {"tag": e.tag.value, "score": e.score} for e in ontology.emotions
+                {"tag": e.tag, "score": e.score} for e in ontology.emotions
             ],
             "keywords": [k.model_dump() for k in ontology.keywords],
             "created_at": (created_at or datetime.now(timezone.utc)),
@@ -273,12 +273,12 @@ class OntologyLoader:
             "content_raw": content_raw,
             "summary": ontology.summary,
             "summary_embedding": list(summary_embedding),
-            "sentiment": ontology.sentiment.value,
+            "sentiment": ontology.sentiment,
             "sentiment_score": ontology.sentiment_score,
             "contains_spoiler": ontology.contains_spoiler,
             "toxicity_score": ontology.toxicity_score,
             "emotions": [
-                {"tag": e.tag.value, "score": e.score} for e in ontology.emotions
+                {"tag": e.tag, "score": e.score} for e in ontology.emotions
             ],
             "keywords": [k.model_dump() for k in ontology.keywords],
             "created_at": (created_at or datetime.now(timezone.utc)),
