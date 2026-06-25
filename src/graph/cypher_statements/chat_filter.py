@@ -39,6 +39,27 @@ _CHAT_MOVIE_ONTOLOGY_FILTER: Final[str] = """
         AND p.kmdb_person_id IS NOT NULL
     }
   )
+  AND (
+    size($query_keywords) = 0
+    OR EXISTS {
+      MATCH (m)-[:MENTIONS]->(k:Keyword)
+      WHERE k.normalized IN $query_keywords
+    }
+  )
+  AND (
+    size($query_themes) = 0
+    OR EXISTS {
+      MATCH (m)-[:HAS_THEME]->(t:Theme)
+      WHERE t.name IN $query_themes
+    }
+  )
+  AND (
+    size($query_moods) = 0
+    OR EXISTS {
+      MATCH (m)-[:HAS_MOOD]->(md:Mood)
+      WHERE md.name IN $query_moods
+    }
+  )
 """
 # AND (
 #   size($query_person_jobs) = 0
