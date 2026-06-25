@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from src.chat.nodes.dependencies import ChatGraphDependencies
 from src.chat.state import ChatState, MediaType
+from src.ontology.schema import keyword_search_terms
 from src.recommend.query_analyzer import QueryAnalysis
 
 
@@ -17,17 +18,19 @@ def _analysis_to_state(analysis: QueryAnalysis) -> ChatState:
     else:
         media_type = None
 
+    keyword_terms = keyword_search_terms(movie.keywords)
+    feed_keyword_terms = keyword_search_terms(analysis.feed.keywords)
     return {
         "intent_scope": analysis.intent_scope,
         "media_type": media_type,
-        "keywords": list(movie.keywords),
+        "keywords": keyword_terms,
         "themes": list(movie.themes),
         "moods": list(movie.moods),
         "movie_filters": {
             "genres": list(movie.genres),
             "themes": list(movie.themes),
             "moods": list(movie.moods),
-            "keywords": list(movie.keywords),
+            "keywords": keyword_terms,
             "person_names": list(movie.person_names),
             "person_jobs": list(movie.person_jobs),
             "country": movie.country,
@@ -37,7 +40,7 @@ def _analysis_to_state(analysis: QueryAnalysis) -> ChatState:
         "feed_filters": {
             "categories": list(analysis.feed.categories),
             "emotions": list(analysis.feed.emotions),
-            "keywords": list(analysis.feed.keywords),
+            "keywords": feed_keyword_terms,
             "sentiment": analysis.feed.sentiment,
             "contains_spoiler": analysis.feed.contains_spoiler,
             "related_movie_title": analysis.feed.related_movie_title,

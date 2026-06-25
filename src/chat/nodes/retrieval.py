@@ -15,6 +15,7 @@ from typing import Any
 
 from src.chat.nodes.dependencies import DEFAULT_WEIGHTS, ChatGraphDependencies
 from src.chat.state import ChatState
+from src.ontology.schema import keyword_search_terms
 from src.recommend.context import (
     bandit_context_key,
     build_chat_feed_filter_params,
@@ -33,7 +34,9 @@ def _select_weights(state: ChatState, deps: ChatGraphDependencies) -> tuple[str,
 
 def _movie_search_tokens(state: ChatState) -> tuple[list[str], list[str], list[str]]:
     filters = state.get("movie_filters") or {}
-    keywords = list(filters.get("keywords") or state.get("keywords") or [])
+    keywords = keyword_search_terms(
+        filters.get("keywords") or state.get("keywords") or []
+    )
     themes = list(filters.get("themes") or state.get("themes") or [])
     moods = list(filters.get("moods") or state.get("moods") or [])
     genres = list(filters.get("genres") or [])
