@@ -3,75 +3,22 @@ from typing import Any, Final
 from textwrap import dedent
 from .pipeline import OntologyPromptSpec
 
-from src.ontology.schema import (
-    COMMENT_REACTION_VALUES,
-    COMMENT_TARGET_VALUES,
-    EMOTION_TAG_VALUES,
-    SCHEMA_VERSION_VALUES,
-    SENTIMENT_VALUES,
-)
+from src.ontology.schema import CommentOntology, build_llm_json_schema
 
 ONTOLOGY_COMMENT_CACHE_SALT: Final[str] = "ontology:comment:v3"
 
-_COMMENT_SCHEMA_BASE: Final[dict[str, Any]] = {
-    "name": "comment_knowledge_ontology",
-    "strict": True,
-    "schema": {
-        "type": "object",
-        "properties": {
-            "schema_version": {"type": "string", "enum": SCHEMA_VERSION_VALUES},
-            "source_id": {"type": "string"},
-            "language": {"type": "string"},
-            "summary": {"type": "string"},
-            "target": {"type": "string", "enum": COMMENT_TARGET_VALUES},
-            "reaction": {"type": "string", "enum": COMMENT_REACTION_VALUES},
-            "sentiment": {"type": "string", "enum": SENTIMENT_VALUES},
-            "sentiment_score": {"type": "number"},
-            "emotions": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "tag": {
-                            "type": "string",
-                            "enum": EMOTION_TAG_VALUES,
-                        },
-                        "score": {"type": "number"},
-                    },
-                    "required": ["tag", "score"],
-                    "additionalProperties": False,
-                },
-            },
-            "keywords": {
-                "type": "array",
-                "items": {"type": "object"},
-            },
-            "targets_user_id": {"type": ["string", "null"]},
-            "contains_spoiler": {"type": "boolean"},
-            "toxicity_score": {"type": "number"},
-        },
-        "required": [
-            "schema_version",
-            "source_id",
-            "language",
-            "summary",
-            "target",
-            "reaction",
-            "sentiment",
-            "sentiment_score",
-            "emotions",
-            "keywords",
-            "targets_user_id",
-            "contains_spoiler",
-            "toxicity_score",
-        ],
-        "additionalProperties": False,
-    },
-}
+_COMMENT_SCHEMA_BASE: Final[dict[str, Any]] = build_llm_json_schema(
+    CommentOntology,
+    name="comment_knowledge_ontology",
+)
 
 
 _COMMENT_GUIDE: Final[str] = dedent(
     """
+    [keywords — 키워드]
+    - keywords.normalized 는 snake_case이며 필수값입니다.
+    - keywords: 구체 표현(인물·작품·소재).
+
     [Comment]
     - target: feed=피드에 대한 댓글, parent_comment=부모 댓글에 대한 대댓글.
     - reaction: positive/negative/empathy=판단·공감, supplement=보충 설명.
@@ -89,6 +36,10 @@ _SPEC = OntologyPromptSpec(
     guide=_COMMENT_GUIDE,
     cache_salt=ONTOLOGY_COMMENT_CACHE_SALT,
     include_vocab_guide=False,
+    genre_fields=(),
+    theme_fields=(),
+    mood_fields=(),
+    keyword_fields=('keywords',),
 )
 
 

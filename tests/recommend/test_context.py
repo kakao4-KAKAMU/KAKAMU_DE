@@ -69,7 +69,7 @@ def test_build_chat_movie_filter_params_includes_ontology_filters() -> None:
         weights={"w_vec": 0.5, "w_kw": 0.1, "w_theme": 0.1, "w_mood": 0.1, "w_user": 0.2},
     )
     assert params["query_genres"] == ["drama"]
-    assert params["filter_country"] == "KR"
+    assert params["filter_country"] == "kr"
     assert params["min_year"] == 2010
 
 

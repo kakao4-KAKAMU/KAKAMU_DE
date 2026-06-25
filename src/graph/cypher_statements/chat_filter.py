@@ -17,10 +17,11 @@ _CHAT_MOVIE_ONTOLOGY_FILTER: Final[str] = """
   AND ($max_year = 0 OR coalesce(m.producing_year, 9999) <= $max_year)
   AND (
     $filter_country = ''
-    OR m.country = $filter_country
+    OR toLower(coalesce(m.country, '')) = $filter_country
     OR EXISTS {
       MATCH (m)-[:PRODUCED_IN]->(c:Country)
-      WHERE c.code = $filter_country OR c.name = $filter_country
+      WHERE toLower(coalesce(c.code, '')) = $filter_country
+         OR toLower(coalesce(c.name, '')) = $filter_country
     }
   )
   AND (
@@ -39,12 +40,26 @@ _CHAT_MOVIE_ONTOLOGY_FILTER: Final[str] = """
         AND p.kmdb_person_id IS NOT NULL
     }
   )
+  AND (
+    size($query_themes) = 0
+    OR EXISTS {
+      MATCH (m)-[:HAS_THEME]->(t:Theme)
+      WHERE t.name IN $query_themes
+    }
+  )
+  AND (
+    size($query_moods) = 0
+    OR EXISTS {
+      MATCH (m)-[:HAS_MOOD]->(md:Mood)
+      WHERE md.name IN $query_moods
+    }
+  )
 """
 # AND (
-#   size($query_person_jobs) = 0
+#   size($query_keywords) = 0
 #   OR EXISTS {
-#     MATCH (m)-[hp:HAS_PERSON]->(:Person)
-#     WHERE hp.job IN $query_person_jobs
+#     MATCH (m)-[:MENTIONS]->(k:Keyword)
+#     WHERE k.normalized IN $query_keywords
 #   }
 # )
 

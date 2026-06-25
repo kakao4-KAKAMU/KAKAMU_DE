@@ -14,6 +14,7 @@ from typing import Any, Literal, Protocol
 
 from src.ontology.prompts.query_analysis import build_query_analysis_messages
 from src.recommend.intent_resolver import IntentResolver
+from src.ontology.schema import Keyword, keyword_search_terms
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +40,7 @@ class MovieQueryFilters:
     genres: list[str] = field(default_factory=list)
     themes: list[str] = field(default_factory=list)
     moods: list[str] = field(default_factory=list)
-    keywords: list[str] = field(default_factory=list)
+    keywords: list[Keyword] = field(default_factory=list)
     person_names: list[str] = field(default_factory=list)
     person_jobs: list[str] = field(default_factory=list)
     country: str = ""
@@ -65,33 +66,21 @@ class QueryAnalysis:
     direct_reply_hint: str = ""
 
 
-def _keyword_terms(items: list[dict[str, Any]] | None) -> list[str]:
-    terms: list[str] = []
-    for item in items or []:
-        normalized = str(item.get("normalized") or "").strip()
-        term = str(item.get("term") or "").strip()
-        token = normalized or term
-        if token:
-            terms.append(token)
-    return terms
-
-
 def _parse_movie_filters(raw: dict[str, Any] | None) -> MovieQueryFilters:
     data = raw or {}
-    kw_terms = _keyword_terms(data.get("keywords"))
     genres = [str(g).strip() for g in data.get("genres") or [] if str(g).strip()]
     return MovieQueryFilters(
         genres=genres,
         themes=[str(t).strip() for t in data.get("themes") or [] if str(t).strip()],
         moods=[str(m).strip() for m in data.get("moods") or [] if str(m).strip()],
-        keywords=list(dict.fromkeys(kw_terms + genres)),
+        keywords=[Keyword(**kw) for kw in data.get("keywords") or []],
         person_names=[
             str(n).strip() for n in data.get("person_names") or [] if str(n).strip()
         ],
         person_jobs=[
             str(j).strip() for j in data.get("person_jobs") or [] if str(j).strip()
         ],
-        country=str(data.get("country") or "").strip(),
+        country=str(data.get("country") or "").strip().lower(),
         min_year=int(data.get("min_year") or 0),
         max_year=int(data.get("max_year") or 0),
     )
@@ -99,7 +88,7 @@ def _parse_movie_filters(raw: dict[str, Any] | None) -> MovieQueryFilters:
 
 def _parse_feed_filters(raw: dict[str, Any] | None) -> FeedQueryFilters:
     data = raw or {}
-    kw_terms = _keyword_terms(data.get("keywords"))
+    kw_terms = keyword_search_terms(data.get("keywords"))
     categories = [str(c).strip() for c in data.get("categories") or [] if str(c).strip()]
     emotions = [str(e).strip() for e in data.get("emotions") or [] if str(e).strip()]
     return FeedQueryFilters(
@@ -131,7 +120,10 @@ def _fallback_from_resolver(intent_resolver: IntentResolver, query: str) -> Quer
         genres=[],
         themes=list(resolved.themes),
         moods=list(resolved.moods),
-        keywords=list(resolved.keywords),
+        keywords=[
+            Keyword(normalized=token, term=token)
+            for token in keyword_search_terms(resolved.keywords)
+        ],
     )
     return QueryAnalysis(intent_scope="movie", movie=movie, feed=FeedQueryFilters())
 

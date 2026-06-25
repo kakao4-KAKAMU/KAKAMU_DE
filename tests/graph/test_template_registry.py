@@ -101,7 +101,7 @@ def test_validate_chat_movie_filter_params_ok() -> None:
             "query_genres": ["drama"],
             "query_person_names": ["director_a"],
             "query_person_jobs": ["director"],
-            "filter_country": "KR",
+            "filter_country": "kr",
             "min_year": 2000,
             "max_year": 2024,
             "top_k": 10,
@@ -115,7 +115,7 @@ def test_validate_chat_movie_filter_params_ok() -> None:
         },
     )
     assert params["query_genres"] == ["drama"]
-    assert params["filter_country"] == "KR"
+    assert params["filter_country"] == "kr"
 
 
 def test_validate_chat_feed_filter_params_ok() -> None:
