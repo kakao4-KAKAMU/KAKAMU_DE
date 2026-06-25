@@ -7,4 +7,4 @@ WORKDIR /app
 
 COPY . .
 
-CMD ["python", "scripts/run_ingest_worker.py", "--concurrency", "4"]
+CMD ["python", "scripts/run_ingest_worker.py", "--concurrency", "10"]
