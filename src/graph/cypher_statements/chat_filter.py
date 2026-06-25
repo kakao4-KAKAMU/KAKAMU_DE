@@ -38,7 +38,7 @@ _CHAT_MOVIE_ONTOLOGY_FILTER: Final[
     OR EXISTS {
       MATCH (m)-[hp:HAS_PERSON]->(p:Person)
       WHERE (hp.job STARTS WITH '출연' OR hp.job STARTS WITH '감독')
-        AND (toLower(p.name) IN toLower($query_person_names) or toLower(p.eng_name) IN toLower($query_person_names))
+        AND (toLower(p.name) IN [n IN $query_person_names | toLower(n)] or toLower(p.eng_name) IN [n IN $query_person_names | toLower(n)])
         AND p.kmdb_person_id IS NOT NULL
     }
   )
