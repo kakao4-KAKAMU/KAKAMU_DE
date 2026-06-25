@@ -173,7 +173,7 @@ def test_filter_movies_passes_ontology_params_to_template() -> None:
     params = deps.template_executor.execute.call_args.args[1]
     assert params["query_genres"] == ["드라마"]
     assert params["query_person_names"] == ["봉준호"]
-    assert params["filter_country"] == "KR"
+    assert params["filter_country"] == "kr"
     assert deps.template_executor.execute.call_args.args[0] == "chat_movie_filter"
 
 
