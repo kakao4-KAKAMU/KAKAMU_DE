@@ -220,6 +220,7 @@ class Keyword(BaseModel):
             raise ValueError("term/normalized must not be empty")
         return v
 
+_KEYWORD_SEARCH_EXCLUDE: frozenset[str] = frozenset({"actor", "director"})
 
 def keyword_search_terms(
     keywords: Iterable[Keyword | str | Mapping[str, Any]] | None,
@@ -237,7 +238,7 @@ def keyword_search_terms(
             normalized = str(item.get("normalized") or "").strip()
             term = str(item.get("term") or "").strip()
             token = normalized or term
-        if token and token not in seen:
+        if token and token.lower() not in _KEYWORD_SEARCH_EXCLUDE and token not in seen:
             seen.add(token)
             terms.append(token)
     return terms

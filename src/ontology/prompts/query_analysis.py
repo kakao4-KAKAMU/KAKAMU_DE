@@ -48,8 +48,8 @@ _QUERY_ANALYSIS_GUIDE: Final[str] = dedent(
     - both  : 영화와 피드를 동시에 요구 (예: "이 영화 추천하고 후기도 보여줘")
     - none  : 영화/피드와 무관한 일반 대화·인사·시스템 질문
 
-    [keywords — 영화 지표]
-    keywords.kind 는 아래 7종 중 하나만 사용:
+    [movie.keywords — 영화 지표]
+    movie.keywords.kind 는 아래 7종 중 하나만 사용:
     - era          : 시대적 배경 (예: 1980년대, 조선시대)
     - environment  : 환경/공간 (예: 우주, 교도소, 어촌 마을)
     - key_object   : 핵심 소재 (예: 타임머신, 복권, 일기장)
@@ -61,20 +61,20 @@ _QUERY_ANALYSIS_GUIDE: Final[str] = dedent(
     - themes/moods 등 전용 필드 값은 keywords 에 중복 금지.
 
     [movie 필터 — Movie 온톨로지]
-    - genres: 질의에 포함되어 있는 장르
-    - themes: 질의에 포함되어 있는 주제
-    - moods: 질의에 포함되어 있는 무드
-    - keywords: 영화의 줄거리에 포함되어 있는 영화 지표를 의미한다.
-    - person_names/person_jobs: 감독·배우에 대한 인물 언급 시 채운다. 표시 언어는 한글, 영문이다. 감독은 director, 배우는 actor 로 표시한다.
-    - country: 제작국 언급 시. 없으면 빈 문자열. 국가코드는 소문자 ISO 2자리 (예: kr, us).
-    - min_year/max_year: 연도 범위. 없으면 0. 현재 년도는 2026년 입니다.
+    - movie.genres: 질의에 포함되어 있는 영화에 대한 장르.
+    - movie.themes: 질의에 포함되어 있는 영화에 대한 주제.
+    - movie.moods: 질의에 찾고자 하는 영화에 대한 무드.
+    - movie.keywords: 영화의 줄거리에 포함되어 있는 영화 지표.
+    - movie.person_names/movie.person_jobs: 감독·배우에 대한 인물 언급 시 채운다. 표시 언어는 한글, 영문이다. 감독은 director, 배우는 actor 로 표시한다.
+    - movie.country: 제작국 언급 시. 없으면 빈 문자열. 국가코드는 소문자 ISO 2자리 (예: kr, us).
+    - movie.min_year/movie.max_year: 연도 범위. 없으면 0. 현재 년도는 2026년 입니다.
 
     [feed 필터 — Feed 온톨로지]
-    - categories: 글 특성(review/recommendation/question/discussion/news/spoiler/theory/comparison/meta/off_topic).
-    - emotions: 본문에서 기대되는 감정 태그.
-    - sentiment: 기대 감정 극성. 모호하면 "neutral".
-    - contains_spoiler: 스포일러 피드를 원하면 true, 회피하면 false, 무관하면 false.
-    - related_movie_title: 특정 영화 관련 피드 요청 시 제목. 없으면 빈 문자열.
+    - feed.categories: 글 특성(review/recommendation/question/discussion/news/spoiler/theory/comparison/meta/off_topic).
+    - feed.emotions: 피드 본문에서 기대되는 감정 태그.
+    - feed.sentiment: 피드 본문에서 기대되는 감정 극성. 모호하면 "neutral".
+    - feed.contains_spoiler: 피드 본문에서 스포일러 피드를 원하면 true, 회피하면 false, 무관하면 false.
+    - feed.related_movie_title: 피드 본문에서 특정 영화 관련 피드 요청 시 제목. 없으면 빈 문자열.
 
     [none 일 때]
     - direct_reply_hint: 바로 응답할 때 참고할 한국어 힌트(1문장). 빈 문자열 가능.
