@@ -32,6 +32,7 @@ class JSONChatLLM(Protocol):
         response_format: dict[str, Any] | None = None,
         cache_salt: str | None = None,
         guided_json_schema: dict[str, Any] | None = None,
+        thinking: bool = True,
     ) -> dict[str, Any]: ...
 
 
@@ -144,7 +145,7 @@ class LLMQueryAnalyzer:
         self._max_tokens = max_tokens
         self._temperature = temperature
 
-    def analyze(self, query: str, *, user_id: str | None = None) -> QueryAnalysis:
+    def analyze(self, query: str, *, user_id: str | None = None, thinking: bool = True) -> QueryAnalysis:
         text = (query or "").strip()
         if not text:
             return QueryAnalysis(
@@ -161,6 +162,7 @@ class LLMQueryAnalyzer:
                 user_id=user_id,
                 max_tokens=self._max_tokens,
                 temperature=self._temperature,
+                thinking=thinking,
             )
             return _parse_analysis(raw)
         except Exception:

@@ -187,7 +187,7 @@ class _ReplyPromptSpec:
             "messages": messages,
             "response_format": {
                 "type": "json_schema",
-                "schema": self.schema_json(),
+                "json_schema": self.schema_json(),
             },
             "cache_salt": REPLY_CACHE_SALT,
         }
