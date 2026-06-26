@@ -28,12 +28,12 @@ _MOVIE_CANDIDATE_FIELDS: Final[tuple[str, ...]] = (
     "title",
     "producing_year",
     "country",
-    "plot_summary",
+    "plot_raw",
     "score",
 )
 _FEED_CANDIDATE_FIELDS: Final[tuple[str, ...]] = (
     "feed_id",
-    "summary",
+    "content_raw",
     "sentiment_score",
     "score",
 )
