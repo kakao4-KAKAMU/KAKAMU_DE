@@ -244,10 +244,11 @@ class OntologyLoader:
         }
         self._neo4j.execute_write(self._feed_upsert_cypher(), params)
         logger.info(
-            "Upserted feed %s (cats=%d, keywords=%d)",
+            "Upserted feed %s (cats=%d, keywords=%d emotions=%d)",
             feed_id,
             1,
             len(ontology.keywords),
+            len(ontology.emotions),
         )
 
     # ------------------------------------------------------------------
@@ -284,7 +285,7 @@ class OntologyLoader:
             "created_at": (created_at or datetime.now(timezone.utc)),
         }
         self._neo4j.execute_write(self._comment_upsert_cypher(), params)
-        logger.info("Upserted comment %s on feed %s", comment_id, feed_id)
+        logger.info("Upserted comment %s on feed %s (emotions=%d keywords=%d)", comment_id, feed_id, len(ontology.emotions), len(ontology.keywords))
 
     # ------------------------------------------------------------------
     # Feed Like

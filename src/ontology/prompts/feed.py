@@ -73,7 +73,7 @@ def build_feed_messages(
 ) -> dict[str, Any]:
     """피드 본문 → FeedOntology 매핑용 messages."""
 
-    movie_plot_sections = map(lambda movie_plot_raw: (
+    movie_plot_sections = list(map(lambda movie_plot_raw: (
         dedent(
             f"""
             [관련 영화 원문 줄거리]
@@ -84,11 +84,11 @@ def build_feed_messages(
         ).strip()
         if movie_plot_raw
         else ""
-    ), known_movie_plot_raws)
+    ), known_movie_plot_raws))
 
     user_payload = dedent(
         f"""
-        {movie_plot_sections or "(none)"}
+        {",\n".join(movie_plot_sections) or "(none)"}
 
         [Feed 원문 본문]
         \"\"\"
