@@ -15,10 +15,11 @@ import json
 from typing import Any, List, Optional
 from datetime import datetime
 from uuid import UUID
+
 from pydantic import BaseModel
 from src.config.settings import PostgresSettings, get_settings
 from src.persistence.db import get_connection
-from src.chat.state import ReplyMetadata
+
 DDL = """
 CREATE TABLE IF NOT EXISTS chat_session (
     session_id   UUID PRIMARY KEY,
@@ -52,6 +53,36 @@ CREATE INDEX IF NOT EXISTS idx_chat_message_user_time
     ON chat_message(user_id, created_at DESC);
 """
 
+
+def _is_valid_uuid(value: str) -> bool:
+    try:
+        UUID(value)
+        return True
+    except (TypeError, ValueError, AttributeError):
+        return False
+
+
+def _sanitize_reply_metadata(metadata: Any) -> Optional[dict[str, Any]]:
+    """reply_metadata 에서 UUID 형식이 아닌 movie 항목을 제거한다."""
+    if not isinstance(metadata, dict):
+        return None
+
+    sanitized = dict(metadata)
+    movie_items = sanitized.get("movie")
+    if isinstance(movie_items, list):
+        filtered = [
+            item
+            for item in movie_items
+            if isinstance(item, dict) and _is_valid_uuid(str(item.get("id") or ""))
+        ]
+        if filtered:
+            sanitized["movie"] = filtered
+        else:
+            sanitized.pop("movie", None)
+
+    return sanitized or None
+
+
 class ChatSession(BaseModel):
     session_id: UUID
     user_id: str
@@ -70,7 +101,7 @@ class ChatMessage(BaseModel):
     role: str
     content: str
     created_at: datetime
-    reply_metadata: Optional[ReplyMetadata]
+    reply_metadata: Optional[dict[str, Any]] = None
 
 
 class ChatHistoryStore:
@@ -94,7 +125,7 @@ class ChatHistoryStore:
                 (session_id, user_id, persona_id, json.dumps(metadata or {})),
             )
             conn.commit()
-    
+
     def get_session_by_id(self, *, session_id: str) -> Optional[ChatSession]:
         with get_connection(self._settings) as conn, conn.cursor() as cur:
             cur.execute(
@@ -174,7 +205,7 @@ class ChatHistoryStore:
                     "user_id": r[2],
                     "role": r[3],
                     "content": r[4],
-                    "reply_metadata": r[5],
+                    "reply_metadata": _sanitize_reply_metadata(r[5]),
                     "created_at": r[6],
                 })
                 for r in rows
