@@ -28,7 +28,8 @@ _FEED_GUIDE: Final[str] = dedent(
 
     [keywords — 키워드]
     - keywords: Feed 본문에 포함되어 있는 영화 지표를 의미한다.
-    - keywords.normalized 는 snake_case이며 필수값입니다.
+    - keywords.normalized은 keywords.term에 대한 의미론적 정규 표기 입니다. 영어로 표기하며 snake_case로 표기합니다.
+    keywords.normalized, keywords.kind, keywords.term는 필수값입니다.
 
     [Feed]
     - feed.category: 글 특성 1개만 선택.
