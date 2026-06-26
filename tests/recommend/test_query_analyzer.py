@@ -55,3 +55,8 @@ def test_keyword_search_terms_deduplicates_mixed_inputs() -> None:
         ]
     )
     assert terms == ["growth", "family"]
+
+
+def test_keyword_search_terms_excludes_person_jobs() -> None:
+    terms = keyword_search_terms(["growth", "actor", "director", "Director"])
+    assert terms == ["growth"]
