@@ -32,42 +32,19 @@ def _select_weights(state: ChatState, deps: ChatGraphDependencies) -> tuple[str,
     return arm.arm_id, dict(arm.weights)
 
 
-def _movie_search_tokens(state: ChatState) -> tuple[list[str], list[str], list[str]]:
-    filters = state.get("movie_filters") or {}
-    keywords = keyword_search_terms(
-        filters.get("keywords") or state.get("keywords") or []
-    )
-    themes = list(filters.get("themes") or state.get("themes") or [])
-    moods = list(filters.get("moods") or state.get("moods") or [])
-    genres = list(filters.get("genres") or [])
-    persons = list(filters.get("person_names") or [])
-    merged_keywords = list(dict.fromkeys(keywords + genres + persons))
-    return merged_keywords, themes, moods
-
-
-def _feed_search_tokens(state: ChatState) -> tuple[list[str], list[str], list[str]]:
-    filters = state.get("feed_filters") or {}
-    keywords = list(filters.get("keywords") or [])
-    categories = list(filters.get("categories") or [])
-    emotions = list(filters.get("emotions") or [])
-    merged_keywords = list(dict.fromkeys(keywords + categories + emotions))
-    return merged_keywords, [], emotions
-
-
 def _build_movie_filter_params(
     state: ChatState,
     deps: ChatGraphDependencies,
 ) -> tuple[dict[str, Any], str, dict[str, float]]:
     filters = state.get("movie_filters") or {}
-    keywords, themes, moods = _movie_search_tokens(state)
     arm_id, arm_weights = _select_weights(state, deps)
     params = build_chat_movie_filter_params(
         user_id=state.get("user_id", "anonymous"),
         persona_id=state.get("persona_id"),
         query_embedding=state.get("query_embedding") or [],
-        query_keywords=keywords,
-        query_themes=themes,
-        query_moods=moods,
+        query_keywords=keyword_search_terms(filters.get("keywords") or []),
+        query_themes=filters.get("themes") or [],
+        query_moods=filters.get("moods") or [],
         query_genres=list(filters.get("genres") or []),
         query_person_names=list(filters.get("person_names") or []),
         query_person_jobs=list(filters.get("person_jobs") or []),
@@ -87,7 +64,6 @@ def _build_feed_filter_params(
     deps: ChatGraphDependencies,
 ) -> tuple[dict[str, Any], str, dict[str, float]]:
     filters = state.get("feed_filters") or {}
-    keywords, themes, moods = _feed_search_tokens(state)
     arm_id, arm_weights = _select_weights(state, deps)
     sentiment = str(filters.get("sentiment") or "").strip()
     filter_sentiment = "" if sentiment in ("", "neutral") else sentiment
@@ -95,9 +71,9 @@ def _build_feed_filter_params(
         user_id=state.get("user_id", "anonymous"),
         persona_id=state.get("persona_id"),
         query_embedding=state.get("query_embedding") or [],
-        query_keywords=keywords,
-        query_themes=themes,
-        query_moods=moods,
+        query_keywords=keyword_search_terms(filters.get("keywords") or []),
+        query_themes=filters.get("themes") or [],
+        query_moods=filters.get("moods") or [],
         query_categories=list(filters.get("categories") or []),
         query_emotions=list(filters.get("emotions") or []),
         filter_sentiment=filter_sentiment,
