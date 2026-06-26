@@ -45,6 +45,55 @@ def _apply_extra_body(kwargs: dict[str, Any], extra: dict[str, Any]) -> None:
     kwargs["extra_body"] = merged
 
 
+def _normalize_json_schema_wrapper(wrapper: dict[str, Any]) -> dict[str, Any]:
+    """OpenAI/vLLM 이 기대하는 ``{name, strict?, schema}`` wrapper 로 맞춘다."""
+    normalized = dict(wrapper)
+    if "schema" not in normalized:
+        legacy_schema = normalized.pop("json_schema", None)
+        if isinstance(legacy_schema, dict):
+            normalized["schema"] = legacy_schema
+    return normalized
+
+
+def normalize_response_format(response_format: dict[str, Any]) -> dict[str, Any]:
+    """vLLM structured output 검증 오류를 피하도록 response_format 을 정규화한다."""
+    rf_type = response_format.get("type")
+
+    # bare wrapper → full response_format
+    if rf_type is None and ("schema" in response_format or "json_schema" in response_format):
+        return {
+            "type": "json_schema",
+            "json_schema": _normalize_json_schema_wrapper(response_format),
+        }
+
+    if rf_type != "json_schema":
+        return response_format
+
+    # flat: {"type": "json_schema", "name": ..., "schema": ...}
+    if "json_schema" not in response_format and (
+        "schema" in response_format or "name" in response_format
+    ):
+        wrapper = {
+            key: response_format[key]
+            for key in ("name", "strict", "schema", "json_schema")
+            if key in response_format
+        }
+        return {
+            "type": "json_schema",
+            "json_schema": _normalize_json_schema_wrapper(wrapper),
+        }
+
+    inner = response_format.get("json_schema")
+    if not isinstance(inner, dict):
+        return response_format
+
+    normalized_inner = _normalize_json_schema_wrapper(inner)
+    if normalized_inner == inner:
+        return response_format
+
+    return {"type": "json_schema", "json_schema": normalized_inner}
+
+
 class VLLMChatClient:
     """OpenAI 호환 vLLM 서버용 chat 클라이언트."""
 
@@ -88,15 +137,12 @@ class VLLMChatClient:
             "messages": messages,
             "max_tokens": max_tokens or self._settings.max_tokens,
             "temperature": temperature if temperature is not None else self._settings.temperature,
-            "chat_template_kwargs": {
-                "enable_thinking": thinking
-            }
         }
         if user_id:
             kwargs["user"] = user_id
 
         if response_format is not None:
-            kwargs["response_format"] = response_format
+            kwargs["response_format"] = normalize_response_format(response_format)
         else:
             kwargs["response_format"] = {"type": "json_object"}
 
@@ -107,6 +153,7 @@ class VLLMChatClient:
             extra_body["cache_salt"] = cache_salt
         if guided_json_schema is not None and response_format is None:
             extra_body["guided_json"] = guided_json_schema
+        extra_body["chat_template_kwargs"] = {"enable_thinking": False}
         _apply_extra_body(kwargs, extra_body)
 
         resp = self._client.chat.completions.create(**kwargs)
@@ -125,4 +172,4 @@ class VLLMChatClient:
             raise
 
 
-__all__ = ["VLLMChatClient"]
+__all__ = ["VLLMChatClient", "normalize_response_format"]
