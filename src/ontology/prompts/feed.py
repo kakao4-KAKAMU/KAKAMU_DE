@@ -27,11 +27,11 @@ _FEED_GUIDE: Final[str] = dedent(
     - themes/moods 등 전용 필드 값은 keywords 에 중복 금지.
 
     [keywords — 키워드]
-    - keywords: 피드 본문에 포함되어 있는 영화 지표를 의미한다.
+    - keywords: Feed 본문에 포함되어 있는 영화 지표를 의미한다.
     - keywords.normalized 는 snake_case이며 필수값입니다.
 
     [Feed]
-    - category: 글 특성 1개만 선택.
+    - feed.category: 글 특성 1개만 선택.
         - review: 감상평
         - recommendation: 추천
         - question: 질문
@@ -42,11 +42,11 @@ _FEED_GUIDE: Final[str] = dedent(
         - comparison: 비교
         - meta: 메타(촬영기법/감독/배우)
         - off_topic: 관련 없음
-    - sentiment/sentiment_score 일관 유지.
-    - emotions: 본문에서 드러난 감정 1~5개.
-    - contains_spoiler: 결말/반전 직접 서술 시 true.
-    - toxicity_score: 욕설/공격성/혐오 수위(0.0~1.0).
-    - summary: 피드 본문의 1~2문장 요약.
+    - feed.sentiment/feed.sentiment_score 일관 유지.
+    - feed.emotions: Feed 본문에서 드러난 감정 1~5개.
+    - feed.contains_spoiler: Feed 본문에 결말/반전 직접 서술 시 true.
+    - feed.toxicity_score: 욕설/공격성/혐오 수위(0.0~1.0).
+    - feed.summary: Feed 본문의 1~2문장 요약.
     """
 ).strip()
 
@@ -90,7 +90,7 @@ def build_feed_messages(
         f"""
         {movie_plot_sections or "(none)"}
 
-        [원문 본문]
+        [Feed 원문 본문]
         \"\"\"
         {content.strip()}
         \"\"\"
