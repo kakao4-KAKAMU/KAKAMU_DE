@@ -39,7 +39,7 @@ class LLMClient(Protocol):
         messages: list[dict[str, str]],
         *,
         user_id: str | None = None,
-        max_tokens: int = 1024,
+        max_tokens: int = 1536,
         temperature: float = 0.2,
         frequency_penalty: float | None = None,
         response_format: dict[str, Any] | None = None,
