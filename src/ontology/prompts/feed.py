@@ -14,8 +14,20 @@ _FEED_SCHEMA_BASE: Final[dict[str, Any]] = build_llm_json_schema(
 
 _FEED_GUIDE: Final[str] = dedent(
     """
+    [keywords — 영화 지표]
+    keywords.kind 는 아래 7종 중 하나만 사용:
+    - era          : 시대적 배경 (예: 1980년대, 조선시대)
+    - environment  : 환경/공간 (예: 우주, 교도소, 어촌 마을)
+    - key_object   : 핵심 소재 (예: 타임머신, 복권, 일기장)
+    - source_form  : 원작 형태 (예: 웹툰 원작, 소설 원작, 리메이크)
+    - culture_code : 문화 코드 (예: 홍콩 느와르, 한국 군대 문화)
+    - entity       : 인물/단체/작품명
+    - other        : 위에 해당하지 않는 지표
+    - term: 원문 표면형. normalized: 영어 snake_case 표제어(필수).
+    - themes/moods 등 전용 필드 값은 keywords 에 중복 금지.
+
     [keywords — 키워드]
-    - keywords: 구체 표현(인물·작품·소재).
+    - keywords: 피드 본문에 포함되어 있는 영화 지표를 의미한다.
     - keywords.normalized 는 snake_case이며 필수값입니다.
 
     [Feed]
