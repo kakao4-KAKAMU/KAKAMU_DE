@@ -48,12 +48,23 @@ _QUERY_ANALYSIS_GUIDE: Final[str] = dedent(
     - both  : 영화와 피드를 동시에 요구 (예: "이 영화 추천하고 후기도 보여줘")
     - none  : 영화/피드와 무관한 일반 대화·인사·시스템 질문
 
-    [keywords — 키워드]
-    - keywords.normalized 는 snake_case이며 필수값입니다.
-    - keywords: 구체 표현(인물·작품·소재).
+    [keywords — 영화 지표]
+    keywords.kind 는 아래 7종 중 하나만 사용:
+    - era          : 시대적 배경 (예: 1980년대, 조선시대)
+    - environment  : 환경/공간 (예: 우주, 교도소, 어촌 마을)
+    - key_object   : 핵심 소재 (예: 타임머신, 복권, 일기장)
+    - source_form  : 원작 형태 (예: 웹툰 원작, 소설 원작, 리메이크)
+    - culture_code : 문화 코드 (예: 홍콩 느와르, 한국 군대 문화)
+    - entity       : 인물/단체/작품명
+    - other        : 위에 해당하지 않는 지표
+    - term: 원문 표면형. normalized: 영어 snake_case 표제어(필수).
+    - themes/moods 등 전용 필드 값은 keywords 에 중복 금지.
 
     [movie 필터 — Movie 온톨로지]
-    - genres/themes/moods: 질의에서 드러난 장르·주제·무드. 근거가 존재해야 하며, 찾지 못할 경우 빈 문자열.
+    - genres: 질의에 포함되어 있는 장르
+    - themes: 질의에 포함되어 있는 주제
+    - moods: 질의에 포함되어 있는 무드
+    - keywords: 영화의 줄거리에 포함되어 있는 영화 지표를 의미한다.
     - person_names/person_jobs: 감독·배우에 대한 인물 언급 시 채운다. 표시 언어는 한글, 영문이다. 감독은 director, 배우는 actor 로 표시한다.
     - country: 제작국 언급 시. 없으면 빈 문자열. 국가코드는 소문자 ISO 2자리 (예: kr, us).
     - min_year/max_year: 연도 범위. 없으면 0. 현재 년도는 2026년 입니다.
