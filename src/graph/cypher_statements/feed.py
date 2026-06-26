@@ -7,13 +7,12 @@ from typing import Final, Sequence
 from src.graph.cypher_statements.properties import BASE_SUMMARY_EMBEDDING, build_embedding_set_clause
 
 _FEED_ONTOLOGY_RELATIONS_TAIL: Final[str] = """
-// related movie (optional)
+// related movies (optional)
 WITH f
-CALL (f) {
-  With f WHERE $related_movie_id IS NOT NULL
-  MATCH (m:Movie {movie_id: $related_movie_id})
+FOREACH (movie_id IN coalesce($known_movie_ids, []) |
+  MERGE (m:Movie {movie_id: movie_id})
   MERGE (f)-[:ABOUT_MOVIE]->(m)
-}
+)
 
 // categories (optional)
 WITH f

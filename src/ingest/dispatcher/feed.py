@@ -26,7 +26,6 @@ def build_feed_handler(
         loader.upsert_feed(
             feed_id=payload.feed_id,
             user_id=payload.user_id,
-            related_movie_id=payload.related_movie_id,
             known_movie_ids=payload.known_movie_ids,
             content_raw=payload.content,
             ontology=ontology,
