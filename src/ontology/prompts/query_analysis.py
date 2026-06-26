@@ -53,7 +53,7 @@ _QUERY_ANALYSIS_GUIDE: Final[str] = dedent(
     - keywords: 구체 표현(인물·작품·소재).
 
     [movie 필터 — Movie 온톨로지]
-    - genres/themes/moods: 질의에서 드러난 장르·주제·무드.
+    - genres/themes/moods: 질의에서 드러난 장르·주제·무드. 찾지 못할 경우 없으면 빈 문자열.
     - person_names/person_jobs: 감독·배우에 대한 인물 언급 시 채운다. 표시 언어는 한글, 영문이다. 감독은 director, 배우는 actor 로 표시한다.
     - country: 제작국 언급 시. 없으면 빈 문자열. 국가코드는 소문자 ISO 2자리 (예: kr, us).
     - min_year/max_year: 연도 범위. 없으면 0. 현재 년도는 2026년 입니다.
