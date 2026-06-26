@@ -42,7 +42,8 @@ _FEED_GUIDE: Final[str] = dedent(
         - comparison: 비교
         - meta: 메타(촬영기법/감독/배우)
         - off_topic: 관련 없음
-    - feed.sentiment/feed.sentiment_score 일관 유지.
+    - feed.sentiment: 감정 극성.
+    - feed.sentiment_score: -1.0(매우 부정) ~ +1.0(매우 긍정)
     - feed.emotions: Feed 본문에서 드러난 감정 1~5개.
     - feed.contains_spoiler: Feed 본문에 결말/반전 직접 서술 시 true.
     - feed.toxicity_score: 욕설/공격성/혐오 수위(0.0~1.0).

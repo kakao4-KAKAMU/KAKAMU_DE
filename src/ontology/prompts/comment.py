@@ -23,7 +23,8 @@ _COMMENT_GUIDE: Final[str] = dedent(
     - target: feed=피드에 대한 댓글, parent_comment=부모 댓글에 대한 대댓글.
     - reaction: positive/negative/empathy=판단·공감, supplement=보충 설명.
     - summary: 1문장. 짧으면 원문 그대로 가능.
-    - sentiment/sentiment_score 일관 유지.
+    - sentiment: 감정 극성.
+    - sentiment_score: -1.0(매우 부정) ~ +1.0(매우 긍정). 일관 유지.
     - keywords: 5개 이하. 구체 표현만.
     - targets_user_id: @언급/대댓글 시 mentioned_user_ids 중에서만 선택.
     - toxicity_score: 욕설/공격성/혐오 수위(0.0~1.0).
