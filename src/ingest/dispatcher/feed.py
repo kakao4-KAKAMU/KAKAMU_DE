@@ -16,17 +16,10 @@ def build_feed_handler(
 
     def _handler(payload: IngestFeedPayload) -> None:
         payload = IngestFeedPayload.model_validate(payload)
-        related_movie_plot_raw = (
-            reader.get_plot_raw(payload.related_movie_id)
-            if payload.related_movie_id
-            else None
-        )
         ontology = extractor.extract(
-            feed_id=payload.feed_id,
-            user_id=payload.user_id,
-            related_movie_id=payload.related_movie_id,
-            known_movie_ids=list(payload.known_movie_ids),
-            related_movie_plot_raw=related_movie_plot_raw,
+            known_movie_plot_raws=[
+                reader.get_plot_raw(movie_id) for movie_id in payload.known_movie_ids
+            ],
             content=payload.content,
         )
         embedding = embedder.embed(ontology.summary or payload.content)
@@ -34,6 +27,7 @@ def build_feed_handler(
             feed_id=payload.feed_id,
             user_id=payload.user_id,
             related_movie_id=payload.related_movie_id,
+            known_movie_ids=payload.known_movie_ids,
             content_raw=payload.content,
             ontology=ontology,
             summary_embedding=embedding,
