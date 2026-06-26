@@ -168,15 +168,15 @@ class ChatHistoryStore:
                 )
             rows = cur.fetchall()
             messages = [
-                ChatMessage(
-                    id=r[0],
-                    session_id=r[1],
-                    user_id=r[2],
-                    role=r[3],
-                    content=r[4],
-                    reply_metadata=r[5],
-                    created_at=r[6],
-                )
+                ChatMessage.model_validate({
+                    "id": r[0],
+                    "session_id": r[1],
+                    "user_id": r[2],
+                    "role": r[3],
+                    "content": r[4],
+                    "reply_metadata": r[5],
+                    "created_at": r[6],
+                })
                 for r in rows
             ]
             # API 응답은 오래된 메시지 -> 최신 메시지 순으로 반환한다.
