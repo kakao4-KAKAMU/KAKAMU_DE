@@ -156,7 +156,7 @@ def test_feed_and_comment_payload_use_compact_layout() -> None:
         known_movie_ids=None,
         content="좋은 영화였어요",
     )
-    _assert_feed_comment_payload_layout(feed, cache_prefix="ontology:feed:v3:vocab:")
+    _assert_feed_comment_payload_layout(feed, cache_prefix="ontology:feed:v4:vocab:")
 
     comment = build_comment_messages(
         comment_id="c1",

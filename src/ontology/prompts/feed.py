@@ -5,7 +5,7 @@ from .pipeline import OntologyPromptSpec
 
 from src.ontology.schema import FeedOntology, build_llm_json_schema
 
-ONTOLOGY_FEED_CACHE_SALT: Final[str] = "ontology:feed:v3"
+ONTOLOGY_FEED_CACHE_SALT: Final[str] = "ontology:feed:v4"
 
 _FEED_SCHEMA_BASE: Final[dict[str, Any]] = build_llm_json_schema(
     FeedOntology,
@@ -72,9 +72,23 @@ def build_feed_messages(
     user_id: str,
     related_movie_id: str | None,
     known_movie_ids: list[str] | None,
+    related_movie_plot_raw: str | None = None,
     content: str,
 ) -> dict[str, Any]:
     """피드 본문 → FeedOntology 매핑용 messages."""
+
+    movie_plot_section = (
+        dedent(
+            f"""
+            [관련 영화 원문 줄거리]
+            \"\"\"
+            {related_movie_plot_raw.strip()}
+            \"\"\"
+            """
+        ).strip()
+        if related_movie_plot_raw
+        else ""
+    )
 
     user_payload = dedent(
         f"""
@@ -83,6 +97,9 @@ def build_feed_messages(
         - user_id          : {user_id}
         - related_movie_id : {related_movie_id or "none"}
         - known_movie_ids  : {", ".join(known_movie_ids) if known_movie_ids else "none"}
+
+        [영화 내용]
+        {movie_plot_section or "(none)"}
 
         [원문 본문]
         \"\"\"

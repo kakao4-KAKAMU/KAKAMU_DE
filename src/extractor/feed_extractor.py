@@ -18,6 +18,7 @@ class FeedExtractor(OntologyExtractor[FeedOntology]):
         user_id: str,
         related_movie_id: str | None,
         known_movie_ids: list[str] | None,
+        related_movie_plot_raw: str | None = None,
         content: str,
     ) -> OntologyChatPayload:
         return build_feed_messages(
@@ -25,6 +26,7 @@ class FeedExtractor(OntologyExtractor[FeedOntology]):
             user_id=user_id,
             related_movie_id=related_movie_id,
             known_movie_ids=known_movie_ids,
+            related_movie_plot_raw=related_movie_plot_raw,
             content=content,
         )
 
