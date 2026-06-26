@@ -52,7 +52,7 @@ def _analysis_to_state(analysis: QueryAnalysis) -> ChatState:
 def analyze_query(state: ChatState, deps: ChatGraphDependencies) -> ChatState:
     query = state.get("query", "")
     analysis = deps.query_analyzer.analyze(
-        query, user_id=state.get("user_id")
+        query, user_id=state.get("user_id"), thinking=False
     )
     return _analysis_to_state(analysis)
 

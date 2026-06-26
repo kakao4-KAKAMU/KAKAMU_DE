@@ -70,6 +70,7 @@ class VLLMChatClient:
         response_format: dict[str, Any] | None = None,
         cache_salt: str | None = None,
         guided_json_schema: dict[str, Any] | None = None,
+        thinking: bool = True,
     ) -> dict[str, Any]:
         """JSON 객체만 반환하는 chat 호출.
 
@@ -87,6 +88,9 @@ class VLLMChatClient:
             "messages": messages,
             "max_tokens": max_tokens or self._settings.max_tokens,
             "temperature": temperature if temperature is not None else self._settings.temperature,
+            "chat_template_kwargs": {
+                "enable_thinking": thinking
+            }
         }
         if user_id:
             kwargs["user"] = user_id
