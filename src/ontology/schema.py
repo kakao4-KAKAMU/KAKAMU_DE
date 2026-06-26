@@ -409,6 +409,70 @@ class QueryOntologyAnalysis(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Chat Reply (generate_reply structured output)
+# ---------------------------------------------------------------------------
+
+
+class ReplyRefMovie(BaseModel):
+    """답변 metadata 에 포함되는 영화 참조."""
+
+    type: Literal["movie"] = "movie"
+    id: str
+
+
+class ReplyRefFeed(BaseModel):
+    """답변 metadata 에 포함되는 피드 참조."""
+
+    type: Literal["feed"] = "feed"
+    id: str
+
+
+class ReplyMetadataMovie(BaseModel):
+    movie: List[ReplyRefMovie] = Field(default_factory=list)
+
+
+class ReplyMetadataFeed(BaseModel):
+    feed: List[ReplyRefFeed] = Field(default_factory=list)
+
+
+class ReplyMetadataBoth(BaseModel):
+    movie: List[ReplyRefMovie] = Field(default_factory=list)
+    feed: List[ReplyRefFeed] = Field(default_factory=list)
+
+
+class ReplyMetadataEmpty(BaseModel):
+    """intent_scope=none 일 때 빈 metadata 객체."""
+
+
+class ChatReplyMovie(BaseModel):
+    """영화 추천 답변 structured output."""
+
+    reply: str
+    metadata: ReplyMetadataMovie
+
+
+class ChatReplyFeed(BaseModel):
+    """피드 추천 답변 structured output."""
+
+    reply: str
+    metadata: ReplyMetadataFeed
+
+
+class ChatReplyBoth(BaseModel):
+    """영화·피드 동시 추천 답변 structured output."""
+
+    reply: str
+    metadata: ReplyMetadataBoth
+
+
+class ChatReplyNone(BaseModel):
+    """일반 대화 답변 structured output."""
+
+    reply: str
+    metadata: ReplyMetadataEmpty
+
+
+# ---------------------------------------------------------------------------
 # LLM strict JSON Schema (from Pydantic models)
 # ---------------------------------------------------------------------------
 
@@ -568,6 +632,16 @@ __all__ = [
     "MovieQueryFilterOntology",
     "FeedQueryFilterOntology",
     "QueryOntologyAnalysis",
+    "ReplyRefMovie",
+    "ReplyRefFeed",
+    "ReplyMetadataMovie",
+    "ReplyMetadataFeed",
+    "ReplyMetadataBoth",
+    "ReplyMetadataEmpty",
+    "ChatReplyMovie",
+    "ChatReplyFeed",
+    "ChatReplyBoth",
+    "ChatReplyNone",
     "build_llm_json_schema",
     "build_strict_object_schema",
     "enum_values",

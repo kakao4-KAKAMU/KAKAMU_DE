@@ -10,7 +10,9 @@ from typing import Final
 
 from src.graph.cypher_statements.properties import BASE_PLOT_EMBEDDING, BASE_SUMMARY_EMBEDDING
 
-_CHAT_MOVIE_ONTOLOGY_FILTER: Final[str] = """
+_CHAT_MOVIE_ONTOLOGY_FILTER: Final[
+    str
+] = """
 // 온톨로지 기본 필터 (빈 값이면 조건 무시)
   AND coalesce(m.toxicity_score, 0.0) <= $max_toxicity
   AND ($min_year = 0 OR coalesce(m.producing_year, 0) >= $min_year)
@@ -36,7 +38,7 @@ _CHAT_MOVIE_ONTOLOGY_FILTER: Final[str] = """
     OR EXISTS {
       MATCH (m)-[hp:HAS_PERSON]->(p:Person)
       WHERE (hp.job STARTS WITH '출연' OR hp.job STARTS WITH '감독')
-        AND (p.name IN $query_person_names or p.eng_name IN $query_person_names)
+        AND (toLower(p.name) IN [n IN $query_person_names | toLower(n)] or toLower(p.eng_name) IN [n IN $query_person_names | toLower(n)])
         AND p.kmdb_person_id IS NOT NULL
     }
   )
