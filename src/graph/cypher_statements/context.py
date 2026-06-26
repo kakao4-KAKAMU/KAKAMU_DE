@@ -16,8 +16,15 @@ RETURN c.summary AS summary
 LIMIT 1
 """
 
+GET_MOVIE_PLOT_RAW: Final[str] = """
+MATCH (m:Movie {movie_id: $movie_id})
+RETURN m.plot_raw AS plot_raw
+LIMIT 1
+"""
+
 
 __all__ = [
     "GET_COMMENT_SUMMARY",
     "GET_FEED_SUMMARY",
+    "GET_MOVIE_PLOT_RAW",
 ]

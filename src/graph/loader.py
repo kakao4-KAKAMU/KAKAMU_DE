@@ -218,7 +218,7 @@ class OntologyLoader:
         *,
         feed_id: str,
         user_id: str,
-        related_movie_id: Optional[str],
+        known_movie_ids: list[str],
         content_raw: str,
         ontology: FeedOntology,
         summary_embedding: Sequence[float],
@@ -227,7 +227,7 @@ class OntologyLoader:
         params = {
             "feed_id": feed_id,
             "user_id": user_id,
-            "related_movie_id": related_movie_id,
+            "known_movie_ids": known_movie_ids,
             "content_raw": content_raw,
             "summary": ontology.summary,
             "summary_embedding": list(summary_embedding),

@@ -5,7 +5,7 @@ from .pipeline import OntologyPromptSpec
 
 from src.ontology.schema import FeedOntology, build_llm_json_schema
 
-ONTOLOGY_FEED_CACHE_SALT: Final[str] = "ontology:feed:v3"
+ONTOLOGY_FEED_CACHE_SALT: Final[str] = "ontology:feed:v4"
 
 _FEED_SCHEMA_BASE: Final[dict[str, Any]] = build_llm_json_schema(
     FeedOntology,
@@ -44,9 +44,9 @@ _FEED_GUIDE: Final[str] = dedent(
         - off_topic: 관련 없음
     - sentiment/sentiment_score 일관 유지.
     - emotions: 본문에서 드러난 감정 1~5개.
-    - referenced_movie_ids: known_movie_ids 에 있는 ID 만.
     - contains_spoiler: 결말/반전 직접 서술 시 true.
     - toxicity_score: 욕설/공격성/혐오 수위(0.0~1.0).
+    - summary: 피드 본문의 1~2문장 요약.
     """
 ).strip()
 
@@ -68,21 +68,27 @@ def get_feed_schema_json() -> dict[str, Any]:
 
 def build_feed_messages(
     *,
-    feed_id: str,
-    user_id: str,
-    related_movie_id: str | None,
-    known_movie_ids: list[str] | None,
+    known_movie_plot_raws: list[str] | None = None,
     content: str,
 ) -> dict[str, Any]:
     """피드 본문 → FeedOntology 매핑용 messages."""
 
+    movie_plot_sections = map(lambda movie_plot_raw: (
+        dedent(
+            f"""
+            [관련 영화 원문 줄거리]
+            \"\"\"
+            {movie_plot_raw.strip()}
+            \"\"\"
+            """
+        ).strip()
+        if movie_plot_raw
+        else ""
+    ), known_movie_plot_raws)
+
     user_payload = dedent(
         f"""
-        [피드 메타]
-        - feed_id          : {feed_id}
-        - user_id          : {user_id}
-        - related_movie_id : {related_movie_id or "none"}
-        - known_movie_ids  : {", ".join(known_movie_ids) if known_movie_ids else "none"}
+        {movie_plot_sections or "(none)"}
 
         [원문 본문]
         \"\"\"
