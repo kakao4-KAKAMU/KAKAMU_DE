@@ -57,6 +57,11 @@ class Neo4jClient:
     def __exit__(self, exc_type, exc, tb) -> None:
         self.close()
 
+    @property
+    def driver(self) -> Driver:
+        """CyVer 등 Neo4j driver 직접 접근이 필요한 컴포넌트용."""
+        return self._driver
+
     @contextmanager
     def session(self) -> Iterator[Session]:
         with self._driver.session(database=self._settings.database) as s:
