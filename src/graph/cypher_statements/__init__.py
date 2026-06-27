@@ -41,8 +41,6 @@ from .persona import DELETE_PERSONA, UPSERT_PERSONA
 from .retrieval import (
     HYBRID_FEED_RECOMMEND_WEIGHTED,
     HYBRID_MOVIE_RECOMMEND_WEIGHTED,
-    build_hybrid_feed_recommend_weighted,
-    build_hybrid_movie_recommend_weighted,
 )
 from .user import UPSERT_USER
 from .schema import (
@@ -89,8 +87,6 @@ __all__ = [
     "UPSERT_FEED_WITH_ONTOLOGY",
     "UPSERT_MOVIE_WITH_ONTOLOGY",
     "build_embedding_set_clause",
-    "build_hybrid_feed_recommend_weighted",
-    "build_hybrid_movie_recommend_weighted",
     "build_update_comment_summary_embedding",
     "build_update_feed_summary_embedding",
     "build_update_movie_plot_embedding",

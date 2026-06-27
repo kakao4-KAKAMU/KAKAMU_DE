@@ -52,12 +52,5 @@ class TemplateExecutor:
             }
             return self.execute(DEFAULT_TEMPLATE_ID, fallback_params, fallback=False)
 
-    def execute_intent(
-        self, intent: Mapping[str, Any], *, fallback: bool = True
-    ) -> list[dict[str, Any]]:
-        template_id = str(intent.get("template_id", DEFAULT_TEMPLATE_ID))
-        params = intent.get("params") or {}
-        return self.execute(template_id, params, fallback=fallback)
 
-
-__all__ = ["TemplateExecutor", "DEFAULT_TEMPLATE_ID"]
+__all__ = ["TemplateExecutor"]
