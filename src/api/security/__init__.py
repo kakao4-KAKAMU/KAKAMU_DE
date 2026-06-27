@@ -1,6 +1,6 @@
 """API 보안 유틸."""
 
-from src.api.security.limits import (
+from src.config.limits import (
     DEFAULT_MAX_CHAT_MESSAGE_LENGTH,
     DEFAULT_MAX_CYPHER_QUESTION_LENGTH,
     DEFAULT_MAX_INGEST_CONTENT_LENGTH,

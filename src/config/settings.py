@@ -12,7 +12,7 @@ from typing import Literal, Self
 from pydantic import AliasChoices, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from src.api.security.limits import (
+from src.config.limits import (
     DEFAULT_MAX_CHAT_MESSAGE_LENGTH,
     DEFAULT_MAX_INGEST_CONTENT_LENGTH,
     DEFAULT_MAX_RECOMMEND_QUERY_LENGTH,

@@ -15,7 +15,7 @@ from typing import Any, Optional
 from CyVer import PropertiesValidator, SchemaValidator, SyntaxValidator
 from langchain_core.language_models import BaseLanguageModel
 from langchain_neo4j import GraphCypherQAChain, Neo4jGraph
-from src.api.security.limits import DEFAULT_MAX_CYPHER_QUESTION_LENGTH
+from src.config.limits import DEFAULT_MAX_CYPHER_QUESTION_LENGTH
 from src.chat.cypher.sanitize import sanitize_and_extract_cypher
 from src.chat.cypher.security import validate_cypher_security
 from src.config.settings import Neo4jSettings

@@ -1,11 +1,13 @@
-"""API payload limit 기본값 (ApiSecuritySettings 와 동기화)."""
+"""Backward-compatible re-export. Prefer ``src.config.limits``."""
 
 from __future__ import annotations
 
-DEFAULT_MAX_CHAT_MESSAGE_LENGTH = 4_000
-DEFAULT_MAX_RECOMMEND_QUERY_LENGTH = 2_000
-DEFAULT_MAX_INGEST_CONTENT_LENGTH = 10_000
-DEFAULT_MAX_CYPHER_QUESTION_LENGTH = 2_000
+from src.config.limits import (
+    DEFAULT_MAX_CHAT_MESSAGE_LENGTH,
+    DEFAULT_MAX_CYPHER_QUESTION_LENGTH,
+    DEFAULT_MAX_INGEST_CONTENT_LENGTH,
+    DEFAULT_MAX_RECOMMEND_QUERY_LENGTH,
+)
 
 __all__ = [
     "DEFAULT_MAX_CHAT_MESSAGE_LENGTH",
