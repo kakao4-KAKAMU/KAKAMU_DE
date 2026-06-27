@@ -19,7 +19,7 @@ from src.chat.cypher.service import Neo4jCypherService
 from src.chat.feedback import FeedbackRecorder
 from src.chat.graph import build_chat_graph
 from src.chat.nodes import ChatGraphDependencies
-from src.chat.nodes.agent import build_agent_llm
+from src.chat.nodes.agent import build_agent_llm, build_cypher_llm
 from src.chat.tools.neo4j_query import build_neo4j_tools
 from src.config.settings import AppSettings, get_settings
 from src.embedding.version_registry import EmbeddingVersionRegistry
@@ -103,10 +103,11 @@ def build_container(checkpointer: Optional[object] = None) -> AppContainer:
     neo4j_graph.refresh_schema()
 
     agent_llm = build_agent_llm(settings)
+    cypher_llm = build_cypher_llm(settings)
     cypher_service = Neo4jCypherService(
         neo4j_graph,
         neo4j,
-        agent_llm,
+        cypher_llm,
         settings=neo4j_settings,
     )
     neo4j_tools = build_neo4j_tools(cypher_service)

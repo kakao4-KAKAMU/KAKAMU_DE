@@ -122,7 +122,8 @@ def _fallback_metadata(
     return result or None
 
 
-def generate_reply(state: ChatState, deps: ChatGraphDependencies) -> ChatState:
+def build_structured_reply(state: ChatState, deps: ChatGraphDependencies) -> ChatState:
+    """조회 결과를 바탕으로 ``reply`` / ``reply_metadata`` 를 생성한다."""
     scope: ReplyScope = _resolve_scope(state)
     payload = _build_payload(state, deps, scope)
     chat_payload = build_reply_messages(scope=scope, payload=payload)
@@ -145,6 +146,10 @@ def generate_reply(state: ChatState, deps: ChatGraphDependencies) -> ChatState:
     if reply_metadata is None and scope != "none":
         reply_metadata = _fallback_metadata(scope, state, deps.default_top_k)
     return {"reply": reply, "reply_metadata": reply_metadata}
+
+
+def generate_reply(state: ChatState, deps: ChatGraphDependencies) -> ChatState:
+    return build_structured_reply(state, deps)
 
 
 def _fallback_reply(scope: IntentScope, state: ChatState) -> str:
@@ -178,4 +183,4 @@ def _fallback_reply(scope: IntentScope, state: ChatState) -> str:
     return f"이런 영화를 추천드려요: {titles}."
 
 
-__all__ = ["generate_reply"]
+__all__ = ["build_structured_reply", "generate_reply"]

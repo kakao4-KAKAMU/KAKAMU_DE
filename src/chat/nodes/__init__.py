@@ -38,7 +38,7 @@ from src.chat.nodes.protocols import (
     EmbedderLike,
     MediaClassifierLike,
 )
-from src.chat.nodes.reply import generate_reply
+from src.chat.nodes.reply import build_structured_reply, generate_reply
 from src.chat.nodes.retrieval import (
     filter_both,
     filter_feeds,
@@ -58,6 +58,7 @@ __all__ = [
     "DEFAULT_MOVIE_TEMPLATE_ID",
     "DEFAULT_WEIGHTS",
     "analyze_query",
+    "build_structured_reply",
     "build_agent_llm",
     "call_agent",
     "embed_query",

@@ -182,12 +182,29 @@ def test_call_agent_seeds_messages_on_first_invoke() -> None:
             "query": "잔잔한 영화",
             "intent_scope": "movie",
             "movie_filters": {"themes": ["성장"]},
+            "retrieved_movies": [{"movie_id": "m1", "title": "Movie 1"}],
         },
         deps,
     )
     assert "messages" in out
     assert len(out["messages"]) == 1
     assert isinstance(out["messages"][0], AIMessage)
+    assert out["reply"] == "이런 영화를 추천드려요"
+    assert out["reply_metadata"] == {"movie": [{"type": "movie", "id": "m1"}]}
+
+
+def test_call_agent_skips_reply_while_tool_calls_pending() -> None:
+    deps = _deps(agent_with_tool=True)
+    out = call_agent(
+        {
+            "query": "잔잔한 성장 영화",
+            "intent_scope": "movie",
+            "movie_filters": {"themes": ["성장"]},
+        },
+        deps,
+    )
+    assert out["messages"][0].tool_calls
+    assert "reply" not in out
 
 
 def test_merge_tool_results_syncs_retrieved_movies() -> None:
