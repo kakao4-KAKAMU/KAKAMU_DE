@@ -52,13 +52,13 @@ class ChatGraphDependencies:
     history: Optional[ChatHistoryStore] = None
     media_classifier: Optional[MediaClassifierLike] = None
     query_analyzer: Optional[LLMQueryAnalyzer] = None
-    default_top_k: int = 10
+    default_top_k: int = 20
     default_vec_top_k: int = 30
     default_max_toxicity: float = 0.7
     movie_template_id: str = DEFAULT_MOVIE_TEMPLATE_ID
     feed_template_id: str = DEFAULT_FEED_TEMPLATE_ID
     reply_max_tokens: int = 512
-    reply_temperature: float = 0.4
+    reply_temperature: float = 0.6
     extra_user_payload: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
