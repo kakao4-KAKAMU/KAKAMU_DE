@@ -16,7 +16,7 @@ from src.extractor.comment_extractor import CommentExtractor
 from src.extractor.feed_extractor import FeedExtractor
 from src.extractor.movie_extractor import MoviePlotExtractor
 from src.graph.client import Neo4jClient
-from src.graph.context_reader import Neo4jCommentContextReader
+from src.graph.context_reader import Neo4jCommentContextReader, Neo4jMoviePlotReader
 from src.graph.loader import OntologyLoader
 from src.ingest.dispatcher.utils import Embedder, Handler, LLMClient
 from src.ingest.dispatcher.movie import build_movie_handler
@@ -107,6 +107,7 @@ def build_production_dispatcher(
 ) -> IngestDispatcher:
     """실 Extractor + Embedder + Loader 를 묶은 production dispatcher."""
     context_reader = Neo4jCommentContextReader(neo4j)
+    movie_plot_reader = Neo4jMoviePlotReader(neo4j)
     d = IngestDispatcher()
     registry = embedding_registry
 
@@ -115,6 +116,7 @@ def build_production_dispatcher(
     )
     feed_handler = build_feed_handler(
         extractor=FeedExtractor(llm), embedder=embedder, loader=loader,
+        movie_plot_reader=movie_plot_reader,
     )
     comment_handler = build_comment_handler(
         extractor=CommentExtractor(llm), embedder=embedder, loader=loader,

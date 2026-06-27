@@ -310,10 +310,6 @@ class FeedOntology(OntologyResult):
     keywords: List[Keyword] = Field(
         default_factory=list, description="피드 핵심 키워드."
     )
-    referenced_movie_ids: List[str] = Field(
-        default_factory=list,
-        description="본문에서 참조된 영화 ID(없으면 빈 리스트).",
-    )
     referenced_person_names: List[str] = Field(
         default_factory=list,
         description="본문에서 언급된 감독/배우 등 인물명.",

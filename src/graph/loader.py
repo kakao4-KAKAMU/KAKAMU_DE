@@ -218,7 +218,7 @@ class OntologyLoader:
         *,
         feed_id: str,
         user_id: str,
-        related_movie_id: Optional[str],
+        known_movie_ids: list[str],
         content_raw: str,
         ontology: FeedOntology,
         summary_embedding: Sequence[float],
@@ -227,7 +227,7 @@ class OntologyLoader:
         params = {
             "feed_id": feed_id,
             "user_id": user_id,
-            "related_movie_id": related_movie_id,
+            "known_movie_ids": known_movie_ids,
             "content_raw": content_raw,
             "summary": ontology.summary,
             "summary_embedding": list(summary_embedding),
@@ -244,10 +244,11 @@ class OntologyLoader:
         }
         self._neo4j.execute_write(self._feed_upsert_cypher(), params)
         logger.info(
-            "Upserted feed %s (cats=%d, keywords=%d)",
+            "Upserted feed %s (cats=%d, keywords=%d emotions=%d)",
             feed_id,
             1,
             len(ontology.keywords),
+            len(ontology.emotions),
         )
 
     # ------------------------------------------------------------------
@@ -284,7 +285,7 @@ class OntologyLoader:
             "created_at": (created_at or datetime.now(timezone.utc)),
         }
         self._neo4j.execute_write(self._comment_upsert_cypher(), params)
-        logger.info("Upserted comment %s on feed %s", comment_id, feed_id)
+        logger.info("Upserted comment %s on feed %s (emotions=%d keywords=%d)", comment_id, feed_id, len(ontology.emotions), len(ontology.keywords))
 
     # ------------------------------------------------------------------
     # Feed Like

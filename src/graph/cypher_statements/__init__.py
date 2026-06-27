@@ -12,7 +12,7 @@ from .comment import (
     build_update_comment_summary_embedding,
     build_upsert_comment_with_ontology,
 )
-from .context import GET_COMMENT_SUMMARY, GET_FEED_SUMMARY
+from .context import GET_COMMENT_SUMMARY, GET_FEED_SUMMARY, GET_MOVIE_PLOT_RAW
 from .feed import (
     UPDATE_FEED_SUMMARY_EMBEDDING,
     UPSERT_FEED_WITH_ONTOLOGY,
@@ -71,6 +71,7 @@ __all__ = [
     "FULLTEXT_INDEXES",
     "GET_COMMENT_SUMMARY",
     "GET_FEED_SUMMARY",
+    "GET_MOVIE_PLOT_RAW",
     "HYBRID_FEED_RECOMMEND_WEIGHTED",
     "HYBRID_MOVIE_RECOMMEND_WEIGHTED",
     "JUDGE_MOVIE_WITH_PERSONA",

@@ -149,7 +149,7 @@ RETURN m.movie_id     AS movie_id,
        m.producing_year AS producing_year,
        m.country AS country,
        m.title        AS title,
-       m.plot_summary AS plot_summary,
+       m.plot_raw AS plot_raw,
        score
 """
 
@@ -207,6 +207,7 @@ ORDER BY score DESC
 LIMIT $top_k
 
 RETURN f.feed_id         AS feed_id,
+       f.content_raw     AS content_raw,
        f.summary         AS summary,
        f.sentiment_score AS sentiment_score,
        score

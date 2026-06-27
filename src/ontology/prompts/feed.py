@@ -5,7 +5,7 @@ from .pipeline import OntologyPromptSpec
 
 from src.ontology.schema import FeedOntology, build_llm_json_schema
 
-ONTOLOGY_FEED_CACHE_SALT: Final[str] = "ontology:feed:v3"
+ONTOLOGY_FEED_CACHE_SALT: Final[str] = "ontology:feed:v4"
 
 _FEED_SCHEMA_BASE: Final[dict[str, Any]] = build_llm_json_schema(
     FeedOntology,
@@ -27,11 +27,12 @@ _FEED_GUIDE: Final[str] = dedent(
     - themes/moods 등 전용 필드 값은 keywords 에 중복 금지.
 
     [keywords — 키워드]
-    - keywords: 피드 본문에 포함되어 있는 영화 지표를 의미한다.
-    - keywords.normalized 는 snake_case이며 필수값입니다.
+    - keywords: Feed 본문에 포함되어 있는 영화 지표를 의미한다.
+    - keywords.normalized은 keywords.term에 대한 의미론적 정규 표기 입니다. 영어로 표기하며 snake_case로 표기합니다.
+    keywords.normalized, keywords.kind, keywords.term는 필수값입니다.
 
     [Feed]
-    - category: 글 특성 1개만 선택.
+    - feed.category: 글 특성 1개만 선택.
         - review: 감상평
         - recommendation: 추천
         - question: 질문
@@ -42,11 +43,13 @@ _FEED_GUIDE: Final[str] = dedent(
         - comparison: 비교
         - meta: 메타(촬영기법/감독/배우)
         - off_topic: 관련 없음
-    - sentiment/sentiment_score 일관 유지.
-    - emotions: 본문에서 드러난 감정 1~5개.
-    - referenced_movie_ids: known_movie_ids 에 있는 ID 만.
-    - contains_spoiler: 결말/반전 직접 서술 시 true.
-    - toxicity_score: 욕설/공격성/혐오 수위(0.0~1.0).
+    - feed.sentiment: 감정 극성.
+    - feed.sentiment_score: -1.0(매우 부정) ~ +1.0(매우 긍정)
+    - feed.emotions: Feed 본문에서 드러난 감정 1~5개.
+    - feed.contains_spoiler: Feed 본문에 결말/반전 직접 서술 시 true.
+    - feed.toxicity_score: 욕설/공격성/혐오 수위(0.0~1.0).
+    - feed.summary: Feed 본문의 1~2문장 요약.
+    - feed.keywords: Feed 본문에 포함되어 있는 영화 지표를 의미한다.
     """
 ).strip()
 
@@ -68,23 +71,29 @@ def get_feed_schema_json() -> dict[str, Any]:
 
 def build_feed_messages(
     *,
-    feed_id: str,
-    user_id: str,
-    related_movie_id: str | None,
-    known_movie_ids: list[str] | None,
+    known_movie_plot_raws: list[str] | None = None,
     content: str,
 ) -> dict[str, Any]:
     """피드 본문 → FeedOntology 매핑용 messages."""
 
+    movie_plot_sections = list(map(lambda movie_plot_raw: (
+        dedent(
+            f"""
+            [관련 영화 원문 줄거리]
+            \"\"\"
+            {movie_plot_raw.strip()}
+            \"\"\"
+            """
+        ).strip()
+        if movie_plot_raw
+        else ""
+    ), known_movie_plot_raws))
+
     user_payload = dedent(
         f"""
-        [피드 메타]
-        - feed_id          : {feed_id}
-        - user_id          : {user_id}
-        - related_movie_id : {related_movie_id or "none"}
-        - known_movie_ids  : {", ".join(known_movie_ids) if known_movie_ids else "none"}
+        {",\n".join(movie_plot_sections) or "(none)"}
 
-        [원문 본문]
+        [Feed 원문 본문]
         \"\"\"
         {content.strip()}
         \"\"\"
