@@ -14,7 +14,7 @@ class ChatRequest(BaseModel):
     persona_id: Optional[str] = Field(default=None)
     session_id: Optional[str] = Field(default=None)
     message: str = Field(min_length=1)
-    top_k: int = Field(default=10, ge=1, le=50)
+    top_k: int = Field(default=20, ge=1, le=50)
     max_toxicity: float = Field(default=0.7, ge=0.0, le=1.0)
 
     def ensure_session_id(self) -> str:
