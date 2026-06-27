@@ -31,12 +31,17 @@ def _build_conninfo(settings: PostgresSettings) -> str:
     )
 
 
+async def async_ping_check(conn):
+    """Callback to pre-ping the connection."""
+    conn.execute("SELECT 1")
+
+
 @lru_cache(maxsize=1)
 def get_pool(
     settings: Optional[PostgresSettings] = None,
     *,
     min_size: int = 1,
-    max_size: int = 16,
+    max_size: int = 40,
 ) -> ConnectionPool:
     """프로세스 공용 ConnectionPool 싱글톤."""
     cfg = settings or get_settings().postgres
@@ -44,6 +49,7 @@ def get_pool(
     logger.info("Initializing PostgreSQL connection pool (max_size=%d)", max_size)
     pool = ConnectionPool(
         conninfo=conninfo,
+        check=async_ping_check,
         min_size=min_size,
         max_size=max_size,
         reconnect_timeout=300,
