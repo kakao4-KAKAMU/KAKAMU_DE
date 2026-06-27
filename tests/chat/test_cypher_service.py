@@ -58,6 +58,38 @@ def _service_with_mocks(
     return service, neo4j_client
 
 
+def test_query_strips_redacted_thinking_from_llm_output() -> None:
+    service, neo4j_client = _service_with_mocks(
+        generated=_PARK_JIHOON_LLM_OUTPUT,
+        rows=[{"movie_id": "m1", "title": "영화1"}],
+    )
+    result = service.query("박지훈 최신 영화")
+    assert result.valid is True
+    assert result.cypher.startswith("MATCH (m:Movie)")
+    assert "redacted_thinking" not in result.cypher
+    neo4j_client.execute_read.assert_called_once()
+
+
+_PARK_JIHOON_LLM_OUTPUT = """<think>
+thinking content
+</think>
+
+MATCH (m:Movie)-[hp:HAS_PERSON]->(p:Person)
+WHERE p.name = '박지훈'
+RETURN m.movie_id AS movie_id, m.title AS title
+ORDER BY m.updated_at DESC
+LIMIT 10"""
+
+
+def test_query_passes_examples_to_generation_chain() -> None:
+    service, _ = _service_with_mocks()
+    service.query("잔잔한 영화 추천")
+    invoke_args = service._chain.cypher_generation_chain.invoke.call_args.args[0]
+    assert "examples" in invoke_args
+    assert invoke_args["examples"]
+    assert "HAS_MOOD" in invoke_args["examples"]
+
+
 def test_query_success_returns_rows() -> None:
     service, neo4j_client = _service_with_mocks(
         generated="```cypher\nMATCH (m:Movie) RETURN m.movie_id AS movie_id\n```",

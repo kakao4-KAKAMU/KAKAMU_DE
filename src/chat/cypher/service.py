@@ -16,8 +16,7 @@ from typing import Any, Optional
 from CyVer import PropertiesValidator, SchemaValidator, SyntaxValidator
 from langchain_core.language_models import BaseLanguageModel
 from langchain_neo4j import GraphCypherQAChain, Neo4jGraph
-from neo4j_graphrag.retrievers.text2cypher import extract_cypher
-
+from src.chat.cypher.sanitize import sanitize_and_extract_cypher
 from src.config.settings import Neo4jSettings
 from src.graph.client import Neo4jClient
 
@@ -45,6 +44,51 @@ _DOMAIN_NODE_TYPES: list[str] = [
 
 _EXCLUDED_NODE_TYPES: list[str] = ["User", "Persona"]
 
+# GraphCypherQAChain CYPHER_GENERATION_PROMPT 의 {examples} 슬롯용 few-shot.
+_DEFAULT_CYPHER_EXAMPLES: str = """\
+# 잔잔한 무드의 영화 10편은?
+MATCH (m:Movie)-[:HAS_MOOD]->(md:Mood)
+WHERE md.name = '잔잔한'
+RETURN m.movie_id AS movie_id, m.title AS title
+LIMIT 10
+
+# '기생충'과 같은 장르 영화는?
+MATCH (seed:Movie {title: '기생충'})-[:HAS_GENRE]->(g:Genre)<-[:HAS_GENRE]-(m:Movie)
+WHERE m.movie_id <> seed.movie_id
+RETURN m.movie_id AS movie_id, m.title AS title
+LIMIT 10
+
+# '봉준호' 감독 영화 목록은?
+MATCH (m:Movie)-[hp:HAS_PERSON]->(p:Person)
+WHERE hp.job STARTS WITH '감독' AND p.name = '봉준호'
+RETURN m.movie_id AS movie_id, m.title AS title
+LIMIT 10
+
+# '마동석' 배우 영화 목록은?
+MATCH (m:Movie)-[hp:HAS_PERSON]->(p:Person)
+WHERE hp.job STARTS WITH '배우' AND p.name = '마동석'
+RETURN m.movie_id AS movie_id, m.title AS title
+LIMIT 10
+
+# '박지훈' 나온 영화 목록은?
+MATCH (m:Movie)-[hp:HAS_PERSON]->(p:Person)
+WHERE p.name = '박지훈'
+RETURN m.movie_id AS movie_id, m.title AS title
+LIMIT 10
+
+# '기생충' 관련 감상 피드는?
+MATCH (f:Feed)-[:ABOUT_MOVIE]->(m:Movie)
+WHERE m.title = '기생충'
+RETURN f.feed_id AS feed_id, f.summary AS summary
+LIMIT 10
+
+# '최신' 영화는?
+MATCH (m:Movie)
+RETURN m.movie_id AS movie_id, m.title AS title
+ORDER BY m.producing_year DESC
+LIMIT 10
+"""
+
 
 @dataclass(frozen=True)
 class CypherExecutionResult:
@@ -69,11 +113,15 @@ class Neo4jCypherService:
         top_k: int = 20,
         include_types: Optional[list[str]] = None,
         exclude_types: Optional[list[str]] = None,
+        cypher_examples: Optional[str] = None,
     ) -> None:
         self._neo4j_client = neo4j_client
         self._settings = settings or neo4j_client._settings  # noqa: SLF001
         self._top_k = top_k
         self._database_name = self._settings.database
+        self._cypher_examples = (
+            cypher_examples if cypher_examples is not None else _DEFAULT_CYPHER_EXAMPLES
+        )
 
         use_include = include_types if include_types is not None else _DOMAIN_NODE_TYPES
 
@@ -107,13 +155,17 @@ class Neo4jCypherService:
         """자연어 질문 → Cypher 생성·검증·실행."""
         try:
             raw = self._chain.cypher_generation_chain.invoke(
-                {"question": question, "schema": self._chain.graph_schema}
+                {
+                    "question": question,
+                    "schema": self._chain.graph_schema,
+                    "examples": self._cypher_examples,
+                }
             )
         except Exception as exc:
             logger.exception("Cypher generation failed")
             return CypherExecutionResult(valid=False, errors=[f"generation_failed: {exc}"])
 
-        cypher = extract_cypher(str(raw)).strip()
+        cypher = sanitize_and_extract_cypher(str(raw))
         if not cypher:
             return CypherExecutionResult(
                 valid=False,
