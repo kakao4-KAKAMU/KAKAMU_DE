@@ -2,13 +2,12 @@
 
 플로우::
 
-    embed_query → analyze_query → agent
+    embed_query → agent
         ├─(tool_calls) → neo4j_tools → agent  (루프)
         └─(no tools)   → persist_history → END
 
-``analyze_query`` 가 ``intent_scope`` 와 온톨로지 필터를 결정하고,
-``agent`` 가 데이터 조회 필요 시 ``query_neo4j_graph`` tool을 호출한다.
-tool 호출이 끝나면 agent 가 ``reply`` / ``reply_metadata`` 를 state 에 기록한다.
+``agent`` 가 데이터 조회 필요 시 ``query_neo4j_graph`` tool을 호출하고,
+tool 호출이 끝나면 ``reply`` / ``reply_metadata`` 를 state 에 기록한다.
 
 SOLID
 -----
@@ -25,7 +24,6 @@ from langgraph.prebuilt import tools_condition
 
 from src.chat.nodes import (
     ChatGraphDependencies,
-    analyze_query,
     call_agent,
     embed_query,
     persist_history,
@@ -52,14 +50,12 @@ def build_chat_graph(
     graph = StateGraph(ChatState)
 
     graph.add_node("embed_query", lambda s: embed_query(s, deps))
-    graph.add_node("analyze_query", lambda s: analyze_query(s, deps))
     graph.add_node("agent", lambda s: call_agent(s, deps))
     graph.add_node("neo4j_tools", lambda s: run_neo4j_tools(s, deps))
     graph.add_node("persist_history", lambda s: persist_history(s, deps))
 
     graph.add_edge(START, "embed_query")
-    graph.add_edge("embed_query", "analyze_query")
-    graph.add_edge("analyze_query", "agent")
+    graph.add_edge("embed_query", "agent")
 
     graph.add_conditional_edges(
         "agent",

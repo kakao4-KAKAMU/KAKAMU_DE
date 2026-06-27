@@ -34,7 +34,6 @@ from src.persistence.chat_history import ChatHistoryStore
 from src.recommend.bandit import ThompsonBandit
 from src.recommend.bandit_store import BanditStore
 from src.recommend.intent_resolver import IntentResolver
-from src.recommend.media_classifier import LLMMediaClassifier
 from src.recommend.policy import RecommendPolicy
 from src.vocab.normalizer import VocabularyNormalizer
 
@@ -114,15 +113,11 @@ def build_container(checkpointer: Optional[object] = None) -> AppContainer:
 
     chat_deps = ChatGraphDependencies(
         embedder=embedder,
-        intent_resolver=intent_resolver,
-        policy=policy,
-        template_executor=template_executor,
         llm=llm,
         agent_llm=agent_llm,
         neo4j_tools=neo4j_tools,
         cypher_service=cypher_service,
         history=chat_history,
-        media_classifier=LLMMediaClassifier(llm),
     )
     chat_graph = build_chat_graph(chat_deps, checkpointer=checkpointer)
     feedback_recorder = FeedbackRecorder(policy)

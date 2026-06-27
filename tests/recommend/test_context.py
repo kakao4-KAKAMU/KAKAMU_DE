@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from src.recommend.context import (
     bandit_context_key,
-    build_chat_feed_filter_params,
-    build_chat_movie_filter_params,
     build_hybrid_recommend_params,
     resolve_persona_id,
 )
@@ -47,50 +45,3 @@ def test_build_hybrid_recommend_params_includes_persona_id() -> None:
     assert params["persona_id"] == "movie_buff"
     assert params["user_id"] == "u1"
     assert params["w_vec"] == 0.5
-
-
-def test_build_chat_movie_filter_params_includes_ontology_filters() -> None:
-    params = build_chat_movie_filter_params(
-        user_id="u1",
-        persona_id=None,
-        query_embedding=[0.1],
-        query_keywords=["a"],
-        query_themes=["b"],
-        query_moods=["c"],
-        query_genres=["drama"],
-        query_person_names=["Kim"],
-        query_person_jobs=["director"],
-        filter_country="KR",
-        min_year=2010,
-        max_year=2020,
-        top_k=5,
-        vec_top_k=10,
-        max_toxicity=0.5,
-        weights={"w_vec": 0.5, "w_kw": 0.1, "w_theme": 0.1, "w_mood": 0.1, "w_user": 0.2},
-    )
-    assert params["query_genres"] == ["drama"]
-    assert params["filter_country"] == "kr"
-    assert params["min_year"] == 2010
-
-
-def test_build_chat_feed_filter_params_includes_ontology_filters() -> None:
-    params = build_chat_feed_filter_params(
-        user_id="u1",
-        persona_id=None,
-        query_embedding=[0.1],
-        query_keywords=["review"],
-        query_themes=[],
-        query_moods=["joy"],
-        query_categories=["review"],
-        query_emotions=["joy"],
-        filter_sentiment="positive",
-        include_spoiler=False,
-        related_movie_title="기생충",
-        top_k=5,
-        vec_top_k=10,
-        max_toxicity=0.5,
-        weights={"w_vec": 0.5, "w_kw": 0.1, "w_theme": 0.1, "w_mood": 0.1, "w_user": 0.2},
-    )
-    assert params["query_categories"] == ["review"]
-    assert params["related_movie_title"] == "기생충"
-    assert params["include_spoiler"] is False
