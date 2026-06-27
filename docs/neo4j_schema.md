@@ -1,7 +1,7 @@
 # Neo4j 기본 자료 구성
 
 > 본 문서는 **knowledge graph** 의 노드/관계/인덱스 구성을 정의한다.
-> 실제 DDL 은 `src/graph/cypher_statements.py` 에 코드화되어 있으며,
+> 실제 DDL 은 `src/graph/cypher_statements/` 패키지(`schema.py`, `retrieval.py` 등)에 코드화되어 있으며,
 > `python -m scripts.bootstrap_schema` 로 멱등 적용된다.
 
 ---
@@ -79,7 +79,7 @@ classDiagram
         +String country
         +String plot_raw
         +String plot_summary
-        +float[] plot_embedding
+        +float[] plot_embedding_vN
         +DateTime updated_at
     }
 
@@ -88,7 +88,7 @@ classDiagram
         +String persona_id FK (optional)
         +String content_raw
         +String summary
-        +float[] summary_embedding
+        +float[] summary_embedding_vN
         +String sentiment
         +Float  sentiment_score
         +Bool   contains_spoiler
@@ -101,7 +101,7 @@ classDiagram
         +String persona_id FK (optional)
         +String content_raw
         +String summary
-        +float[] summary_embedding
+        +float[] summary_embedding_vN
         +String sentiment
         +Float  sentiment_score
         +Bool   contains_spoiler
@@ -160,12 +160,13 @@ classDiagram
 | Fulltext    | `:Movie(title, plot_summary)`                  | CJK analyzer  | 한국어 키워드 검색       |
 | Fulltext    | `:Feed(summary)` / `:Comment(summary)`         | CJK analyzer  |                  |
 | Fulltext    | `:Keyword(term, normalized)`                   | CJK analyzer  |                  |
-| Vector      | `:Movie(plot_embedding)`                       | cosine, dim=N | semantic 추천      |
-| Vector      | `:Feed(summary_embedding)`                     | cosine, dim=N | 피드 의미검색          |
-| Vector      | `:Comment(summary_embedding)`                  | cosine, dim=N | 댓글 의미검색          |
+| Vector      | `:Movie(plot_embedding_vN)`                    | cosine, dim=N | semantic 추천 (버전별) |
+| Vector      | `:Feed(summary_embedding_vN)`                  | cosine, dim=N | 피드 의미검색 (버전별)   |
+| Vector      | `:Comment(summary_embedding_vN)`               | cosine, dim=N | 댓글 의미검색 (버전별)   |
 
 
-> N = `EMBED_DIMENSION`(기본 1024, BGE-M3 기준).
+> N = `EMBED__DIMENSION`(기본 1024, Qwen3-Embedding-0.6B 기준).
+> 버전드 임베딩 상세: [versioned_embedding.md](versioned_embedding.md)
 
 ---
 

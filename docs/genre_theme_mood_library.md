@@ -1,5 +1,8 @@
 # Movie Genre & Theme Ontology Dataset
 
+> **코드 연동**: `scripts/seed_vocab_from_library.py` 가 본 문서를 파싱해 Neo4j `Genre`/`Theme`/`Mood` 노드를 시드한다.
+> `VocabularyNormalizer.from_library_md()` 및 movie 온톨로지 프롬프트(`ontology/prompts/schema_vocab.py`)의 vocab 가이드 원천.
+
 ## 목적
 
 영화 추천 시스템, Neo4j Knowledge Graph, Semantic Retrieval, LLM Ontology Mapping에 활용 가능한 엔터프라이즈급 Genre/Theme 데이터셋.

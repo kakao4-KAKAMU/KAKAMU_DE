@@ -41,7 +41,9 @@ flowchart LR
 | `comment_modify` / `comment_delete` / `comment_like` | `comment`(comment_id) | |
 | `feed_modify` / `feed_delete` / `feed_like` | `feed`(feed_id) | |
 | `movie_judge` | `movie`(movie_id) | |
-| `movie` / `feed` / `person_judge` | 없음 | |
+| `persona_modify` / `persona_delete` | `persona`(persona_id) | |
+| `movie_reembed` / `feed_reembed` / `comment_reembed` | 해당 entity 존재 | re-embed planner enqueue |
+| `movie` / `feed` / `user` / `persona` / `person_judge` | 없음 | |
 
 ### Sweep 메커니즘
 
@@ -77,6 +79,12 @@ WHERE o.status='waiting'
 | `person_judge` | loader.judge_person | `INTERACTED` 관계 (like/dislike) |
 | `feed_delete` | loader.delete_feed | soft-delete (deleted=true) |
 | `comment_delete` | loader.delete_comment | soft-delete (deleted=true) |
+| `user` | loader.upsert_user | User 노드 MERGE |
+| `persona` / `persona_modify` | loader.upsert_persona | Persona + PREFERS/INTERACTED |
+| `persona_delete` | loader.delete_persona | Persona 노드 삭제 |
+| `movie_reembed` | dual-write plot embedding | `plot_embedding_vN` 갱신 |
+| `feed_reembed` | dual-write summary embedding | `summary_embedding_vN` 갱신 |
+| `comment_reembed` | dual-write summary embedding | `summary_embedding_vN` 갱신 |
 
 ## Persona 필드 (feed / comment)
 
