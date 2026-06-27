@@ -9,23 +9,19 @@ SOLID
 from __future__ import annotations
 
 import logging
-import re
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
 from CyVer import PropertiesValidator, SchemaValidator, SyntaxValidator
 from langchain_core.language_models import BaseLanguageModel
 from langchain_neo4j import GraphCypherQAChain, Neo4jGraph
+from src.api.security.limits import DEFAULT_MAX_CYPHER_QUESTION_LENGTH
 from src.chat.cypher.sanitize import sanitize_and_extract_cypher
+from src.chat.cypher.security import validate_cypher_security
 from src.config.settings import Neo4jSettings
 from src.graph.client import Neo4jClient
 
 logger = logging.getLogger(__name__)
-
-_WRITE_KEYWORDS = re.compile(
-    r"\b(CREATE|MERGE|DELETE|DETACH|SET|DROP|REMOVE|FOREACH|LOAD\s+CSV)\b",
-    re.IGNORECASE,
-)
 
 # Cypher 생성 프롬프트에 포함할 도메인 노드 (User/Persona 제외)
 _DOMAIN_NODE_TYPES: list[str] = [
@@ -149,6 +145,14 @@ class Neo4jCypherService:
 
     def query(self, question: str) -> CypherExecutionResult:
         """자연어 질문 → Cypher 생성·검증·실행."""
+        if len(question) > DEFAULT_MAX_CYPHER_QUESTION_LENGTH:
+            return CypherExecutionResult(
+                valid=False,
+                errors=[
+                    f"security: question exceeds max length ({DEFAULT_MAX_CYPHER_QUESTION_LENGTH})"
+                ],
+            )
+
         try:
             raw = self._chain.cypher_generation_chain.invoke(
                 {
@@ -192,10 +196,7 @@ class Neo4jCypherService:
         return CypherExecutionResult(valid=True, cypher=cypher, rows=rows)
 
     def _validate_cypher(self, cypher: str) -> list[str]:
-        errors: list[str] = []
-
-        if _WRITE_KEYWORDS.search(cypher):
-            errors.append("security: write/mutation keywords are not allowed")
+        errors: list[str] = list(validate_cypher_security(cypher))
 
         is_valid, syntax_meta = self._syntax_validator.validate(
             cypher, database_name=self._database_name

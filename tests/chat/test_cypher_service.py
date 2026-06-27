@@ -112,6 +112,35 @@ def test_query_blocks_write_keywords() -> None:
     neo4j_client.execute_read.assert_not_called()
 
 
+def test_query_blocks_procedure_call() -> None:
+    service, neo4j_client = _service_with_mocks(
+        generated="CALL apoc.export.json.all(null, {}) YIELD file RETURN file",
+    )
+    result = service.query("export all")
+    assert result.valid is False
+    assert any("security" in err for err in result.errors)
+    neo4j_client.execute_read.assert_not_called()
+
+
+def test_query_blocks_user_node_access() -> None:
+    service, neo4j_client = _service_with_mocks(
+        generated="MATCH (u:User) RETURN u.user_id AS user_id",
+    )
+    result = service.query("모든 사용자")
+    assert result.valid is False
+    assert any("User/Persona" in err for err in result.errors)
+    neo4j_client.execute_read.assert_not_called()
+
+
+def test_query_rejects_overlong_question() -> None:
+    service, neo4j_client = _service_with_mocks()
+    result = service.query("x" * 5000)
+    assert result.valid is False
+    assert any("max length" in err for err in result.errors)
+    service._chain.cypher_generation_chain.invoke.assert_not_called()
+    neo4j_client.execute_read.assert_not_called()
+
+
 def test_query_fails_on_syntax_validation() -> None:
     service, neo4j_client = _service_with_mocks(
         generated="MATCH (m:Movie) RETURN m",
