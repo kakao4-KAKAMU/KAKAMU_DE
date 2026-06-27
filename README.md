@@ -94,7 +94,7 @@ python -m scripts.bootstrap_schema
 ```dotenv
 NEO4J_URI=bolt://localhost:7687
 NEO4J_USER=neo4j
-NEO4J_PASSWORD=dlsghks12
+NEO4J_PASSWORD=neo4j
 NEO4J_DATABASE=neo4j
 
 PG_HOST=localhost
@@ -129,8 +129,6 @@ EMBED_DIMENSION=1024
 - `build_comment_messages(...)`
   - 댓글 본문 → `CommentOntology`
   - `intents / sentiment / emotions / keywords / targets_user_id / contains_spoiler / toxicity_score` 추출.
-- `build_user_intent_messages(...)`
-  - 사용자 자연어 추천 요청 → 단일 Cypher 쿼리(JSON) 변환.
 
 > 사용 예
 >
