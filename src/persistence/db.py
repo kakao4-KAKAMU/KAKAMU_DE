@@ -33,7 +33,7 @@ def _build_conninfo(settings: PostgresSettings) -> str:
 
 async def async_ping_check(conn):
     """Callback to pre-ping the connection."""
-    conn.execute("SELECT 1")
+    return conn.execute("SELECT 1")
 
 
 @lru_cache(maxsize=1)
