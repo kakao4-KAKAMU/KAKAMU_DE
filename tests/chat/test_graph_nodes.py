@@ -9,15 +9,15 @@ from langchain_core.messages import AIMessage, ToolMessage
 
 from src.chat.cypher.service import CypherExecutionResult, Neo4jCypherService
 from src.chat.feedback import FeedbackRecorder
-from src.chat.graph import build_chat_graph
+from src.chat.graph import AGENT_RECURSION_LIMIT, build_chat_graph
 from src.chat.nodes import (
     ChatGraphDependencies,
+    build_structured_reply,
     call_agent,
     embed_query,
-    generate_reply,
-    merge_tool_results_into_state,
     persist_history,
 )
+from src.chat.nodes.tools import merge_tool_results_into_state
 from src.chat.tools.neo4j_query import build_neo4j_tools
 
 
@@ -150,15 +150,15 @@ def test_build_chat_graph_routes_feed_query_via_agent_tool() -> None:
     graph = build_chat_graph(deps)
     final = graph.invoke(
         {"user_id": "u1", "session_id": "s1", "query": "영화 감상 후기 피드 추천"},
-        config={"recursion_limit": 15},
+        config={"recursion_limit": AGENT_RECURSION_LIMIT},
     )
     assert final["retrieved_feeds"][0]["feed_id"] == "f1"
     assert final["ontology_ref"]["feed_ids"] == ["f1"]
 
 
-def test_generate_reply_uses_llm_json() -> None:
+def test_build_structured_reply_uses_llm_json() -> None:
     deps = _deps()
-    out = generate_reply(
+    out = build_structured_reply(
         {
             "query": "추천",
             "intent_scope": "movie",
@@ -170,9 +170,9 @@ def test_generate_reply_uses_llm_json() -> None:
     assert out["reply_metadata"] == {"movie": [{"type": "movie", "id": "m1"}]}
 
 
-def test_generate_reply_includes_graph_query_results_in_payload() -> None:
+def test_build_structured_reply_includes_graph_query_results_in_payload() -> None:
     deps = _deps()
-    generate_reply(
+    build_structured_reply(
         {
             "query": "추천",
             "intent_scope": "movie",
@@ -184,10 +184,10 @@ def test_generate_reply_includes_graph_query_results_in_payload() -> None:
     assert any("graph_query_results" in str(m) for m in messages)
 
 
-def test_generate_reply_falls_back_when_llm_raises() -> None:
+def test_build_structured_reply_falls_back_when_llm_raises() -> None:
     deps = _deps()
     deps.llm.chat_json.side_effect = RuntimeError("boom")
-    out = generate_reply(
+    out = build_structured_reply(
         {
             "query": "추천",
             "intent_scope": "movie",
@@ -199,7 +199,7 @@ def test_generate_reply_falls_back_when_llm_raises() -> None:
     assert out["reply_metadata"] == {"movie": [{"type": "movie", "id": "m1"}]}
 
 
-def test_generate_reply_normalizes_multiple_movie_metadata() -> None:
+def test_build_structured_reply_normalizes_multiple_movie_metadata() -> None:
     deps = _deps()
     deps.llm.chat_json.return_value = {
         "reply": "세 편 추천",
@@ -211,7 +211,7 @@ def test_generate_reply_normalizes_multiple_movie_metadata() -> None:
             ]
         },
     }
-    out = generate_reply(
+    out = build_structured_reply(
         {
             "query": "추천",
             "intent_scope": "movie",
@@ -232,26 +232,26 @@ def test_generate_reply_normalizes_multiple_movie_metadata() -> None:
     }
 
 
-def test_generate_reply_accepts_legacy_single_object_metadata() -> None:
+def test_build_structured_reply_accepts_legacy_single_object_metadata() -> None:
     deps = _deps()
     deps.llm.chat_json.return_value = {
         "reply": "추천",
         "metadata": {"movie": {"type": "movie", "id": "m1"}},
     }
-    out = generate_reply(
+    out = build_structured_reply(
         {"query": "추천", "intent_scope": "movie", "retrieved_movies": [{"movie_id": "m1"}]},
         deps,
     )
     assert out["reply_metadata"] == {"movie": [{"type": "movie", "id": "m1"}]}
 
 
-def test_generate_reply_none_scope_without_retrieval() -> None:
+def test_build_structured_reply_none_scope_without_retrieval() -> None:
     deps = _deps()
     deps.llm.chat_json.return_value = {
         "reply": "안녕하세요!",
         "metadata": {},
     }
-    out = generate_reply(
+    out = build_structured_reply(
         {"query": "안녕", "intent_scope": "none", "direct_reply_hint": "인사"},
         deps,
     )
@@ -283,7 +283,7 @@ def test_build_chat_graph_runs_full_flow_with_agent_tool() -> None:
     graph = build_chat_graph(deps)
     final = graph.invoke(
         {"user_id": "u1", "session_id": "s1", "query": "잔잔한 성장 영화 추천"},
-        config={"recursion_limit": 15},
+        config={"recursion_limit": AGENT_RECURSION_LIMIT},
     )
     assert final["reply"]
     assert final["retrieved_movies"][0]["movie_id"] == "m1"
@@ -299,7 +299,7 @@ def test_build_chat_graph_skips_tool_for_none_scope() -> None:
     graph = build_chat_graph(deps)
     final = graph.invoke(
         {"user_id": "u1", "session_id": "s1", "query": "안녕하세요"},
-        config={"recursion_limit": 15},
+        config={"recursion_limit": AGENT_RECURSION_LIMIT},
     )
     assert final["reply"] == "안녕하세요!"
 
