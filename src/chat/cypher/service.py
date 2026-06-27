@@ -45,31 +45,31 @@ _DEFAULT_CYPHER_EXAMPLES: str = """\
 # 잔잔한 무드의 영화 10편은?
 MATCH (m:Movie)-[:HAS_MOOD]->(md:Mood)
 WHERE md.name = '잔잔한'
-RETURN m.movie_id AS movie_id, m.title AS title
+RETURN m.movie_id AS movie_id, m.producing_year AS producing_year, m.country AS country, m.title AS title
 LIMIT 10
 
 # '기생충'과 같은 장르 영화는?
 MATCH (seed:Movie {title: '기생충'})-[:HAS_GENRE]->(g:Genre)<-[:HAS_GENRE]-(m:Movie)
 WHERE m.movie_id <> seed.movie_id
-RETURN m.movie_id AS movie_id, m.title AS title
+RETURN m.movie_id AS movie_id, m.producing_year AS producing_year, m.country AS country, m.title AS title
 LIMIT 10
 
 # '봉준호' 감독 영화 목록은?
 MATCH (m:Movie)-[hp:HAS_PERSON]->(p:Person)
 WHERE hp.job STARTS WITH '감독' AND p.name = '봉준호'
-RETURN m.movie_id AS movie_id, m.title AS title
+RETURN m.movie_id AS movie_id, m.producing_year AS producing_year, m.country AS country, m.title AS title
 LIMIT 10
 
 # '마동석' 배우 영화 목록은?
 MATCH (m:Movie)-[hp:HAS_PERSON]->(p:Person)
 WHERE hp.job STARTS WITH '배우' AND p.name = '마동석'
-RETURN m.movie_id AS movie_id, m.title AS title
+RETURN m.movie_id AS movie_id, m.producing_year AS producing_year, m.country AS country, m.title AS title
 LIMIT 10
 
 # '박지훈' 나온 영화 목록은?
 MATCH (m:Movie)-[hp:HAS_PERSON]->(p:Person)
 WHERE p.name = '박지훈'
-RETURN m.movie_id AS movie_id, m.title AS title
+RETURN m.movie_id AS movie_id, m.producing_year AS producing_year, m.country AS country, m.title AS title
 LIMIT 10
 
 # '기생충' 관련 감상 피드는?
@@ -80,8 +80,13 @@ LIMIT 10
 
 # '최신' 영화는?
 MATCH (m:Movie)
-RETURN m.movie_id AS movie_id, m.title AS title
+RETURN m.movie_id AS movie_id, m.producing_year AS producing_year, m.country AS country, m.title AS title
 ORDER BY m.producing_year DESC
+LIMIT 10
+
+# '기생충' 영화의 내용은 무엇인가요?
+MATCH (m:Movie {title: '기생충'})
+RETURN m.movie_id AS movie_id, m.producing_year AS producing_year, m.country AS country, m.title AS title, m.plot_raw AS plot_raw
 LIMIT 10
 """
 
