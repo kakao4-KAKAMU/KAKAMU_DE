@@ -56,7 +56,10 @@ async def chat_stream(
         raise HTTPException(status_code=404, detail="Session not found")
 
     state = initial_chat_state(req, req.user_id, session_id, session.persona_id)
-    config = {"configurable": {"thread_id": session_id}}
+    config = {
+        "configurable": {"thread_id": session_id},
+        "recursion_limit": 15,
+    }
 
     async def event_gen():
         yield ServerSentEvent(event="open", data=json.dumps({"session_id": session_id, "message_id": msg_id}))

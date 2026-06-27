@@ -13,9 +13,14 @@ from dataclasses import dataclass
 from functools import lru_cache
 from typing import Optional
 
+from langchain_neo4j import Neo4jGraph
+
+from src.chat.cypher.service import Neo4jCypherService
 from src.chat.feedback import FeedbackRecorder
 from src.chat.graph import build_chat_graph
 from src.chat.nodes import ChatGraphDependencies
+from src.chat.nodes.agent import build_agent_llm
+from src.chat.tools.neo4j_query import build_neo4j_tools
 from src.config.settings import AppSettings, get_settings
 from src.embedding.version_registry import EmbeddingVersionRegistry
 from src.embedding.vllm_embedding import VLLMEmbeddingClient
@@ -87,12 +92,34 @@ def build_container(checkpointer: Optional[object] = None) -> AppContainer:
     # OntologyLoader 는 outbox worker 가 사용 (FastAPI 경로는 enqueue 만 호출).
     _loader = OntologyLoader(neo4j, embedding_registry=embedding_registry)  # noqa: F841
 
+    neo4j_settings = settings.neo4j
+    neo4j_graph = Neo4jGraph(
+        url=neo4j_settings.uri,
+        username=neo4j_settings.user,
+        password=neo4j_settings.password,
+        database=neo4j_settings.database,
+        enhanced_schema=True,
+    )
+    neo4j_graph.refresh_schema()
+
+    agent_llm = build_agent_llm(settings)
+    cypher_service = Neo4jCypherService(
+        neo4j_graph,
+        neo4j,
+        agent_llm,
+        settings=neo4j_settings,
+    )
+    neo4j_tools = build_neo4j_tools(cypher_service)
+
     chat_deps = ChatGraphDependencies(
         embedder=embedder,
         intent_resolver=intent_resolver,
         policy=policy,
         template_executor=template_executor,
         llm=llm,
+        agent_llm=agent_llm,
+        neo4j_tools=neo4j_tools,
+        cypher_service=cypher_service,
         history=chat_history,
         media_classifier=LLMMediaClassifier(llm),
     )

@@ -38,6 +38,7 @@ def _build_payload(state: ChatState, deps: ChatGraphDependencies, scope: IntentS
             "query": user_query,
             "intent_scope": scope,
             "direct_reply_hint": state.get("direct_reply_hint") or "",
+            "graph_query_results": state.get("graph_query_results") or [],
             **deps.extra_user_payload,
         }
     payload: dict[str, Any] = {}
@@ -47,6 +48,9 @@ def _build_payload(state: ChatState, deps: ChatGraphDependencies, scope: IntentS
     if scope == "feed" or scope == "both":
         payload["feed_filters"] = state.get("feed_filters") or {}
         payload["feed_candidates"] = (state.get("retrieved_feeds") or [])[:top_k]
+    graph_results = state.get("graph_query_results") or []
+    if graph_results:
+        payload["graph_query_results"] = graph_results
     return {
         "query": user_query,
         "intent_scope": scope,
