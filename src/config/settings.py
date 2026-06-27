@@ -122,7 +122,6 @@ class BanditSettings(BaseSettings):
     """추천 bandit 가드레일."""
 
     baseline_min_share: float = Field(default=0.05)
-    max_weight_delta: float = Field(default=0.20)
 
     model_config = SettingsConfigDict(
         env_file=".env", env_prefix="BANDIT_", extra="ignore"
@@ -154,9 +153,6 @@ class AppSettings(BaseSettings):
     env: Literal["local", "dev", "stg", "prod"] = Field(
         default="local", validation_alias="APP_ENV"
     )
-    log_level: str = Field(default="INFO")
-    host: str = Field(default="0.0.0.0", validation_alias="APP_HOST")
-    port: int = Field(default=8080, validation_alias="APP_PORT")
 
     neo4j: Neo4jSettings = Field(default_factory=Neo4jSettings)
     postgres: PostgresSettings = Field(default_factory=PostgresSettings)
@@ -174,11 +170,6 @@ class AppSettings(BaseSettings):
         extra="ignore",
     )
 
-    @property
-    def vllm(self) -> VLLMGenSettings:
-        """하위 호환: 기존 코드의 settings.vllm."""
-        return self.vllm_gen
-
 
 @lru_cache(maxsize=1)
 def get_settings() -> AppSettings:
@@ -186,15 +177,11 @@ def get_settings() -> AppSettings:
     return AppSettings()
 
 
-# 하위 호환 alias
-VLLMSettings = VLLMGenSettings
-
 __all__ = [
     "Neo4jSettings",
     "PostgresSettings",
     "VLLMGenSettings",
     "VLLMEmbedSettings",
-    "VLLMSettings",
     "EmbeddingSettings",
     "OntologySettings",
     "VocabSettings",

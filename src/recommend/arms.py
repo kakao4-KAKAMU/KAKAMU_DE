@@ -23,11 +23,4 @@ DEFAULT_ARMS: list[BanditArm] = [
 ]
 
 
-def get_arm(arm_id: str) -> BanditArm:
-    for arm in DEFAULT_ARMS:
-        if arm.arm_id == arm_id:
-            return arm
-    return DEFAULT_ARMS[0]
-
-
-__all__ = ["BanditArm", "DEFAULT_ARMS", "get_arm"]
+__all__ = ["BanditArm", "DEFAULT_ARMS"]
