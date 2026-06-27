@@ -7,10 +7,19 @@ SOLID - ISP: LLM generation / embedding / storage 를 별도 Settings 로 분리
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Literal
+from typing import Literal, Self
 
-from pydantic import AliasChoices, Field
+from pydantic import AliasChoices, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from src.api.security.limits import (
+    DEFAULT_MAX_CHAT_MESSAGE_LENGTH,
+    DEFAULT_MAX_INGEST_CONTENT_LENGTH,
+    DEFAULT_MAX_RECOMMEND_QUERY_LENGTH,
+)
+
+_INSECURE_NEO4J_PASSWORDS = frozenset({"", "neo4j"})
+_INSECURE_PG_PASSWORDS = frozenset({"", "postgres"})
 
 
 class Neo4jSettings(BaseSettings):
@@ -128,6 +137,27 @@ class BanditSettings(BaseSettings):
     )
 
 
+class ApiSecuritySettings(BaseSettings):
+    """HTTP API 보안·리소스 가드레일."""
+
+    max_chat_message_length: int = Field(
+        default=DEFAULT_MAX_CHAT_MESSAGE_LENGTH, ge=256, le=32_000
+    )
+    max_recommend_query_length: int = Field(
+        default=DEFAULT_MAX_RECOMMEND_QUERY_LENGTH, ge=64, le=8_000
+    )
+    max_ingest_content_length: int = Field(
+        default=DEFAULT_MAX_INGEST_CONTENT_LENGTH, ge=256, le=100_000
+    )
+    max_request_body_bytes: int = Field(default=1_048_576, ge=1_024)
+    rate_limit_rpm_default: int = Field(default=120, ge=1)
+    rate_limit_rpm_expensive: int = Field(default=30, ge=1)
+
+    model_config = SettingsConfigDict(
+        env_file=".env", env_prefix="API_SEC_", extra="ignore"
+    )
+
+
 class EvalSettings(BaseSettings):
     """LLM judge / drift 알람."""
 
@@ -163,12 +193,27 @@ class AppSettings(BaseSettings):
     vocab: VocabSettings = Field(default_factory=VocabSettings)
     bandit: BanditSettings = Field(default_factory=BanditSettings)
     eval_cfg: EvalSettings = Field(default_factory=EvalSettings)
+    api_security: ApiSecuritySettings = Field(default_factory=ApiSecuritySettings)
 
     model_config = SettingsConfigDict(
         env_file=".env",
         env_nested_delimiter="__",
         extra="ignore",
     )
+
+    @model_validator(mode="after")
+    def _reject_insecure_credentials_in_prod(self) -> Self:
+        if self.env not in ("stg", "prod"):
+            return self
+        if self.neo4j.password in _INSECURE_NEO4J_PASSWORDS:
+            raise ValueError(
+                "NEO4J_PASSWORD must be set to a non-default value when APP_ENV is stg/prod"
+            )
+        if self.postgres.password in _INSECURE_PG_PASSWORDS:
+            raise ValueError(
+                "PG_PASSWORD must be set to a non-default value when APP_ENV is stg/prod"
+            )
+        return self
 
 
 @lru_cache(maxsize=1)
@@ -186,6 +231,7 @@ __all__ = [
     "OntologySettings",
     "VocabSettings",
     "BanditSettings",
+    "ApiSecuritySettings",
     "EvalSettings",
     "AppSettings",
     "get_settings",

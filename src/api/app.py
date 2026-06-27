@@ -19,6 +19,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
 
 
+from src.api.middleware.rate_limit import RateLimitMiddleware
+from src.api.middleware.request_size import RequestSizeLimitMiddleware
 from src.api.routers import router
 from src.config.settings import get_settings
 
@@ -64,12 +66,22 @@ def create_app() -> FastAPI:
         return app.openapi_schema
 
     app.openapi = custom_openapi
+    sec = settings.api_security
     app.add_middleware(
         CORSMiddleware,
         allow_origins=origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
+    )
+    app.add_middleware(
+        RateLimitMiddleware,
+        default_rpm=sec.rate_limit_rpm_default,
+        expensive_rpm=sec.rate_limit_rpm_expensive,
+    )
+    app.add_middleware(
+        RequestSizeLimitMiddleware,
+        max_body_bytes=sec.max_request_body_bytes,
     )
     app.include_router(router)
     logger.info("FastAPI app initialized (env=%s)", settings.env)
