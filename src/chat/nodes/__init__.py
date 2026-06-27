@@ -28,6 +28,7 @@ from src.chat.nodes.dependencies import (
     DEFAULT_WEIGHTS,
     ChatGraphDependencies,
 )
+from src.chat.nodes.agent import build_agent_llm, call_agent
 from src.chat.nodes.embedding import embed_query
 from src.chat.nodes.intent import analyze_query, plan_intent
 from src.chat.nodes.media import route_after_analysis, route_media
@@ -45,6 +46,7 @@ from src.chat.nodes.retrieval import (
     retrieve_feeds,
     retrieve_movies,
 )
+from src.chat.nodes.tools import merge_tool_results_into_state, run_neo4j_tools
 from src.chat.nodes.weights import select_weights
 
 __all__ = [
@@ -56,16 +58,20 @@ __all__ = [
     "DEFAULT_MOVIE_TEMPLATE_ID",
     "DEFAULT_WEIGHTS",
     "analyze_query",
+    "build_agent_llm",
+    "call_agent",
     "embed_query",
     "filter_both",
     "filter_feeds",
     "filter_movies",
     "generate_reply",
+    "merge_tool_results_into_state",
     "persist_history",
     "plan_intent",
     "retrieve_feeds",
     "retrieve_movies",
     "route_after_analysis",
     "route_media",
+    "run_neo4j_tools",
     "select_weights",
 ]

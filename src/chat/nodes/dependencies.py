@@ -11,6 +11,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
+from langchain_core.language_models import BaseChatModel
+from langchain_core.tools import BaseTool
+
+from src.chat.cypher.service import Neo4jCypherService
 from src.chat.nodes.protocols import (
     ChatLLMLike,
     EmbedderLike,
@@ -49,6 +53,9 @@ class ChatGraphDependencies:
     policy: RecommendPolicy
     template_executor: TemplateExecutor
     llm: ChatLLMLike
+    agent_llm: BaseChatModel
+    neo4j_tools: list[BaseTool]
+    cypher_service: Optional[Neo4jCypherService] = None
     history: Optional[ChatHistoryStore] = None
     media_classifier: Optional[MediaClassifierLike] = None
     query_analyzer: Optional[LLMQueryAnalyzer] = None
