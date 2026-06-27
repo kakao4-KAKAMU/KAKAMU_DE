@@ -70,11 +70,12 @@ _QUERY_ANALYSIS_GUIDE: Final[str] = dedent(
     - movie.min_year/movie.max_year: 연도 범위. 없으면 0. 현재 년도는 2026년 입니다.
 
     [feed 필터 — Feed 온톨로지]
-    - feed.categories: 글 특성(review/recommendation/question/discussion/news/spoiler/theory/comparison/meta/off_topic).
-    - feed.emotions: 피드 본문에서 기대되는 감정 태그.
-    - feed.sentiment: 피드 본문에서 기대되는 감정 극성. 모호하면 "neutral".
-    - feed.contains_spoiler: 피드 본문에서 스포일러 피드를 원하면 true, 회피하면 false, 무관하면 false.
-    - feed.related_movie_title: 피드 본문에서 특정 영화 관련 피드 요청 시 제목. 없으면 빈 문자열.
+    - feed.categories: 질의에 포함되어 있는 피드 특성(review/recommendation/question/discussion/news/spoiler/theory/comparison/meta/off_topic).
+    - feed.emotions: 질의에 포함되어 있는 피드 감정 태그.
+    - feed.keywords: 질의에 포함되어 있는 피드의 영화 지표.
+    - feed.sentiment: 질의에 포함되어 있는 피드 감정 극성. 모호하면 "neutral".
+    - feed.contains_spoiler: 질의에 포함되어 있는 피드 스포일러 피드를 원하면 true, 회피하면 false, 무관하면 false.
+    - feed.related_movie_title: 질의에 포함되어 있는 피드 특정 영화 관련 피드 요청 시 제목. 없으면 빈 문자열.
 
     [none 일 때]
     - direct_reply_hint: 바로 응답할 때 참고할 한국어 힌트(1문장). 빈 문자열 가능.
