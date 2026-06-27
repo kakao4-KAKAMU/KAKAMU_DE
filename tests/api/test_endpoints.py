@@ -51,6 +51,7 @@ def _build_fake_container() -> AppContainer:
     history.open_session.return_value = None
     history.append.return_value = 42
     session = MagicMock()
+    session.user_id = "u1"
     session.persona_id = None
     history.get_session_by_id.return_value = session
 
@@ -135,6 +136,22 @@ def test_chat_stream_returns_sse(client: TestClient, _override_container) -> Non
 
     _override_container.chat_history.open_session.assert_called_once()
     _override_container.chat_history.append.assert_called()
+
+
+def test_chat_stream_rejects_foreign_session(
+    client: TestClient, _override_container
+) -> None:
+    foreign = MagicMock()
+    foreign.user_id = "victim"
+    foreign.persona_id = None
+    _override_container.chat_history.get_session_by_id.return_value = foreign
+
+    resp = client.post(
+        "/chat/stream",
+        json={"user_id": "attacker", "message": "hello", "session_id": "s-victim"},
+    )
+    assert resp.status_code == 403
+    _override_container.chat_history.open_session.assert_not_called()
 
 
 def test_recommend_uses_intent_and_template(
