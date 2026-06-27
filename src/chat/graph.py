@@ -31,7 +31,7 @@ from src.chat.nodes import (
 )
 from src.chat.state import ChatState
 
-_AGENT_RECURSION_LIMIT = 15
+AGENT_RECURSION_LIMIT = 15
 
 
 def build_chat_graph(
@@ -71,6 +71,4 @@ def build_chat_graph(
     return graph.compile(**compile_kwargs)
 
 
-__all__ = ["ChatGraphDependencies", "build_chat_graph", "AGENT_RECURSION_LIMIT"]
-
-AGENT_RECURSION_LIMIT = _AGENT_RECURSION_LIMIT
+__all__ = ["build_chat_graph"]

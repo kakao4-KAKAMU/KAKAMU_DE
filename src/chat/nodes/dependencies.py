@@ -14,7 +14,6 @@ from typing import Any, Optional
 from langchain_core.language_models import BaseChatModel
 from langchain_core.tools import BaseTool
 
-from src.chat.cypher.service import Neo4jCypherService
 from src.embedding.vllm_embedding import VLLMEmbeddingClient
 from src.llm.vllm_client import VLLMChatClient
 from src.persistence.chat_history import ChatHistoryStore
@@ -28,7 +27,6 @@ class ChatGraphDependencies:
     llm: VLLMChatClient
     agent_llm: BaseChatModel
     neo4j_tools: list[BaseTool]
-    cypher_service: Optional[Neo4jCypherService] = None
     history: Optional[ChatHistoryStore] = None
     default_top_k: int = 20
     reply_max_tokens: int = 512

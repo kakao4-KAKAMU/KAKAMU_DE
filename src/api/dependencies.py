@@ -22,10 +22,8 @@ from src.chat.nodes import ChatGraphDependencies
 from src.chat.nodes.agent import build_agent_llm, build_cypher_llm
 from src.chat.tools.neo4j_query import build_neo4j_tools
 from src.config.settings import AppSettings, get_settings
-from src.embedding.version_registry import EmbeddingVersionRegistry
 from src.embedding.vllm_embedding import VLLMEmbeddingClient
 from src.graph.client import Neo4jClient
-from src.graph.loader import OntologyLoader
 from src.graph.template_executor import TemplateExecutor
 from src.graph.templates import build_default_registry
 from src.ingest.outbox_writer import OutboxWriter
@@ -43,8 +41,6 @@ class AppContainer:
     """Application lifecycle 동안 공유되는 객체 모음."""
 
     settings: AppSettings
-    neo4j: Neo4jClient
-    llm: VLLMChatClient
     embedder: VLLMEmbeddingClient
     policy: RecommendPolicy
     template_executor: TemplateExecutor
@@ -85,11 +81,8 @@ def build_container(checkpointer: Optional[object] = None) -> AppContainer:
 
     intent_resolver = IntentResolver(_build_vocab_normalizer())
 
-    embedding_registry = EmbeddingVersionRegistry(neo4j, settings=settings.embedding)
     chat_history = ChatHistoryStore(settings.postgres)
     outbox = OutboxWriter(settings.postgres)
-    # OntologyLoader 는 outbox worker 가 사용 (FastAPI 경로는 enqueue 만 호출).
-    _loader = OntologyLoader(neo4j, embedding_registry=embedding_registry)  # noqa: F841
 
     neo4j_settings = settings.neo4j
     neo4j_graph = Neo4jGraph(
@@ -116,7 +109,6 @@ def build_container(checkpointer: Optional[object] = None) -> AppContainer:
         llm=llm,
         agent_llm=agent_llm,
         neo4j_tools=neo4j_tools,
-        cypher_service=cypher_service,
         history=chat_history,
     )
     chat_graph = build_chat_graph(chat_deps, checkpointer=checkpointer)
@@ -124,8 +116,6 @@ def build_container(checkpointer: Optional[object] = None) -> AppContainer:
 
     return AppContainer(
         settings=settings,
-        neo4j=neo4j,
-        llm=llm,
         embedder=embedder,
         policy=policy,
         template_executor=template_executor,

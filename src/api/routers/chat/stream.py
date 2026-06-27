@@ -13,6 +13,7 @@ from src.api.dependencies import AppContainer
 from src.api.routers.chat.utils import initial_chat_state, jsonify
 from src.api.routers.deps import get_app_container
 from src.api.schemas import ChatRequest
+from src.chat.graph import AGENT_RECURSION_LIMIT
 
 from collections.abc import AsyncIterable
 
@@ -58,7 +59,7 @@ async def chat_stream(
     state = initial_chat_state(req, req.user_id, session_id, session.persona_id)
     config = {
         "configurable": {"thread_id": session_id},
-        "recursion_limit": 15,
+        "recursion_limit": AGENT_RECURSION_LIMIT,
     }
 
     async def event_gen():

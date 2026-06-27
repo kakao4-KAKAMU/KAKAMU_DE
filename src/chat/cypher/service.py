@@ -131,7 +131,7 @@ class Neo4jCypherService:
             "graph": neo4j_graph,
             "validate_cypher": True,
             "top_k": top_k,
-            "allow_dangerous_requests": True,
+            "allow_dangerous_requests": False,
         }
         if use_include:
             chain_kwargs["include_types"] = use_include
@@ -146,10 +146,6 @@ class Neo4jCypherService:
         self._syntax_validator = SyntaxValidator(driver)
         self._schema_validator = SchemaValidator(driver)
         self._properties_validator = PropertiesValidator(driver)
-
-    @property
-    def graph_schema(self) -> str:
-        return self._chain.graph_schema
 
     def query(self, question: str) -> CypherExecutionResult:
         """자연어 질문 → Cypher 생성·검증·실행."""

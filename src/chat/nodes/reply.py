@@ -148,10 +148,6 @@ def build_structured_reply(state: ChatState, deps: ChatGraphDependencies) -> Cha
     return {"reply": reply, "reply_metadata": reply_metadata}
 
 
-def generate_reply(state: ChatState, deps: ChatGraphDependencies) -> ChatState:
-    return build_structured_reply(state, deps)
-
-
 def _fallback_reply(scope: IntentScope, state: ChatState) -> str:
     if scope == "none":
         hint = str(state.get("direct_reply_hint") or "").strip()
@@ -183,4 +179,4 @@ def _fallback_reply(scope: IntentScope, state: ChatState) -> str:
     return f"이런 영화를 추천드려요: {titles}."
 
 
-__all__ = ["build_structured_reply", "generate_reply"]
+__all__ = ["build_structured_reply"]
