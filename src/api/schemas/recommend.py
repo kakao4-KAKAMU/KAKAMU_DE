@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import Optional, Any
 from pydantic import BaseModel, Field
+from src.api.security.limits import DEFAULT_MAX_RECOMMEND_QUERY_LENGTH
 
 # ---------------------------------------------------------------------------
 # /recommend/movie
@@ -10,7 +11,7 @@ from pydantic import BaseModel, Field
 class RecommendRequest(BaseModel):
     user_id: str = Field(min_length=1)
     persona_id: Optional[str] = Field(default=None)
-    query: str = Field(min_length=1)
+    query: str = Field(min_length=1, max_length=DEFAULT_MAX_RECOMMEND_QUERY_LENGTH)
     top_k: int = Field(default=10, ge=1, le=50)
     vec_top_k: int = Field(default=30, ge=1, le=100)
     max_toxicity: float = Field(default=0.7, ge=0.0, le=1.0)

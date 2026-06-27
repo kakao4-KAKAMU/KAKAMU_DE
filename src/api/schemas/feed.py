@@ -12,6 +12,7 @@ from typing import List, Optional
 from pydantic import Field
 
 from src.api.schemas.shared import IngestPayload
+from src.api.security.limits import DEFAULT_MAX_INGEST_CONTENT_LENGTH
 
 
 class IngestFeedPayload(IngestPayload):
@@ -30,7 +31,11 @@ class IngestFeedPayload(IngestPayload):
     mentioned_user_ids: List[str] = Field(
         default_factory=list, description="본문에서 @언급된 사용자 ID."
     )
-    content: str = Field(min_length=1, description="피드 원문 본문.")
+    content: str = Field(
+        min_length=1,
+        max_length=DEFAULT_MAX_INGEST_CONTENT_LENGTH,
+        description="피드 원문 본문.",
+    )
     created_at: Optional[datetime] = Field(default=None, description="작성 시각 (ISO 8601).")
     modified_at: Optional[datetime] = Field(default=None, description="수정 시각 (ISO 8601).")
 
