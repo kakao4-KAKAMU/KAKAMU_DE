@@ -127,7 +127,7 @@ class Neo4jCypherService:
             "graph": neo4j_graph,
             "validate_cypher": True,
             "top_k": top_k,
-            "allow_dangerous_requests": False,
+            "allow_dangerous_requests": True,
         }
         if use_include:
             chain_kwargs["include_types"] = use_include
