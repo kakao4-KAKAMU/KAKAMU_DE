@@ -56,7 +56,13 @@ def test_fetch_reembed_candidates_movie_feed_comment() -> None:
     client = FakeNeo4j(
         {
             "MATCH (m:Movie)": [
-                {"aggregate_id": "m-1", "summary": "plot one"},
+                {
+                    "aggregate_id": "m-1",
+                    "summary": "plot one",
+                    "title": "Plot One",
+                    "country": "KR",
+                    "producing_year": 2020,
+                },
             ],
             "MATCH (f:Feed)": [
                 {"aggregate_id": "f-1", "summary": "feed one"},
@@ -86,7 +92,12 @@ def test_fetch_reembed_candidates_movie_feed_comment() -> None:
 def test_enqueue_reembed_jobs_writes_outbox_rows() -> None:
     writer = FakeOutboxWriter()
     candidates = [
-        ReembedCandidate("movie", "m-1", "plot"),
+        ReembedCandidate(
+            "movie",
+            "m-1",
+            "plot",
+            metadata={"title": "Plot One", "country": "KR", "producing_year": 2020},
+        ),
         ReembedCandidate("feed", "f-1", "feed"),
         ReembedCandidate("comment", "c-1", "comment", feed_id="f-1"),
     ]
@@ -116,10 +127,16 @@ def test_movie_reembed_handler_dual_writes() -> None:
         {
             "movie_id": "m-1",
             "summary": "A hero saves the city.",
+            "title": "Hero",
+            "country": "US",
+            "producing_year": 2024,
             "target_embedding_version": "2",
         }
     )
-    embedder.embed.assert_called_once_with("A hero saves the city.")
+    embedder.embed.assert_called_once()
+    embed_text = embedder.embed.call_args.args[0]
+    assert "A hero saves the city." in embed_text
+    assert "Hero" in embed_text
     dual_writer.write_movie_plot_embedding.assert_called_once_with("m-1", [0.5, 0.5])
 
 

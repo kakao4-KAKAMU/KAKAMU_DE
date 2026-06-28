@@ -19,10 +19,10 @@ def _build_ontology_ref(state: ChatState) -> dict[str, Any]:
     ontology_ref: dict[str, Any] = {
         "intent_scope": scope,
         "arm_id": state.get("arm_id"),
-        "themes": state.get("themes") or [],
-        "moods": state.get("moods") or [],
-        "movie_filters": state.get("movie_filters") or {},
-        "feed_filters": state.get("feed_filters") or {},
+        "themes": state.get("themes", []),
+        "moods": state.get("moods", []),
+        "retrieved_movies": state.get("retrieved_movies", []),
+        "retrieved_feeds": state.get("retrieved_feeds", []),
     }
     if retrieved_movies:
         ontology_ref["movie_ids"] = [

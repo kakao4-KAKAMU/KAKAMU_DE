@@ -7,10 +7,19 @@ SOLID - ISP: LLM generation / embedding / storage 를 별도 Settings 로 분리
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Literal
+from typing import Literal, Self
 
-from pydantic import AliasChoices, Field
+from pydantic import AliasChoices, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from src.config.limits import (
+    DEFAULT_MAX_CHAT_MESSAGE_LENGTH,
+    DEFAULT_MAX_INGEST_CONTENT_LENGTH,
+    DEFAULT_MAX_RECOMMEND_QUERY_LENGTH,
+)
+
+_INSECURE_NEO4J_PASSWORDS = frozenset({"", "neo4j"})
+_INSECURE_PG_PASSWORDS = frozenset({"", "postgres"})
 
 
 class Neo4jSettings(BaseSettings):
@@ -122,10 +131,30 @@ class BanditSettings(BaseSettings):
     """추천 bandit 가드레일."""
 
     baseline_min_share: float = Field(default=0.05)
-    max_weight_delta: float = Field(default=0.20)
 
     model_config = SettingsConfigDict(
         env_file=".env", env_prefix="BANDIT_", extra="ignore"
+    )
+
+
+class ApiSecuritySettings(BaseSettings):
+    """HTTP API 보안·리소스 가드레일."""
+
+    max_chat_message_length: int = Field(
+        default=DEFAULT_MAX_CHAT_MESSAGE_LENGTH, ge=256, le=32_000
+    )
+    max_recommend_query_length: int = Field(
+        default=DEFAULT_MAX_RECOMMEND_QUERY_LENGTH, ge=64, le=8_000
+    )
+    max_ingest_content_length: int = Field(
+        default=DEFAULT_MAX_INGEST_CONTENT_LENGTH, ge=256, le=100_000
+    )
+    max_request_body_bytes: int = Field(default=1_048_576, ge=1_024)
+    rate_limit_rpm_default: int = Field(default=120, ge=1)
+    rate_limit_rpm_expensive: int = Field(default=30, ge=1)
+
+    model_config = SettingsConfigDict(
+        env_file=".env", env_prefix="API_SEC_", extra="ignore"
     )
 
 
@@ -154,9 +183,6 @@ class AppSettings(BaseSettings):
     env: Literal["local", "dev", "stg", "prod"] = Field(
         default="local", validation_alias="APP_ENV"
     )
-    log_level: str = Field(default="INFO")
-    host: str = Field(default="0.0.0.0", validation_alias="APP_HOST")
-    port: int = Field(default=8080, validation_alias="APP_PORT")
 
     neo4j: Neo4jSettings = Field(default_factory=Neo4jSettings)
     postgres: PostgresSettings = Field(default_factory=PostgresSettings)
@@ -167,6 +193,7 @@ class AppSettings(BaseSettings):
     vocab: VocabSettings = Field(default_factory=VocabSettings)
     bandit: BanditSettings = Field(default_factory=BanditSettings)
     eval_cfg: EvalSettings = Field(default_factory=EvalSettings)
+    api_security: ApiSecuritySettings = Field(default_factory=ApiSecuritySettings)
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -174,10 +201,19 @@ class AppSettings(BaseSettings):
         extra="ignore",
     )
 
-    @property
-    def vllm(self) -> VLLMGenSettings:
-        """하위 호환: 기존 코드의 settings.vllm."""
-        return self.vllm_gen
+    @model_validator(mode="after")
+    def _reject_insecure_credentials_in_prod(self) -> Self:
+        if self.env not in ("stg", "prod"):
+            return self
+        if self.neo4j.password in _INSECURE_NEO4J_PASSWORDS:
+            raise ValueError(
+                "NEO4J_PASSWORD must be set to a non-default value when APP_ENV is stg/prod"
+            )
+        if self.postgres.password in _INSECURE_PG_PASSWORDS:
+            raise ValueError(
+                "PG_PASSWORD must be set to a non-default value when APP_ENV is stg/prod"
+            )
+        return self
 
 
 @lru_cache(maxsize=1)
@@ -186,19 +222,16 @@ def get_settings() -> AppSettings:
     return AppSettings()
 
 
-# 하위 호환 alias
-VLLMSettings = VLLMGenSettings
-
 __all__ = [
     "Neo4jSettings",
     "PostgresSettings",
     "VLLMGenSettings",
     "VLLMEmbedSettings",
-    "VLLMSettings",
     "EmbeddingSettings",
     "OntologySettings",
     "VocabSettings",
     "BanditSettings",
+    "ApiSecuritySettings",
     "EvalSettings",
     "AppSettings",
     "get_settings",

@@ -1,6 +1,6 @@
 [project]
 name = "movie-recommend-system"
-version = "0.1.0"
+version = "0.2.0"
 description = "Knowledge-graph based movie/feed recommendation system (Neo4j + LangGraph + LangChain + FastAPI)"
 requires-python = ">=3.11"
 dependencies = [
@@ -13,9 +13,12 @@ dependencies = [
     "python-dotenv>=1.0.1",
 
     # --- LLM stack (vLLM via OpenAI-compatible API) ---
-    "openai>=1.40.0",
-    "langgraph>=0.2.0",
+    "openai>=2.44.0",
+    "langgraph>=1.2.6",
+    "langchain-neo4j>=0.10.0",
+    "langchain-openai>=1.3.3",
     "langgraph-checkpoint-postgres>=2.0.0",
+    "CyVer>=2.0.2",
 
     # --- Storage ---
     "neo4j>=5.24.0",

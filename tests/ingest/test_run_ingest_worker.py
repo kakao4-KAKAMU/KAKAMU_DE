@@ -38,4 +38,5 @@ def test_production_dispatcher_initializes_neo4j_schema() -> None:
         embedder=embedding_cls.return_value,
         loader=loader_cls.return_value,
         neo4j=neo4j,
+        embedding_registry=registry_cls.return_value,
     )

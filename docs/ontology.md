@@ -14,7 +14,7 @@
 | 댓글 본문   | `comment.content` (비정형, 짧음) | 대상·반응 + 감정 + keywords | `CommentOntology` |
 
 > 세 결과는 `OntologyResult` 를 상속해 공통 메타(`source_id`, `language`, `schema_version`)를 가진다.
-> **schema_version** 은 `1.1`.
+> **schema_version** 은 `1.1` (`src/ontology/schema.py`).
 
 ---
 
@@ -40,7 +40,7 @@
 ### Movie (`MoviePlotOntology`)
 
 - `summary`, `themes`, `moods` (폐쇄형 vocabulary), `keywords`, `toxicity_score`
-- themes/moods vocabulary 가이드는 movie 프롬프트에만 주입
+- themes/moods vocabulary 가이드는 movie 프롬프트에만 주입 (`prompts/schema_vocab.py`)
 
 ### Feed (`FeedOntology`)
 
@@ -55,33 +55,57 @@
 - `sentiment`, `sentiment_score`, `emotions`, `keywords`
 - `targets_user_id`, `contains_spoiler`, `toxicity_score`
 
+### Chat structured reply (스키마만, LLM 출력용)
+
+- `ChatReplyMovie`, `ChatReplyFeed`, `ChatReplyBoth`, `ChatReplyNone`
+- `QueryOntologyAnalysis`, `MovieQueryFilterOntology`, `FeedQueryFilterOntology` — Chat Agent 컨텍스트용 (구 `query_analyzer` LLM 프롬프트는 제거됨)
+
 ---
 
 ## 4. 프롬프트 모듈
 
 `src/ontology/prompts/`
 
-- **공통** `ONTOLOGY_SYSTEM_PROMPT`: 출력 원칙 + keywords 7종 정의
-- **movie**: vocab guide 포함 (themes/moods 폐쇄형 목록)
-- **feed / comment**: 타입 전용 가이드만 (vocab guide 없음)
+| 파일 | export | 용도 |
+|------|--------|------|
+| `base.py` | `ONTOLOGY_SYSTEM_PROMPT` | 공통 시스템 프롬프트 (prefix-cache) |
+| `movie.py` | `build_movie_plot_messages()` | MoviePlotOntology 추출 |
+| `feed.py` | `build_feed_messages()` | FeedOntology 추출 |
+| `comment.py` | `build_comment_messages()` | CommentOntology 추출 |
+| `reply.py` | `build_reply_messages()` | Chat structured reply |
+| `schema_vocab.py` | `vocab_*()`, `apply_vocab_enums()` | Genre/Theme/Mood 폐쇄형 vocab 주입 |
+| `pipeline.py` | `OntologyPromptSpec` | vocab fingerprint + payload 조립 |
 
 > system role 상수는 모든 호출에서 동일하게 유지해 vLLM prefix-cache hit rate 를 극대화한다.
 
 ---
 
-## 5. 검증 흐름
+## 5. VocabPipeline 연동
+
+추출 후 `src/vocab/pipeline.py` (`VocabPipeline`) 가 themes/moods/keywords 를:
+
+1. 표준 `Theme`/`Mood`/`Genre` 노드에 매칭하거나
+2. 미매칭 시 `CandidateTerm` 으로 관측
+
+상세: [auto_vocab.md](auto_vocab.md), 시드 데이터: [genre_theme_mood_library.md](genre_theme_mood_library.md)
+
+---
+
+## 6. 검증 흐름
 
 ```mermaid
 sequenceDiagram
     participant App as Extractor
     participant V as vLLM_JSON_mode
     participant Py as Pydantic_Validator
+    participant VP as VocabPipeline
 
-    App->>V: messages
+    App->>V: messages (prompts/*)
     V-->>App: JSON
     App->>Py: model_validate
     alt success
         Py-->>App: Ontology
+        App->>VP: normalize + observe candidates
     else fail
         App->>Py: lenient fallback
     end
@@ -89,8 +113,9 @@ sequenceDiagram
 
 ---
 
-## 6. 운영 시 유의사항
+## 7. 운영 시 유의사항
 
 - **schema_version** 변경 시 bump 후 마이그레이션 스크립트 실행.
-- **toxicity_score** 임계값(예: 0.7) 초과 시 추천 가중치 0 또는 별도 큐.
+- **ONTOLOGY_PROMPT_VERSION** 변경 시 outbox worker 가 stale row 를 re-enqueue ([outbox_ingest.md](outbox_ingest.md)).
+- **toxicity_score** 임계값(예: 0.7) 초과 시 추천 가중치 0 또는 별도 큐 (`max_toxicity` 파라미터).
 - **contains_spoiler** 인 피드는 기본 추천에서 dim/exclude.

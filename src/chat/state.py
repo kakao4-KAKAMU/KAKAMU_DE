@@ -8,7 +8,10 @@ SOLID
 
 from __future__ import annotations
 
-from typing import Any, Literal, Optional, TypedDict
+from typing import Annotated, Any, Literal, Optional, TypedDict
+
+from langchain_core.messages import BaseMessage
+from langgraph.graph.message import add_messages
 
 
 MediaType = Literal["movie", "feed"]
@@ -59,7 +62,10 @@ class ChatState(TypedDict, total=False):
 
     retrieved_movies: list[dict[str, Any]]
     retrieved_feeds: list[dict[str, Any]]
+    graph_query_results: list[dict[str, Any]]
     reply: str
+
+    messages: Annotated[list[BaseMessage], add_messages]
 
     reply_metadata: Optional[ReplyMetadata]
 

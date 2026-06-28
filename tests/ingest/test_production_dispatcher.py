@@ -152,16 +152,16 @@ def test_feed_handler_loads_related_movie_plot_from_neo4j() -> None:
         {
             "feed_id": "f-1",
             "user_id": "u-1",
-            "related_movie_id": "m-1",
+            "known_movie_ids": ["m-1"],
             "content": "재밌었어요",
         }
     )
 
     movie_plot_reader.get_plot_raw.assert_called_once_with("m-1")
     extract_kwargs = extractor.extract.call_args.kwargs
-    assert extract_kwargs["related_movie_plot_raw"] == (
+    assert extract_kwargs["known_movie_plot_raws"] == [
         "가난한 가족이 부유한 가족의 집에 침투한다"
-    )
+    ]
 
 
 def test_comment_handler_loads_ontology_context_from_neo4j() -> None:

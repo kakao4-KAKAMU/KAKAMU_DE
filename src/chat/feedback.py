@@ -53,4 +53,4 @@ class FeedbackRecorder:
         return FeedbackResult(arm_id=arm_id, context_key=context_key, reward=reward)
 
 
-__all__ = ["FeedbackRecorder", "FeedbackResult"]
+__all__ = ["FeedbackRecorder"]

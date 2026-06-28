@@ -9,7 +9,7 @@ SOLID
 from __future__ import annotations
 
 import random
-from typing import Mapping, Optional
+from typing import Optional
 
 from src.config.settings import BanditSettings, get_settings
 from src.recommend.arms import DEFAULT_ARMS, BanditArm
@@ -40,12 +40,6 @@ class RecommendPolicy:
         if random.random() < self._settings.baseline_min_share:
             return next(a for a in DEFAULT_ARMS if a.arm_id == self._baseline_id)
         return self._bandit.sample_arm(context_key)
-
-    def select_weights(
-        self, *, user_id: str, context_key: str = "default"  # noqa: ARG002 (예약)
-    ) -> Mapping[str, float]:
-        arm = self.select_arm(context_key=context_key)
-        return dict(arm.weights)
 
     def record_reward(
         self,

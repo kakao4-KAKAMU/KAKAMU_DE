@@ -2,6 +2,8 @@
 
 Tesla T4 16GB / 로컬 vLLM only / 동시 채팅 10명 기준.
 
+---
+
 ## 1. 사전 준비
 
 ```bash
@@ -10,6 +12,8 @@ cp .env.example .env
 pip install -r requirements.txt
 pip install 'psycopg[binary]' pytest
 ```
+
+---
 
 ## 2. 인프라 기동
 
@@ -20,21 +24,20 @@ docker run --rm -p 7474:7474 -p 7687:7687 neo4j:5
 # vLLM generation + embedding (T4 단일 GPU)
 ./scripts/start_vllm.sh
 
-# PostgreSQL 스키마
-psql -f src/persistence/outbox_schema.sql
-psql -f src/persistence/eval_schema.sql
-psql -f src/recommend/bandit_schema.sql
-
-# Neo4j 스키마
+# Neo4j + Postgres 스키마 일괄 (outbox, eval, bandit, LangGraph checkpoint 포함)
 python -m scripts.bootstrap_schema
 python scripts/seed_vocab_from_library.py
 ```
+
+---
 
 ## 3. 단위 테스트 (mock)
 
 ```bash
 python -m pytest tests/ -q
 ```
+
+---
 
 ## 4. Cypher Template smoke
 
@@ -49,7 +52,7 @@ with Neo4jClient() as neo:
         "hybrid_recommend",
         {
             "user_id": "u-demo",
-            "persona_id": "movie_buff",  # Persona-scoped 선호 조회
+            "persona_id": "movie_buff",
             "query_embedding": [0.0] * 1024,
             "query_keywords": [],
             "query_themes": [],
@@ -61,20 +64,39 @@ with Neo4jClient() as neo:
             "w_theme": 0.10,
             "w_mood": 0.05,
             "w_user": 0.15,
+            "max_toxicity": 0.7,
         },
         fallback=False,
     )
     print(rows)
 ```
 
-## 4-1. Persona Chat smoke
+---
+
+## 4-1. Persona Chat smoke (SSE)
 
 ```bash
-curl -s http://localhost:8080/chat \
+# API 서버 기동 (별도 터미널)
+uvicorn src.api.app:app --host 0.0.0.0 --port 8080
+
+curl -N http://localhost:8080/chat/stream \
   -H 'content-type: application/json' \
   -H 'X-Persona-Id: movie_buff' \
-  -d '{"user_id":"u-demo","message":"공포 영화 추천"}' | jq
+  -d '{"user_id":"u-demo","message":"공포 영화 추천"}'
 ```
+
+---
+
+## 4-2. Recommend smoke
+
+```bash
+curl -s http://localhost:8080/recommend/movie \
+  -H 'content-type: application/json' \
+  -H 'X-Persona-Id: movie_buff' \
+  -d '{"user_id":"u-demo","query":"잔잔한 가족 영화"}' | jq
+```
+
+---
 
 ## 5. Judge 1회 실행
 
@@ -91,14 +113,20 @@ scores = runner.judge_one(
 print(scores)
 ```
 
+---
+
 ## 6. Outbox worker (1 tick)
 
 ```bash
-python scripts/run_ingest_worker.py --once
+python -m scripts.run_ingest_worker --once
+# mock dispatcher:
+python -m scripts.run_ingest_worker --mock --once
 ```
+
+---
 
 ## 7. 동시 10명 부하 (수동)
 
 - `VLLM_GEN__MAX_NUM_SEQS=32` 유지
-- 10개 병렬 curl 로 `/v1/chat/completions` 호출 시 TTFT < 3s 목표
+- 10개 병렬 curl 로 `/chat/stream` 호출 시 TTFT < 3s 목표
 - OOM 시 `max-num-seqs` 16, `max-model-len` 4096 으로 축소
