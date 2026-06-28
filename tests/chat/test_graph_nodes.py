@@ -98,7 +98,6 @@ def test_call_agent_seeds_messages_on_first_invoke() -> None:
         {
             "query": "잔잔한 영화",
             "intent_scope": "movie",
-            "movie_filters": {"themes": ["성장"]},
             "retrieved_movies": [{"movie_id": "m1", "title": "Movie 1"}],
         },
         deps,
@@ -106,8 +105,7 @@ def test_call_agent_seeds_messages_on_first_invoke() -> None:
     assert "messages" in out
     assert len(out["messages"]) == 1
     assert isinstance(out["messages"][0], AIMessage)
-    assert out["reply"] == "이런 영화를 추천드려요"
-    assert out["reply_metadata"] == {"movie": [{"type": "movie", "id": "m1"}]}
+    assert "reply" not in out
 
 
 def test_call_agent_skips_reply_while_tool_calls_pending() -> None:
@@ -116,7 +114,6 @@ def test_call_agent_skips_reply_while_tool_calls_pending() -> None:
         {
             "query": "잔잔한 성장 영화",
             "intent_scope": "movie",
-            "movie_filters": {"themes": ["성장"]},
         },
         deps,
     )
@@ -170,18 +167,79 @@ def test_build_structured_reply_uses_llm_json() -> None:
     assert out["reply_metadata"] == {"movie": [{"type": "movie", "id": "m1"}]}
 
 
-def test_build_structured_reply_includes_graph_query_results_in_payload() -> None:
+def test_merge_tool_results_flattens_nested_movie_node() -> None:
+    tool_payload = json.dumps(
+        {
+            "status": "ok",
+            "cypher": "MATCH (m:Movie) RETURN m, 0.9 AS score",
+            "rows": [
+                {
+                    "m": {
+                        "movie_id": "m1",
+                        "title": "Movie 1",
+                        "plot_raw": "줄거리",
+                    },
+                    "score": 0.9,
+                }
+            ],
+        },
+        ensure_ascii=False,
+    )
+    out = merge_tool_results_into_state(
+        {"messages": [ToolMessage(content=tool_payload, tool_call_id="call_1")]},
+        {},
+    )
+    movie = out["retrieved_movies"][0]
+    assert movie["movie_id"] == "m1"
+    assert movie["title"] == "Movie 1"
+    assert movie["plot_raw"] == "줄거리"
+    assert movie["score"] == 0.9
+
+
+def test_build_structured_reply_uses_graph_query_results_as_candidates() -> None:
     deps = _deps()
     build_structured_reply(
         {
             "query": "추천",
             "intent_scope": "movie",
-            "graph_query_results": [{"cypher": "MATCH ...", "rows": [{"movie_id": "m1"}]}],
+            "graph_query_results": [
+                {
+                    "cypher": "MATCH ...",
+                    "rows": [{"movie_id": "m1", "title": "Movie 1", "plot_raw": "줄거리"}],
+                }
+            ],
         },
         deps,
     )
     messages = deps.llm.chat_json.call_args.kwargs.get("messages") or deps.llm.chat_json.call_args.args[0]
-    assert any("graph_query_results" in str(m) for m in messages)
+    system_text = "\n".join(m["content"] for m in messages if m["role"] == "system")
+    assert '"movie_id": "m1"' in system_text
+    assert '"plot": "줄거리"' in system_text
+    assert "[영화 추천 후보 목록]" in system_text
+
+
+def test_build_structured_reply_includes_plot_in_system_prompt() -> None:
+    deps = _deps()
+    build_structured_reply(
+        {
+            "query": "추천",
+            "intent_scope": "movie",
+            "retrieved_movies": [
+                {
+                    "movie_id": "m1",
+                    "title": "Movie 1",
+                    "plot_summary": "성장 드라마",
+                    "producing_year": 2019,
+                }
+            ],
+        },
+        deps,
+    )
+    messages = deps.llm.chat_json.call_args.kwargs.get("messages") or deps.llm.chat_json.call_args.args[0]
+    system_text = "\n".join(m["content"] for m in messages if m["role"] == "system")
+    assert '"plot": "성장 드라마"' in system_text
+    assert "[영화 추천 후보 목록]" in system_text
+    assert "[Neo4j" not in system_text
 
 
 def test_build_structured_reply_falls_back_when_llm_raises() -> None:
@@ -269,7 +327,6 @@ def test_persist_history_appends_when_session_id_present() -> None:
             "retrieved_movies": [{"movie_id": "m1"}],
             "themes": ["성장"],
             "moods": [],
-            "movie_filters": {"themes": ["성장"]},
             "feed_filters": {},
         },
         deps,

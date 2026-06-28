@@ -68,8 +68,6 @@ def test_build_reply_messages_puts_candidates_in_system_not_user() -> None:
         payload={
             "query": "잔잔한 영화와 후기 추천",
             "intent_scope": "both",
-            "movie_filters": {"genres": ["drama"]},
-            "feed_filters": {"categories": ["review"]},
             "movie_candidates": [
                 {
                     "movie_id": "m1",
@@ -96,8 +94,40 @@ def test_build_reply_messages_puts_candidates_in_system_not_user() -> None:
 
     assert "[영화 추천 후보 목록]" in system_text
     assert "[피드 추천 후보 목록]" in system_text
+    assert "[Neo4j" not in system_text
     assert '"movie_id": "m1"' in system_text
+    assert '"title": "Movie 1"' in system_text
     assert '"feed_id": "f1"' in system_text
+    assert '"content": "좋은 영화였어요"' in system_text
     assert "movie_candidates" not in user_text
     assert "feed_candidates" not in user_text
     assert "잔잔한 영화와 후기 추천" in user_text
+
+
+def test_build_reply_messages_maps_neo4j_field_aliases() -> None:
+    from src.ontology.prompts.reply import build_reply_messages
+
+    chat_payload = build_reply_messages(
+        scope="movie",
+        payload={
+            "query": "잔잔한 영화",
+            "intent_scope": "movie",
+            "retrieved_movies": [
+                {
+                    "movie_id": "m1",
+                    "title": "기생충",
+                    "producing_year": 2019,
+                    "plot_summary": "반지하 가족의 이야기",
+                    "genres": ["드라마", "스릴러"],
+                    "score": 0.91,
+                }
+            ],
+        },
+    )
+    system_text = "\n".join(
+        m["content"] for m in chat_payload["messages"] if m["role"] == "system"
+    )
+    assert '"plot": "반지하 가족의 이야기"' in system_text
+    assert '"genres"' in system_text
+    assert "[영화 추천 후보 목록]" in system_text
+    assert "[Neo4j" not in system_text

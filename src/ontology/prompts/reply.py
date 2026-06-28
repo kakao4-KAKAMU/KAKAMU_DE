@@ -23,7 +23,7 @@ ReplyScope = Literal["movie", "feed", "both", "none"]
 
 REPLY_CACHE_SALT: Final[str] = "chat_reply:v1"
 
-_MOVIE_CANDIDATE_FIELDS: Final[tuple[str, ...]] = (
+_RETRIEVED_MOVIES_FIELDS: Final[tuple[str, ...]] = (
     "movie_id",
     "title",
     "producing_year",
@@ -31,7 +31,7 @@ _MOVIE_CANDIDATE_FIELDS: Final[tuple[str, ...]] = (
     "plot_raw",
     "score",
 )
-_FEED_CANDIDATE_FIELDS: Final[tuple[str, ...]] = (
+_RETRIEVED_FEEDS_FIELDS: Final[tuple[str, ...]] = (
     "feed_id",
     "content_raw",
     "sentiment_score",
@@ -84,13 +84,11 @@ _REPLY_SYSTEM_RULES: Final[str] = dedent(
     [출력]
     - 단일 JSON 객체만 출력. 코드펜스/주석/설명 금지.
     - 스키마에 없는 키 추가 금지.
-    - JSON 문자열 값에 줄바꿈 대신 공백 사용.
-      metadata 의 id 는 system 메시지 후보 목록에 있는 값만 사용한다.
     """
 ).strip()
 
 
-def _slim_candidate(row: dict[str, Any], fields: tuple[str, ...]) -> dict[str, Any]:
+def _slim_retrieved(row: dict[str, Any], fields: tuple[str, ...]) -> dict[str, Any]:
     return {
         key: row[key]
         for key in fields
@@ -98,15 +96,15 @@ def _slim_candidate(row: dict[str, Any], fields: tuple[str, ...]) -> dict[str, A
     }
 
 
-def _format_movie_candidates(candidates: list[dict[str, Any]]) -> str:
-    if not candidates:
+def _format_retrieved_movies(retrieved: list[dict[str, Any]]) -> str:
+    if not retrieved:
         return dedent(
             """
             [영화 추천 후보 목록]
             (후보 없음)
             """
         ).strip()
-    slim = [_slim_candidate(row, _MOVIE_CANDIDATE_FIELDS) for row in candidates]
+    slim = [_slim_retrieved(row, _RETRIEVED_MOVIES_FIELDS) for row in retrieved]
     return dedent(
         f"""
         [영화 추천 후보 목록]
@@ -118,15 +116,15 @@ def _format_movie_candidates(candidates: list[dict[str, Any]]) -> str:
     ).strip()
 
 
-def _format_feed_candidates(candidates: list[dict[str, Any]]) -> str:
-    if not candidates:
+def _format_retrieved_feeds(retrieved: list[dict[str, Any]]) -> str:
+    if not retrieved:
         return dedent(
             """
             [피드 추천 후보 목록]
             (후보 없음)
             """
         ).strip()
-    slim = [_slim_candidate(row, _FEED_CANDIDATE_FIELDS) for row in candidates]
+    slim = [_slim_retrieved(row, _RETRIEVED_FEEDS_FIELDS) for row in retrieved]
     return dedent(
         f"""
         [피드 추천 후보 목록]
@@ -142,22 +140,22 @@ def _build_user_payload(payload: dict[str, Any]) -> str:
     user_body = {
         key: value
         for key, value in payload.items()
-        if key not in ("movie_candidates", "feed_candidates")
+        if key not in ("retrieved_movies", "retrieved_feeds")
     }
     return json.dumps(user_body, ensure_ascii=False)
 
 
-def _candidate_system_messages(
+def _retrieved_system_messages(
     scope: ReplyScope,
     *,
-    movie_candidates: list[dict[str, Any]] | None,
-    feed_candidates: list[dict[str, Any]] | None,
+    retrieved_movies: list[dict[str, Any]] | None,
+    retrieved_feeds: list[dict[str, Any]] | None,
 ) -> list[str]:
     messages: list[str] = []
     if scope in ("movie", "both"):
-        messages.append(_format_movie_candidates(movie_candidates or []))
+        messages.append(_format_retrieved_movies(retrieved_movies or []))
     if scope in ("feed", "both"):
-        messages.append(_format_feed_candidates(feed_candidates or []))
+        messages.append(_format_retrieved_feeds(retrieved_feeds or []))
     return messages
 
 
@@ -174,13 +172,13 @@ class _ReplyPromptSpec:
         self,
         *,
         user_payload: str,
-        candidate_system_messages: list[str] | None = None,
+        retrieved_system_messages: list[str] | None = None,
     ) -> dict[str, Any]:
         messages: list[dict[str, str]] = [
             {"role": "system", "content": _REPLY_SYSTEM_RULES},
             {"role": "system", "content": self.guide},
         ]
-        for content in candidate_system_messages or []:
+        for content in retrieved_system_messages or []:
             messages.append({"role": "system", "content": content})
         messages.append({"role": "user", "content": user_payload})
         return {
@@ -227,17 +225,19 @@ def build_reply_messages(
     payload: dict[str, Any],
 ) -> dict[str, Any]:
     """분석·필터링 결과 payload → generate_reply messages + response_format."""
-    movie_candidates = payload.get("movie_candidates")
-    feed_candidates = payload.get("feed_candidates")
+    retrieved_movies = payload.get("retrieved_movies")
+    retrieved_feeds = payload.get("retrieved_feeds")
     user_payload = _build_user_payload(payload)
-    candidate_messages = _candidate_system_messages(
+    retrieved_messages = _retrieved_system_messages(
         scope,
-        movie_candidates=movie_candidates if isinstance(movie_candidates, list) else None,
-        feed_candidates=feed_candidates if isinstance(feed_candidates, list) else None,
+        retrieved_movies=(
+            retrieved_movies if isinstance(retrieved_movies, list) else None
+        ),
+        retrieved_feeds=retrieved_feeds if isinstance(retrieved_feeds, list) else None,
     )
     return _REPLY_SPECS[scope].build_payload(
         user_payload=user_payload,
-        candidate_system_messages=candidate_messages,
+        retrieved_system_messages=retrieved_messages,
     )
 
 

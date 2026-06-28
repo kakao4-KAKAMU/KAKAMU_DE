@@ -4,10 +4,11 @@
 
     embed_query → agent
         ├─(tool_calls) → neo4j_tools → agent  (루프)
-        └─(no tools)   → persist_history → END
+        └─(no tools)   → generate_reply → persist_history → END
 
 ``agent`` 가 데이터 조회 필요 시 ``query_neo4j_graph`` tool을 호출하고,
-tool 호출이 끝나면 ``reply`` / ``reply_metadata`` 를 state 에 기록한다.
+조회가 끝나면 ``generate_reply`` 가 Neo4j 필터링 결과를 바탕으로
+``reply`` / ``reply_metadata`` 를 생성한다.
 
 SOLID
 -----
@@ -28,6 +29,7 @@ from src.chat.nodes import (
     embed_query,
     persist_history,
     run_neo4j_tools,
+    build_structured_reply,
 )
 from src.chat.state import ChatState
 
@@ -52,6 +54,7 @@ def build_chat_graph(
     graph.add_node("embed_query", lambda s: embed_query(s, deps))
     graph.add_node("agent", lambda s: call_agent(s, deps))
     graph.add_node("neo4j_tools", lambda s: run_neo4j_tools(s, deps))
+    graph.add_node("generate_reply", lambda s: build_structured_reply(s, deps))
     graph.add_node("persist_history", lambda s: persist_history(s, deps))
 
     graph.add_edge(START, "embed_query")
@@ -60,9 +63,10 @@ def build_chat_graph(
     graph.add_conditional_edges(
         "agent",
         tools_condition,
-        {"tools": "neo4j_tools", END: "persist_history"},
+        {"tools": "neo4j_tools", END: "generate_reply"},
     )
     graph.add_edge("neo4j_tools", "agent")
+    graph.add_edge("generate_reply", "persist_history")
     graph.add_edge("persist_history", END)
 
     compile_kwargs: dict = {}

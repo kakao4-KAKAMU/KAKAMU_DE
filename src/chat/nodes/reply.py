@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import logging
 from typing import Any
-
 from src.chat.nodes.dependencies import ChatGraphDependencies
 from src.chat.state import ChatState, IntentScope
 from src.ontology.prompts.reply import ReplyScope, build_reply_messages
@@ -21,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 def _resolve_scope(state: ChatState) -> IntentScope:
-    scope = state.get("intent_scope")
+    scope = state["intent_scope"]
     if scope in ("movie", "feed", "both", "none"):
         return scope
     media = state.get("media_type")
@@ -38,19 +37,13 @@ def _build_payload(state: ChatState, deps: ChatGraphDependencies, scope: IntentS
             "query": user_query,
             "intent_scope": scope,
             "direct_reply_hint": state.get("direct_reply_hint") or "",
-            "graph_query_results": state.get("graph_query_results") or [],
             **deps.extra_user_payload,
         }
     payload: dict[str, Any] = {}
     if scope == "movie" or scope == "both":
-        payload["movie_filters"] = state.get("movie_filters") or {}
-        payload["movie_candidates"] = (state.get("retrieved_movies") or [])[:top_k]
+        payload["retrieved_movies"] = state.get("retrieved_movies", [])
     if scope == "feed" or scope == "both":
-        payload["feed_filters"] = state.get("feed_filters") or {}
-        payload["feed_candidates"] = (state.get("retrieved_feeds") or [])[:top_k]
-    graph_results = state.get("graph_query_results") or []
-    if graph_results:
-        payload["graph_query_results"] = graph_results
+        payload["retrieved_feeds"] = state.get("retrieved_feeds", [])
     return {
         "query": user_query,
         "intent_scope": scope,
@@ -106,7 +99,7 @@ def _fallback_metadata(
     if scope in ("movie", "both"):
         movie_items = [
             {"type": "movie", "id": str(row["movie_id"])}
-            for row in (state.get("retrieved_movies") or [])[:top_k]
+            for row in state.get("retrieved_movies", [])
             if row.get("movie_id")
         ]
         if movie_items:
@@ -114,7 +107,7 @@ def _fallback_metadata(
     if scope in ("feed", "both"):
         feed_items = [
             {"type": "feed", "id": str(row["feed_id"])}
-            for row in (state.get("retrieved_feeds") or [])[:top_k]
+            for row in state.get("retrieved_feeds", [])
             if row.get("feed_id")
         ]
         if feed_items:
@@ -126,8 +119,10 @@ def build_structured_reply(state: ChatState, deps: ChatGraphDependencies) -> Cha
     """조회 결과를 바탕으로 ``reply`` / ``reply_metadata`` 를 생성한다."""
     scope: ReplyScope = _resolve_scope(state)
     payload = _build_payload(state, deps, scope)
+    print(payload)
     chat_payload = build_reply_messages(scope=scope, payload=payload)
     raw: dict[str, Any] = {}
+    print(scope, payload, chat_payload['messages'])
     try:
         raw = deps.llm.chat_json(
             chat_payload["messages"],
@@ -139,22 +134,22 @@ def build_structured_reply(state: ChatState, deps: ChatGraphDependencies) -> Cha
         reply = str(raw.get("reply") or "").strip()
     except Exception:
         logger.exception("Reply generation failed; falling back to deterministic answer.")
-        reply = _fallback_reply(scope, state)
+        reply = _fallback_reply(scope, state, deps.default_top_k)
     if not reply:
-        reply = _fallback_reply(scope, state)
+        reply = _fallback_reply(scope, state, deps.default_top_k)
     reply_metadata = _normalize_metadata(raw, scope)
     if reply_metadata is None and scope != "none":
         reply_metadata = _fallback_metadata(scope, state, deps.default_top_k)
     return {"reply": reply, "reply_metadata": reply_metadata}
 
 
-def _fallback_reply(scope: IntentScope, state: ChatState) -> str:
+def _fallback_reply(scope: IntentScope, state: ChatState, top_k: int) -> str:
     if scope == "none":
         hint = str(state.get("direct_reply_hint") or "").strip()
         return hint or "안녕하세요! 영화나 감상 피드 추천이 필요하시면 말씀해 주세요."
+    movies = state["retrieved_movies"]
+    feeds = state["retrieved_feeds"]
     if scope == "both":
-        movies = state.get("retrieved_movies") or []
-        feeds = state.get("retrieved_feeds") or []
         if not movies and not feeds:
             return "조건에 맞는 추천을 찾지 못했어요. 다른 키워드를 시도해 보세요."
         movie_titles = ", ".join(
@@ -165,14 +160,12 @@ def _fallback_reply(scope: IntentScope, state: ChatState) -> str:
         )
         return f"영화 추천: {movie_titles or '없음'}. 피드 추천: {feed_snippets or '없음'}."
     if scope == "feed":
-        feeds = state.get("retrieved_feeds") or []
         if not feeds:
             return "조건에 맞는 추천을 찾지 못했어요. 다른 키워드를 시도해 보세요."
         snippets = ", ".join(
             str(r.get("summary") or r.get("feed_id")) for r in feeds[:3]
         )
         return f"이런 감상 피드를 추천드려요: {snippets}."
-    movies = state.get("retrieved_movies") or []
     if not movies:
         return "조건에 맞는 추천을 찾지 못했어요. 다른 키워드를 시도해 보세요."
     titles = ", ".join(str(r.get("title") or r.get("movie_id")) for r in movies[:3])
