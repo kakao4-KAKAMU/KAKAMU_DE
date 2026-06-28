@@ -41,11 +41,11 @@ def _mock_agent_llm(*, with_tool_call: bool = False) -> MagicMock:
                         }
                     ],
                 )
-            return AIMessage(content="조회 완료")
+            return AIMessage(content="기생충을 추천드려요")
 
         bound.invoke.side_effect = side_effect
     else:
-        bound.invoke.return_value = AIMessage(content="조회 불필요")
+        bound.invoke.return_value = AIMessage(content="안녕하세요!")
     agent_llm.bind_tools.return_value = bound
     return agent_llm
 
@@ -70,7 +70,6 @@ def _deps(*, agent_with_tool: bool = False, feed_tool: bool = False) -> ChatGrap
 
     llm = MagicMock()
     llm.chat_json.return_value = {
-        "reply": "이런 영화를 추천드려요",
         "metadata": {"movie": [{"type": "movie", "id": "m1"}]},
     }
 
@@ -141,7 +140,6 @@ def test_merge_tool_results_syncs_retrieved_movies() -> None:
 def test_build_chat_graph_routes_feed_query_via_agent_tool() -> None:
     deps = _deps(agent_with_tool=True, feed_tool=True)
     deps.llm.chat_json.return_value = {
-        "reply": "이런 피드를 추천드려요",
         "metadata": {"feed": [{"type": "feed", "id": "f1"}]},
     }
     graph = build_chat_graph(deps)
@@ -160,11 +158,13 @@ def test_build_structured_reply_uses_llm_json() -> None:
             "query": "추천",
             "intent_scope": "movie",
             "retrieved_movies": [{"movie_id": "m1", "title": "Foo"}],
+            "messages": [AIMessage(content="기생충을 추천드려요")],
         },
         deps,
     )
-    assert out["reply"] == "이런 영화를 추천드려요"
+    assert out["reply"] == "기생충을 추천드려요"
     assert out["reply_metadata"] == {"movie": [{"type": "movie", "id": "m1"}]}
+    assert out["retrieved_movies"][0]["movie_id"] == "m1"
 
 
 def test_merge_tool_results_flattens_nested_movie_node() -> None:
@@ -205,14 +205,17 @@ def test_build_structured_reply_uses_retrieved_movies_as_candidates() -> None:
             "retrieved_movies": [
                 {"movie_id": "m1", "title": "Movie 1", "plot_raw": "줄거리"},
             ],
+            "messages": [AIMessage(content="Movie 1을 추천드려요")],
         },
         deps,
     )
     messages = deps.llm.chat_json.call_args.kwargs.get("messages") or deps.llm.chat_json.call_args.args[0]
     system_text = "\n".join(m["content"] for m in messages if m["role"] == "system")
+    user_text = next(m["content"] for m in messages if m["role"] == "user")
     assert '"movie_id": "m1"' in system_text
     assert '"plot_raw": "줄거리"' in system_text
     assert "[영화 추천 후보 목록]" in system_text
+    assert user_text == "Movie 1을 추천드려요"
 
 
 def test_build_structured_reply_includes_plot_raw_in_system_prompt() -> None:
@@ -229,6 +232,7 @@ def test_build_structured_reply_includes_plot_raw_in_system_prompt() -> None:
                     "producing_year": 2019,
                 }
             ],
+            "messages": [AIMessage(content="Movie 1을 추천드려요")],
         },
         deps,
     )
@@ -248,17 +252,18 @@ def test_build_structured_reply_falls_back_when_llm_raises() -> None:
             "intent_scope": "movie",
             "retrieved_movies": [{"movie_id": "m1", "title": "기생충"}],
             "retrieved_feeds": [],
+            "messages": [AIMessage(content="기생충을 추천드려요")],
         },
         deps,
     )
-    assert "기생충" in out["reply"]
+    assert out["reply"] == "기생충을 추천드려요"
     assert out["reply_metadata"] == {"movie": [{"type": "movie", "id": "m1"}]}
+    assert out["retrieved_movies"][0]["movie_id"] == "m1"
 
 
 def test_build_structured_reply_normalizes_multiple_movie_metadata() -> None:
     deps = _deps()
     deps.llm.chat_json.return_value = {
-        "reply": "세 편 추천",
         "metadata": {
             "movie": [
                 {"type": "movie", "id": "m1"},
@@ -276,9 +281,11 @@ def test_build_structured_reply_normalizes_multiple_movie_metadata() -> None:
                 {"movie_id": "m2"},
                 {"movie_id": "m3"},
             ],
+            "messages": [AIMessage(content="세 편을 추천드려요")],
         },
         deps,
     )
+    assert out["reply"] == "세 편을 추천드려요"
     assert out["reply_metadata"] == {
         "movie": [
             {"type": "movie", "id": "m1"},
@@ -286,32 +293,40 @@ def test_build_structured_reply_normalizes_multiple_movie_metadata() -> None:
             {"type": "movie", "id": "m3"},
         ]
     }
+    assert len(out["retrieved_movies"]) == 3
 
 
 def test_build_structured_reply_accepts_legacy_single_object_metadata() -> None:
     deps = _deps()
     deps.llm.chat_json.return_value = {
-        "reply": "추천",
         "metadata": {"movie": {"type": "movie", "id": "m1"}},
     }
     out = build_structured_reply(
-        {"query": "추천", "intent_scope": "movie", "retrieved_movies": [{"movie_id": "m1"}]},
+        {
+            "query": "추천",
+            "intent_scope": "movie",
+            "retrieved_movies": [{"movie_id": "m1"}],
+            "messages": [AIMessage(content="추천드려요")],
+        },
         deps,
     )
+    assert out["reply"] == "추천드려요"
     assert out["reply_metadata"] == {"movie": [{"type": "movie", "id": "m1"}]}
 
 
 def test_build_structured_reply_none_scope_without_retrieval() -> None:
     deps = _deps()
-    deps.llm.chat_json.return_value = {
-        "reply": "안녕하세요!",
-        "metadata": {},
-    }
     out = build_structured_reply(
-        {"query": "안녕", "intent_scope": "none", "direct_reply_hint": "인사"},
+        {
+            "query": "안녕",
+            "intent_scope": "none",
+            "direct_reply_hint": "인사",
+            "messages": [AIMessage(content="안녕하세요!")],
+        },
         deps,
     )
     assert out["reply"] == "안녕하세요!"
+    deps.llm.chat_json.assert_not_called()
 
 
 def test_persist_history_appends_when_session_id_present() -> None:
@@ -340,17 +355,13 @@ def test_build_chat_graph_runs_full_flow_with_agent_tool() -> None:
         {"user_id": "u1", "session_id": "s1", "query": "잔잔한 성장 영화 추천"},
         config={"recursion_limit": AGENT_RECURSION_LIMIT},
     )
-    assert final["reply"]
+    assert final["reply"] == "기생충을 추천드려요"
     assert final["retrieved_movies"][0]["movie_id"] == "m1"
     deps.history.append.assert_called()
 
 
 def test_build_chat_graph_skips_tool_for_none_scope() -> None:
     deps = _deps(agent_with_tool=False)
-    deps.llm.chat_json.return_value = {
-        "reply": "안녕하세요!",
-        "metadata": {},
-    }
     graph = build_chat_graph(deps)
     final = graph.invoke(
         {
@@ -362,6 +373,47 @@ def test_build_chat_graph_skips_tool_for_none_scope() -> None:
         config={"recursion_limit": AGENT_RECURSION_LIMIT},
     )
     assert final["reply"] == "안녕하세요!"
+    deps.llm.chat_json.assert_not_called()
+
+
+def test_build_structured_reply_strips_thinking_blocks() -> None:
+    deps = _deps()
+    raw_content = (
+        "<think>내부 추론</think>\n\n"
+        "기생충을 추천드려요"
+    )
+    out = build_structured_reply(
+        {
+            "query": "추천",
+            "intent_scope": "movie",
+            "retrieved_movies": [{"movie_id": "m1", "title": "기생충"}],
+            "messages": [AIMessage(content=raw_content)],
+        },
+        deps,
+    )
+    assert out["reply"] == "기생충을 추천드려요"
+    assert "redacted_thinking" not in out["reply"]
+
+
+def test_build_structured_reply_filters_retrieved_movies_by_extracted_ids() -> None:
+    deps = _deps()
+    deps.llm.chat_json.return_value = {
+        "metadata": {"movie": [{"type": "movie", "id": "m1"}]},
+    }
+    out = build_structured_reply(
+        {
+            "query": "추천",
+            "intent_scope": "movie",
+            "retrieved_movies": [
+                {"movie_id": "m1", "title": "Movie 1"},
+                {"movie_id": "m2", "title": "Movie 2"},
+            ],
+            "messages": [AIMessage(content="Movie 1을 추천드려요")],
+        },
+        deps,
+    )
+    assert len(out["retrieved_movies"]) == 1
+    assert out["retrieved_movies"][0]["movie_id"] == "m1"
 
 
 def test_feedback_recorder_records_with_chat_policy() -> None:

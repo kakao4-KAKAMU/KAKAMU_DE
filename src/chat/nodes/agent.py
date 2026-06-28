@@ -35,6 +35,10 @@ Ontology Analysis Context (JSON):
 {context}
 """
 
+_AGENT_RESPONSE_PROMPT = """\
+당신은 영화/피드 추천 챗봇의 데이터 조회 에이전트입니다.
+결과를 출력할때는 neo4j에 관련된 요소들은 숨겨야 합니다.
+"""
 
 def build_agent_llm(settings: AppSettings | None = None) -> BaseChatModel:
     """vLLM OpenAI-compatible endpoint용 ChatOpenAI (tool calling)."""

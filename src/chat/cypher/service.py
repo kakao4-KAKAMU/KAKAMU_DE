@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from typing import Any, Optional
-
+from datetime import datetime
 from CyVer import PropertiesValidator, SchemaValidator, SyntaxValidator
 from langchain_core.language_models import BaseLanguageModel
 from langchain_neo4j import GraphCypherQAChain, Neo4jGraph
@@ -20,6 +20,8 @@ from src.chat.cypher.sanitize import sanitize_and_extract_cypher
 from src.chat.cypher.security import validate_cypher_security
 from src.config.settings import Neo4jSettings
 from src.graph.client import Neo4jClient
+from src.ontology.prompts.schema_vocab import vocab_moods, vocab_themes
+from src.ontology.schema import GENRE_VALUES
 
 logger = logging.getLogger(__name__)
 
@@ -42,37 +44,63 @@ _EXCLUDED_NODE_TYPES: list[str] = ["User", "Persona"]
 
 # GraphCypherQAChain CYPHER_GENERATION_PROMPT 의 {examples} 슬롯용 few-shot.
 _DEFAULT_CYPHER_EXAMPLES: str = """\
-# 잔잔한 무드의 영화 10편은?
-MATCH (m:Movie)-[:HAS_MOOD]->(md:Mood {name: '잔잔한'})
+# 고정 값
+## Genre
+{genre}
+## Mood
+{mood}
+## Theme
+{theme}
+
+# '긴장감 넘치는' 무드의 영화 10편은?
+MATCH (m:Movie)-[:HAS_MOOD]->(md:Mood {name: 'suspenseful'})
 RETURN m.movie_id AS movie_id, m.producing_year AS producing_year, m.country AS country, m.title AS title
+ORDER BY m.producing_year DESC
+LIMIT 10
+
+# '복수' 영화 10편은?
+MATCH (m:Movie)-[:HAS_THEME]->(t:Theme {name: 'revenge'})
+RETURN m.movie_id AS movie_id, m.producing_year AS producing_year, m.country AS country, m.title AS title
+ORDER BY m.producing_year DESC
+LIMIT 10
+
+# '액션' 영화 10편은?
+MATCH (m:Movie)-[:HAS_GENRE]->(g:Genre {name: '액션'})
+RETURN m.movie_id AS movie_id, m.producing_year AS producing_year, m.country AS country, m.title AS title
+ORDER BY m.producing_year DESC
 LIMIT 10
 
 # '기생충'과 같은 장르 영화는?
 MATCH (seed:Movie {title: '기생충'})-[:HAS_GENRE]->(g:Genre)<-[:HAS_GENRE]-(m:Movie)
 WHERE m.movie_id <> seed.movie_id
 RETURN m.movie_id AS movie_id, m.producing_year AS producing_year, m.country AS country, m.title AS title
+ORDER BY m.producing_year DESC
 LIMIT 10
 
 # '봉준호' 감독 영화 목록은?
 MATCH (m:Movie)-[hp:HAS_PERSON]->(p:Person {name: '봉준호'})
-WHERE hp.job STARTS WITH '감독'
+WHERE hp.job STARTS WITH '감독' and p.kmdb_person_id is not null
 RETURN m.movie_id AS movie_id, m.producing_year AS producing_year, m.country AS country, m.title AS title
+ORDER BY m.producing_year DESC
 LIMIT 10
 
 # '마동석' 배우 영화 목록은?
 MATCH (m:Movie)-[hp:HAS_PERSON]->(p:Person {name: '마동석'})
-WHERE hp.job STARTS WITH '배우'
+WHERE hp.job STARTS WITH '출연' and p.kmdb_person_id is not null
 RETURN m.movie_id AS movie_id, m.producing_year AS producing_year, m.country AS country, m.title AS title
+ORDER BY m.producing_year DESC
 LIMIT 10
 
 # '박지훈' 나온 영화 목록은?
 MATCH (m:Movie)-[hp:HAS_PERSON]->(p:Person {name: '박지훈'})
 RETURN m.movie_id AS movie_id, m.producing_year AS producing_year, m.country AS country, m.title AS title
+ORDER BY m.producing_year DESC
 LIMIT 10
 
 # '기생충' 관련 감상 피드는?
 MATCH (f:Feed)-[:ABOUT_MOVIE]->(m:Movie {title: '기생충'})
 RETURN f.feed_id AS feed_id, f.summary AS summary
+ORDER BY m.producing_year DESC
 LIMIT 10
 
 # '최신' 영화는?
@@ -85,8 +113,22 @@ LIMIT 10
 # '기생충' 영화의 내용은 무엇인가요?
 MATCH (m:Movie {title: '기생충'})
 RETURN m.movie_id AS movie_id, m.producing_year AS producing_year, m.country AS country, m.title AS title, m.plot_raw AS plot_raw
+ORDER BY m.producing_year DESC
 LIMIT 10
 """
+
+
+def _build_default_cypher_examples() -> str:
+    """Cypher few-shot 프롬프트에 ontology vocabulary 를 주입한다."""
+    replacements = {
+        "{genre}": ", ".join(GENRE_VALUES),
+        "{theme}": ", ".join(vocab_themes()),
+        "{mood}": ", ".join(vocab_moods()),
+    }
+    examples = _DEFAULT_CYPHER_EXAMPLES
+    for placeholder, value in replacements.items():
+        examples = examples.replace(placeholder, value)
+    return examples
 
 
 @dataclass(frozen=True)
@@ -119,7 +161,7 @@ class Neo4jCypherService:
         self._top_k = top_k
         self._database_name = self._settings.database
         self._cypher_examples = (
-            cypher_examples if cypher_examples is not None else _DEFAULT_CYPHER_EXAMPLES
+            cypher_examples if cypher_examples is not None else _build_default_cypher_examples()
         )
 
         use_include = include_types if include_types is not None else _DOMAIN_NODE_TYPES
@@ -157,9 +199,14 @@ class Neo4jCypherService:
             )
 
         try:
+            now = datetime.now()
             raw = self._chain.cypher_generation_chain.invoke(
                 {
-                    "question": question,
+                    "question": (
+                        question
+                        + f"\nCurrent Date: {now.year}-{now.month:02d}-{now.day:02d}\n"
+                        f"오늘 날짜는 {now.year}년 {now.month}월 {now.day}일"
+                    ),
                     "schema": self._chain.graph_schema,
                     "examples": self._cypher_examples,
                 }

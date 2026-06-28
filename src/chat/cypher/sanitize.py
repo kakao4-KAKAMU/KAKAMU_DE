@@ -24,7 +24,8 @@ _CYPHER_STATEMENT_START = re.compile(
 )
 
 
-def _strip_reasoning_blocks(text: str) -> str:
+def strip_reasoning_blocks(text: str) -> str:
+    """thinking/redacted 블록을 제거하고 본문 텍스트만 반환한다."""
     cleaned = text
     for pattern in _REASONING_BLOCK_PATTERNS:
         cleaned = pattern.sub("", cleaned)
@@ -40,11 +41,11 @@ def _extract_from_first_cypher_keyword(text: str) -> str:
 
 def sanitize_and_extract_cypher(raw: str) -> str:
     """thinking/설명 텍스트를 제거하고 실행 가능한 Cypher만 반환한다."""
-    text = _strip_reasoning_blocks(str(raw).strip())
+    text = strip_reasoning_blocks(str(raw).strip())
     text = extract_cypher(text).strip()
     if _CYPHER_STATEMENT_START.search(text):
         text = _extract_from_first_cypher_keyword(text)
     return text.strip()
 
 
-__all__ = ["sanitize_and_extract_cypher"]
+__all__ = ["sanitize_and_extract_cypher", "strip_reasoning_blocks"]
