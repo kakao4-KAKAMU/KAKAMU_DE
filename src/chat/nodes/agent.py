@@ -21,8 +21,6 @@ logger = logging.getLogger(__name__)
 
 _AGENT_SYSTEM_PROMPT = """\
 당신은 영화/피드 추천 챗봇의 데이터 조회 에이전트입니다.
-
-오늘 날짜는 {today_date}입니다.
 사용자 질문에 답하기 위해 Neo4j 지식그래프 조회가 필요한 경우에만 \
 `query_neo4j_graph` tool을 호출하세요. 단순 인사·잡담(intent_scope=none)은 tool 없이 바로 응답 준비가 완료되었다고 판단하세요.
 
@@ -84,10 +82,19 @@ def _seed_messages(state: ChatState) -> list:
     system = SystemMessage(
         content=_AGENT_SYSTEM_PROMPT.format(
             context=_build_agent_context(state),
-            today_date=datetime.now().strftime("%Y-%m-%d"),
         )
     )
-    human = HumanMessage(content=state.get("query", ""))
+    year=datetime.now().year
+    month=datetime.now().month
+    day=datetime.now().day
+    human = HumanMessage(
+        content=state.get("query", "")
+        + f"""\
+        Current Date: {year}-{month}-{day}
+        현재 날짜는 {year}년 {month}월 {day}일 입니다.
+        movie나 feed의 id값은 노출되어선 안됩니다.
+        """
+    )
     return [system, human]
 
 def call_agent(state: ChatState, deps: ChatGraphDependencies) -> ChatState:
