@@ -78,28 +78,23 @@ ORDER BY m.producing_year DESC
 LIMIT 10
 
 # '봉준호' 감독 영화 목록은?
-MATCH (m:Movie)-[hp:HAS_PERSON]->(p:Person {name: '봉준호'})
-WHERE hp.job STARTS WITH '감독' and p.kmdb_person_id is not null
+MATCH (m:Movie)-[hp:HAS_PERSON]->(p:Person)
+WHERE hp.job STARTS WITH '감독' and (p.name = '봉준호' or p.eng_name='Bong Joon-ho') and p.kmdb_person_id is not null
 RETURN m.movie_id AS movie_id, m.producing_year AS producing_year, m.country AS country, m.title AS title
 ORDER BY m.producing_year DESC
 LIMIT 10
 
 # '마동석' 배우 영화 목록은?
-MATCH (m:Movie)-[hp:HAS_PERSON]->(p:Person {name: '마동석'})
-WHERE hp.job STARTS WITH '출연' and p.kmdb_person_id is not null
+MATCH (m:Movie)-[hp:HAS_PERSON]->(p:Person)
+WHERE hp.job STARTS WITH '출연' and (p.name = '마동석' or p.eng_name='Ma Dong-seok') and p.kmdb_person_id is not null
 RETURN m.movie_id AS movie_id, m.producing_year AS producing_year, m.country AS country, m.title AS title
 ORDER BY m.producing_year DESC
 LIMIT 10
 
 # '박지훈' 나온 영화 목록은?
-MATCH (m:Movie)-[hp:HAS_PERSON]->(p:Person {name: '박지훈'})
+MATCH (m:Movie)-[hp:HAS_PERSON]->(p:Person)
+WHERE (p.name = '박지훈' or p.eng_name='Park Ji-hun') and p.kmdb_person_id is not null
 RETURN m.movie_id AS movie_id, m.producing_year AS producing_year, m.country AS country, m.title AS title
-ORDER BY m.producing_year DESC
-LIMIT 10
-
-# '기생충' 관련 감상 피드는?
-MATCH (f:Feed)-[:ABOUT_MOVIE]->(m:Movie {title: '기생충'})
-RETURN f.feed_id AS feed_id, f.summary AS summary
 ORDER BY m.producing_year DESC
 LIMIT 10
 
@@ -113,6 +108,12 @@ LIMIT 10
 # '기생충' 영화의 내용은 무엇인가요?
 MATCH (m:Movie {title: '기생충'})
 RETURN m.movie_id AS movie_id, m.producing_year AS producing_year, m.country AS country, m.title AS title, m.plot_raw AS plot_raw
+ORDER BY m.producing_year DESC
+LIMIT 10
+
+# '기생충' 관련 감상 피드는?
+MATCH (f:Feed)-[:ABOUT_MOVIE]->(m:Movie {title: '기생충'})
+RETURN f.feed_id AS feed_id, f.summary AS summary
 ORDER BY m.producing_year DESC
 LIMIT 10
 """
