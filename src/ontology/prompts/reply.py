@@ -135,16 +135,6 @@ def _format_retrieved_feeds(retrieved: list[dict[str, Any]]) -> str:
         """
     ).strip()
 
-
-def _build_user_payload(payload: dict[str, Any]) -> str:
-    user_body = {
-        key: value
-        for key, value in payload.items()
-        if key not in ("retrieved_movies", "retrieved_feeds")
-    }
-    return json.dumps(user_body, ensure_ascii=False)
-
-
 def _retrieved_system_messages(
     scope: ReplyScope,
     *,
@@ -227,7 +217,7 @@ def build_reply_messages(
     """분석·필터링 결과 payload → generate_reply messages + response_format."""
     retrieved_movies = payload.get("retrieved_movies")
     retrieved_feeds = payload.get("retrieved_feeds")
-    user_payload = _build_user_payload(payload)
+    user_payload = payload.get("query")
     retrieved_messages = _retrieved_system_messages(
         scope,
         retrieved_movies=(
