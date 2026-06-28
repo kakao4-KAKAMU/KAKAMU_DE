@@ -30,6 +30,8 @@ flowchart TB
     P2 -- "INTERACTED" --> Feed
 ```
 
+Persona 등록/수정/삭제: `POST /ingest/persona/create|modify|delete`
+
 ---
 
 ## 2. Persona 존재 여부에 따른 동작
@@ -37,7 +39,7 @@ flowchart TB
 | `persona_id` | 추천 동작 |
 |--------------|-----------|
 | **존재** | Persona 스코프 선호·상호작용·Bandit posterior·세션 이력을 사용 |
-| **없음 (`null`)** | `user_id` 단독 컨텍스트로 fallback (기본 Persona 또는 글로벌 user 선호) |
+| **없음 (`null`)** | `user_id` 단독 컨텍스트로 fallback (User-level 선호) |
 
 > **규칙**: `persona_id` 가 요청에 포함되면, 해당 Persona 의 그래프·DB 상태만 읽고 갱신한다.
 > 다른 Persona 의 `PREFERS` / `INTERACTED` / Bandit arm 은 섞이지 않는다.
@@ -46,31 +48,31 @@ flowchart TB
 
 ## 3. 도메인별 파생 추천 로직
 
-### 3-1. Chat (`/chat`, LangGraph)
+### 3-1. Chat (`/chat/stream`, LangGraph)
 
 ```mermaid
 sequenceDiagram
     actor C as Client
-    participant API as FastAPI
+    participant API as POST /chat/stream
     participant LG as LangGraph
     participant PG as PostgreSQL
-    participant NEO as Neo4j
+    participant NEO as Neo4j (Cypher tool)
 
-    C->>API: POST /chat<br/>user_id + persona_id + message
+    C->>API: user_id + persona_id + message (SSE)
     API->>PG: open_session(user_id, persona_id)
     API->>LG: state{user_id, persona_id, query}
 
-    LG->>LG: select_weights(context_key=user_id:persona_id)
-    LG->>NEO: hybrid_recommend(user_id, persona_id, …)
-    Note over NEO: Persona-scoped PREFERS / INTERACTED
+    LG->>LG: embed_query
+    LG->>NEO: agent → query_neo4j_graph (필요 시)
+    Note over NEO: GraphCypherQAChain read-only
+    LG->>LG: build_structured_reply
     LG->>PG: persist_history (persona_id 세션)
-    LG-->>API: reply + movies
-    API-->>C: ChatResponse
+    LG-->>API: SSE node events
+    API-->>C: event:done
 ```
 
 - `ChatState.persona_id` — LangGraph 노드 간 공유 ([`src/chat/state.py`](../src/chat/state.py))
-- `select_weights` — Bandit `context_key = "{user_id}:{persona_id}"` (persona 없으면 `user_id` 만)
-- `retrieve_movies` — Cypher 에 `$persona_id` 전달, Persona 선호 가중치 반영
+- Chat 은 Bandit arm 을 직접 선택하지 않는다. Neo4j 조회는 Agent + `query_neo4j_graph` tool
 - `chat_session` / `chat_message` — Postgres 에 `persona_id` 컬럼으로 세션·이력 격리
 
 ### 3-2. Feed 추천
@@ -79,10 +81,10 @@ sequenceDiagram
 
 | 단계 | Persona 반영 |
 |------|--------------|
-| Ingest (`/ingest/feed`) | `MERGE (:Persona)` + `(:Feed)-[:WRITTEN_BY]->(:Persona)` |
+| Ingest (`/ingest/feed/*`) | `MERGE (:Persona)` + `(:Feed)-[:WRITTEN_BY]->(:Persona)` |
 | Like / 상호작용 | `(:Persona)-[:INTERACTED {action}]->(:Feed\|:Movie)` |
-| 피드 랭킹 | 동일 `(user_id, persona_id)` 의 `PREFERS`·`INTERACTED` 로 부스트 |
-| Ontology | `FeedOntology` 추출 결과는 Persona 컨텍스트와 무관하게 Feed 노드에 저장; **선호 학습** 만 Persona 스코프 |
+| `/recommend/feed` | `hybrid_feed_recommend` Cypher + `$persona_id` 선호 가중치 |
+| Ontology | `FeedOntology` 추출 결과는 Feed 노드에 저장; **선호 학습** 만 Persona 스코프 |
 
 피드 추천 스코어(개념):
 
@@ -95,17 +97,22 @@ feed_score = w_vec · cosine(feed.summary_embedding, query_embedding)
 
 ### 3-3. Comment 추천
 
-댓글은 짧은 텍스트이므로 **의도(`CommentIntent`) + 감정 + Persona 선호** 를 결합한다.
+댓글은 짧은 텍스트이므로 **의도 + 감정 + Persona 선호** 를 결합한다. Chat Agent 가 Cypher tool 로 댓글/피드를 조회할 수 있다.
 
 | 단계 | Persona 반영 |
 |------|--------------|
-| Ingest (`/ingest/comment`) | `(:Comment)-[:WRITTEN_BY]->(:Persona)` |
-| 랭킹 | 부모 Feed 의 Persona 작성자와의 affinity, 요청 Persona 의 Theme/Mood 선호 매칭 |
+| Ingest (`/ingest/comment/*`) | `(:Comment)-[:WRITTEN_BY]->(:Persona)` |
+| 랭킹 | 부모 Feed 의 Persona 작성자 affinity, 요청 Persona 의 Theme/Mood 선호 매칭 |
 | 필터 | `toxicity_score`, `contains_spoiler` — Persona 무관 공통 규칙 |
 
-### 3-4. Movie 추천 (`/recommend`)
+### 3-4. Movie / Feed 추천 API
 
-`/recommend` 는 LangGraph 를 우회하지만 동일한 Persona 규칙을 따른다.
+| 엔드포인트 | Cypher 템플릿 |
+|-----------|--------------|
+| `POST /recommend/movie` | `hybrid_recommend` |
+| `POST /recommend/feed` | `hybrid_feed_recommend` |
+
+공통 처리:
 
 ```
 context_key = f"{user_id}:{persona_id}" if persona_id else user_id
@@ -113,7 +120,7 @@ context_key = f"{user_id}:{persona_id}" if persona_id else user_id
 
 - `IntentResolver` — 질의에서 keyword/theme/mood 추출 (Persona 무관)
 - `RecommendPolicy.select_arm(context_key)` — Persona 별 Bandit arm
-- `hybrid_recommend` Cypher — `$persona_id` 로 Persona 선호 가중치 조회
+- `TemplateExecutor` — Bandit `w_*` + `$persona_id` 로 hybrid Cypher 실행
 
 ---
 
@@ -121,12 +128,13 @@ context_key = f"{user_id}:{persona_id}" if persona_id else user_id
 
 | 채널 | `persona_id` 위치 |
 |------|-------------------|
-| `/chat`, `/chat/stream`, `/chat/sessions`, `/chat/history` | 요청 body **또는** `X-Persona-Id` 헤더 |
-| `/recommend` | 요청 body **또는** `X-Persona-Id` 헤더 |
+| `/chat/stream`, `/chat/list`, `/chat/history/{session_id}` | 요청 body **또는** `X-Persona-Id` 헤더 |
+| `/recommend/movie`, `/recommend/feed` | 요청 body **또는** `X-Persona-Id` 헤더 |
 | `/feedback` | 요청 body (`persona_id` 선택) |
 | `/ingest/feed`, `/ingest/comment` (create/like) | payload body |
+| `/ingest/person/judge` | payload body (`persona_id` 선택) |
 
-헤더와 body 모두 존재할 때 **헤더 우선**.
+헤더와 body 모두 존재할 때 **헤더 우선** (`resolve_persona_id`).
 
 ---
 
@@ -134,10 +142,10 @@ context_key = f"{user_id}:{persona_id}" if persona_id else user_id
 
 ### Neo4j
 
-- `(:Persona {persona_id, label?, created_at})`
+- `(:Persona {persona_id, user_id, label?, created_at})`
 - `(:User)-[:HAS_PERSONA]->(:Persona)`
 - `(:Persona)-[:PREFERS {weight}]->(:Genre|:Theme|:Mood|:Keyword)`
-- `(:Persona)-[:INTERACTED {action, weight, ts}]->(:Movie|:Feed|:Comment)`
+- `(:Persona)-[:INTERACTED {action, weight, ts}]->(:Movie|:Feed|:Comment|:Person)`
 - `(:Feed|:Comment)-[:WRITTEN_BY]->(:Persona)` (persona_id 제공 시)
 
 상세: [neo4j_schema.md](neo4j_schema.md)
@@ -178,9 +186,11 @@ context_key = f"{user_id}:{persona_id}" if persona_id else user_id
 | 모듈 | Persona 연동 |
 |------|--------------|
 | `src/chat/state.py` | `persona_id` 상태 필드 |
-| `src/chat/nodes.py` | `select_weights`, `retrieve_movies` 에 context_key / `$persona_id` |
+| `src/chat/nodes/persistence.py` | `persist_history` — persona_id 세션 저장 |
 | `src/recommend/policy.py` | `context_key = user_id:persona_id` |
-| `src/graph/cypher_statements.py` | Persona-scoped `PREFERS` / `INTERACTED` MATCH |
+| `src/recommend/context.py` | `resolve_persona_id`, `build_hybrid_recommend_params` |
+| `src/graph/cypher_statements/retrieval.py` | Persona-scoped `PREFERS` / `INTERACTED` MATCH |
 | `src/persistence/chat_history.py` | 세션·메시지 `persona_id` 필터 |
-| `src/api/schemas/*` | feed/comment/chat/recommend/feedback payload |
+| `src/api/schemas/*` | feed/comment/chat/recommend/feedback/persona payload |
 | `src/graph/loader.py` | feed/comment upsert 시 Persona MERGE |
+| `src/ingest/dispatcher/persona.py` | persona create/modify/delete handler |

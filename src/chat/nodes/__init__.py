@@ -5,13 +5,11 @@ LangGraph 의 closure 와 단위 테스트 모두에서 재사용 가능하다.
 
 모듈 구성 (SRP 단위 분리)
 ------------------------
-- ``protocols``    : 노드가 의존하는 최소 인터페이스(Protocol).
-- ``dependencies`` : ``ChatGraphDependencies`` 의존성 컨테이너 + 기본값.
+- ``dependencies`` : ``ChatGraphDependencies`` 의존성 컨테이너.
 - ``embedding``    : ``embed_query``.
-- ``intent``       : ``analyze_query``.
-- ``media``        : ``route_after_analysis`` (conditional_edges).
-- ``retrieval``    : ``filter_movies`` / ``filter_feeds`` / ``filter_both``.
-- ``reply``        : ``generate_reply``.
+- ``agent``        : ``call_agent``.
+- ``tools``        : ``run_neo4j_tools``.
+- ``reply``        : ``build_structured_reply``.
 - ``persistence``  : ``persist_history``.
 
 SOLID
@@ -22,50 +20,18 @@ SOLID
 
 from __future__ import annotations
 
-from src.chat.nodes.dependencies import (
-    DEFAULT_FEED_TEMPLATE_ID,
-    DEFAULT_MOVIE_TEMPLATE_ID,
-    DEFAULT_WEIGHTS,
-    ChatGraphDependencies,
-)
+from src.chat.nodes.agent import call_agent
+from src.chat.nodes.dependencies import ChatGraphDependencies
 from src.chat.nodes.embedding import embed_query
-from src.chat.nodes.intent import analyze_query, plan_intent
-from src.chat.nodes.media import route_after_analysis, route_media
 from src.chat.nodes.persistence import persist_history
-from src.chat.nodes.protocols import (
-    ChatLLMLike,
-    EmbedderLike,
-    MediaClassifierLike,
-)
-from src.chat.nodes.reply import generate_reply
-from src.chat.nodes.retrieval import (
-    filter_both,
-    filter_feeds,
-    filter_movies,
-    retrieve_feeds,
-    retrieve_movies,
-)
-from src.chat.nodes.weights import select_weights
+from src.chat.nodes.reply import build_structured_reply
+from src.chat.nodes.tools import run_neo4j_tools
 
 __all__ = [
     "ChatGraphDependencies",
-    "ChatLLMLike",
-    "EmbedderLike",
-    "MediaClassifierLike",
-    "DEFAULT_FEED_TEMPLATE_ID",
-    "DEFAULT_MOVIE_TEMPLATE_ID",
-    "DEFAULT_WEIGHTS",
-    "analyze_query",
+    "build_structured_reply",
+    "call_agent",
     "embed_query",
-    "filter_both",
-    "filter_feeds",
-    "filter_movies",
-    "generate_reply",
     "persist_history",
-    "plan_intent",
-    "retrieve_feeds",
-    "retrieve_movies",
-    "route_after_analysis",
-    "route_media",
-    "select_weights",
+    "run_neo4j_tools",
 ]

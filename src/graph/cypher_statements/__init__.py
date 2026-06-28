@@ -1,11 +1,5 @@
 """Neo4j Cypher statement modules (re-export hub)."""
 
-from .chat_filter import (
-    CHAT_FEED_FILTER,
-    CHAT_MOVIE_FILTER,
-    build_chat_feed_filter,
-    build_chat_movie_filter,
-)
 from .comment import (
     UPDATE_COMMENT_SUMMARY_EMBEDDING,
     UPSERT_COMMENT_WITH_ONTOLOGY,
@@ -47,8 +41,6 @@ from .persona import DELETE_PERSONA, UPSERT_PERSONA
 from .retrieval import (
     HYBRID_FEED_RECOMMEND_WEIGHTED,
     HYBRID_MOVIE_RECOMMEND_WEIGHTED,
-    build_hybrid_feed_recommend_weighted,
-    build_hybrid_movie_recommend_weighted,
 )
 from .user import UPSERT_USER
 from .schema import (
@@ -66,8 +58,6 @@ from .schema import (
 __all__ = [
     "BASE_PLOT_EMBEDDING",
     "BASE_SUMMARY_EMBEDDING",
-    "CHAT_FEED_FILTER",
-    "CHAT_MOVIE_FILTER",
     "FULLTEXT_INDEXES",
     "GET_COMMENT_SUMMARY",
     "GET_FEED_SUMMARY",
@@ -96,11 +86,7 @@ __all__ = [
     "UPSERT_COMMENT_WITH_ONTOLOGY",
     "UPSERT_FEED_WITH_ONTOLOGY",
     "UPSERT_MOVIE_WITH_ONTOLOGY",
-    "build_chat_feed_filter",
-    "build_chat_movie_filter",
     "build_embedding_set_clause",
-    "build_hybrid_feed_recommend_weighted",
-    "build_hybrid_movie_recommend_weighted",
     "build_update_comment_summary_embedding",
     "build_update_feed_summary_embedding",
     "build_update_movie_plot_embedding",

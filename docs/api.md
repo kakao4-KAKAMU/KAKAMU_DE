@@ -18,10 +18,11 @@ flowchart TB
         C[HTTP Client]
     end
 
-    subgraph Gateway["FastAPI Gateway\nroot_path=/chat"]
+    subgraph Gateway["FastAPI Gateway\nroot_path=/chat-api"]
         H["GET /healthz"]
         CH["Chat Router"]
-        RC["POST /recommend"]
+        RM["POST /recommend/movie"]
+        RF["POST /recommend/feed"]
         FB["POST /feedback"]
         IG["Ingest Router"]
     end
@@ -36,34 +37,37 @@ flowchart TB
         MV["movie/regist · movie/judge"]
         FD["feed/create · modify · delete · like"]
         CM["comment/create · modify · delete · like"]
+        US["user/regist"]
+        PS["persona/create · modify · delete"]
+        PJ["person/judge"]
     end
 
     subgraph Backend["Backend Services"]
         LG[LangGraph StateGraph]
-        PG[(PostgreSQL\nchat_session · chat_message\nbandit_state · ingest_outbox)]
+        TE[TemplateExecutor]
+        PG[(PostgreSQL)]
         NEO[(Neo4j)]
-        VLLM[(vLLM + BGE-M3)]
+        VLLM[(vLLM + Embedding)]
         Worker[Ingest Worker]
     end
 
-    C --> H
-    C --> CH
-    C --> RC
-    C --> FB
-    C --> IG
-
+    C --> H & CH & RM & RF & FB & IG
     CH --> CS & CL & CHH
-    IG --> MV & FD & CM
+    IG --> MV & FD & CM & US & PS & PJ
 
     CS --> LG
     CL --> PG
     CHH --> PG
     LG --> VLLM & NEO & PG
 
-    RC --> NEO
-    FB --> PG
+    RM --> TE
+    RF --> TE
+    TE --> NEO
+    RM --> PG
+    RF --> PG
 
-    MV & FD & CM -->|enqueue| PG
+    FB --> PG
+    MV & FD & CM & US & PS & PJ -->|enqueue| PG
     PG --> Worker --> NEO
 ```
 
@@ -80,7 +84,8 @@ flowchart LR
     R --> CL["chat/list.py"]
     R --> CH["chat/history.py"]
     R --> CS["chat/stream.py"]
-    R --> RC["recommend/post.py"]
+    R --> RM["recommend/movie.py"]
+    R --> RF["recommend/feed.py"]
     R --> FB["feedback/post.py"]
     R --> MR["ingest/movie/regist.py"]
     R --> MJ["ingest/movie/judge.py"]
@@ -89,15 +94,20 @@ flowchart LR
     R --> FD["ingest/feed/delete.py"]
     R --> FL["ingest/feed/like.py"]
     R --> CC["ingest/comment/create.py"]
-    R --> CM["ingest/comment/modify.py"]
+    R --> CMod["ingest/comment/modify.py"]
     R --> CD["ingest/comment/delete.py"]
     R --> CLk["ingest/comment/like.py"]
+    R --> UR["ingest/user/regist.py"]
+    R --> PC["ingest/persona/create.py"]
+    R --> PM["ingest/persona/modify.py"]
+    R --> PD["ingest/persona/delete.py"]
+    R --> PJ["ingest/person/judge.py"]
 ```
 
 | 디렉터리 | 책임 |
 |----------|------|
-| `src/api/app.py` | FastAPI 인스턴스 조립, CORS, `root_path` |
-| `src/api/dependencies.py` | `AppContainer` 싱글턴 (Neo4j, LangGraph, Outbox 등) |
+| `src/api/app.py` | FastAPI 인스턴스 조립, CORS, `root_path`, shutdown 시 outbox flush |
+| `src/api/dependencies.py` | `AppContainer` 싱글턴 (Neo4j, LangGraph, Bandit, TemplateExecutor 등) |
 | `src/api/routers/` | HTTP 핸들러 — 입출력 변환 + 도메인 호출만 |
 | `src/api/schemas/` | Pydantic 요청/응답 스키마 |
 
@@ -112,9 +122,9 @@ uvicorn src.api.app:app --host 0.0.0.0 --port 8080 --reload
 | 항목 | 값 |
 |------|-----|
 | OpenAPI | `/docs`, `/redoc`, `/openapi.json` |
-| `root_path` | `/chat` — 리버스 프록시 뒤에서 prefix 로 사용 |
+| `root_path` | `/chat-api` — 리버스 프록시 뒤에서 prefix 로 사용 |
 | 로컬 직접 호출 | `http://localhost:8080/...` |
-| 프록시 경유 | `https://{host}/chat/...` |
+| 프록시 경유 | `https://{host}/chat-api/...` |
 
 스키마 초기화: `python -m scripts.bootstrap_schema`
 
@@ -124,8 +134,8 @@ uvicorn src.api.app:app --host 0.0.0.0 --port 8080 --reload
 
 | 방식 | 적용 엔드포인트 |
 |------|----------------|
-| `X-Persona-Id` 헤더 | `/chat/stream`, `/chat/list`, `/chat/history/{session_id}`, `/recommend` |
-| body `persona_id` | `ChatRequest`, `RecommendRequest`, `FeedbackRequest`, feed/comment ingest payload |
+| `X-Persona-Id` 헤더 | `/chat/stream`, `/chat/list`, `/chat/history/{session_id}`, `/recommend/movie`, `/recommend/feed` |
+| body `persona_id` | `ChatRequest`, `RecommendRequest`, `FeedbackRequest`, feed/comment/person ingest payload |
 
 `persona_id` 가 존재하면 Persona 스코프로 추천·Bandit·세션이 동작한다. 없으면 `user_id` 단독 fallback.
 
@@ -175,7 +185,8 @@ Bandit `context_key` = `{user_id}:{persona_id}` (persona 없으면 `user_id`).
 
 | Method | Path | 요청 | 응답 | 설명 |
 |--------|------|------|------|------|
-| POST | `/recommend` | `RecommendRequest` + `X-Persona-Id` | `RecommendResponse` | LangGraph 우회 단발 hybrid 추천 |
+| POST | `/recommend/movie` | `RecommendRequest` + `X-Persona-Id` | `MovieRecommendResponse` | LangGraph 우회 단발 hybrid 영화 추천 |
+| POST | `/recommend/feed` | `RecommendRequest` + `X-Persona-Id` | `FeedRecommendResponse` | LangGraph 우회 단발 hybrid 피드 추천 |
 
 **`RecommendRequest`**
 
@@ -188,7 +199,11 @@ Bandit `context_key` = `{user_id}:{persona_id}` (persona 없으면 `user_id`).
 | `vec_top_k` | int | N | 30 |
 | `max_toxicity` | float | N | 0.7 |
 
-**`RecommendResponse`**: `{ arm_id, movies[], keywords[], themes[], moods[] }`
+**`MovieRecommendResponse`**: `{ arm_id, movies[{movie_id, title, plot_summary, score}], keywords[], themes[], moods[] }`
+
+**`FeedRecommendResponse`**: `{ arm_id, feeds[{feed_id, summary, sentiment_score, score}], keywords[], themes[], moods[] }`
+
+처리 흐름: `IntentResolver.resolve(query)` → `embedder.embed(query)` → `RecommendPolicy.select_arm(context_key)` → `TemplateExecutor.execute("hybrid_recommend" | "hybrid_feed_recommend")`
 
 ### 4-4. Feedback
 
@@ -225,7 +240,7 @@ API는 `ingest_outbox` 에 적재만 하고, 실제 Neo4j 적재는 [Outbox Work
 
 **`IngestMoviePayload`**: `movie_id`, `title`, `producing_year?`, `country?`, `genres[]`, `plot?`, `persons[]`
 
-**`IngestMovieJudgePayload`**: `movie_id`, `user_id`, `judge_type` (`like`|`dislike`), `created_at?`
+**`IngestMovieJudgePayload`**: `movie_id`, `user_id`, `persona_id?`, `judge_type` (`like`|`dislike`), `created_at?`
 
 #### Feed
 
@@ -257,6 +272,24 @@ API는 `ingest_outbox` 에 적재만 하고, 실제 Neo4j 적재는 [Outbox Work
 
 **`IngestCommentDeletePayload`**: `comment_id`, `user_id`, `deleted_at?`
 
+#### User / Persona
+
+| Method | Path | Envelope | aggregate_type |
+|--------|------|----------|----------------|
+| POST | `/ingest/user/regist` | `IngestUserEnvelope` | `user` |
+| POST | `/ingest/persona/create` | `IngestPersonaEnvelope` | `persona` |
+| POST | `/ingest/persona/modify` | `IngestPersonaEnvelope` | `persona_modify` |
+| POST | `/ingest/persona/delete` | `IngestPersonaDeleteEnvelope` | `persona_delete` |
+| POST | `/ingest/person/judge` | `IngestPersonJudgeEnvelope` | `person_judge` |
+
+**`IngestUserPayload`**: `user_id`, `nickname?`, `created_at?`
+
+**`IngestPersonaPayload`**: `persona_id`, `user_id`, `label?`, `genres[]`, `movies[]`, `persons[]`, `created_at?`, `modified_at?`
+
+**`IngestPersonaDeletePayload`**: `persona_id`, `user_id`
+
+**`IngestPersonJudgePayload`**: `person_id`, `user_id`, `persona_id?`, `judge_type`, `created_at?`
+
 ---
 
 ## 5. 요청 흐름
@@ -270,17 +303,21 @@ sequenceDiagram
     participant API as POST /chat/stream
     participant PG as PostgreSQL
     participant LG as LangGraph
-    participant NEO as Neo4j
+    participant NEO as Neo4j (Cypher tool)
     participant VL as vLLM
 
     C->>API: ChatRequest + X-Persona-Id
-    API->>PG: open_session(user_id, persona_id)
-    API->>PG: append(user message)
+    API->>PG: open_session + append(user message)
     API->>LG: astream(state, thread_id=session_id)
 
     loop SSE node events
-        LG->>NEO: retrieve_movies (hybrid)
-        LG->>VL: generate_reply
+        LG->>LG: embed_query
+        LG->>VL: agent (tool-calling)
+        opt Neo4j 조회
+            LG->>NEO: query_neo4j_graph
+            NEO-->>LG: retrieved_movies/feeds
+        end
+        LG->>VL: build_structured_reply
         LG-->>API: partial state
         API-->>C: event:node
     end
@@ -288,7 +325,28 @@ sequenceDiagram
     API-->>C: event:done
 ```
 
-### 5-2. Ingest Enqueue
+### 5-2. Recommend (Movie)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor C as Client
+    participant API as POST /recommend/movie
+    participant IR as IntentResolver
+    participant BP as RecommendPolicy
+    participant TE as TemplateExecutor
+    participant NEO as Neo4j
+
+    C->>API: RecommendRequest
+    API->>IR: resolve(query)
+    API->>BP: select_arm(context_key)
+    API->>TE: execute(hybrid_recommend, params)
+    TE->>NEO: weighted hybrid Cypher
+    NEO-->>API: top-K movies
+    API-->>C: MovieRecommendResponse
+```
+
+### 5-3. Ingest Enqueue
 
 ```mermaid
 sequenceDiagram
@@ -336,15 +394,27 @@ curl -s 'http://localhost:8080/chat/history/{session_id}?user_id=u-1&limit=20' \
   -H 'X-Persona-Id: movie_buff' | jq
 ```
 
-### Recommend
+### Recommend Movie
 
 ```bash
-curl -s http://localhost:8080/recommend \
+curl -s http://localhost:8080/recommend/movie \
   -H 'content-type: application/json' \
   -H 'X-Persona-Id: family_night' \
   -d '{
         "user_id": "u-1",
         "query": "아이와 볼 만한 애니메이션"
+      }' | jq
+```
+
+### Recommend Feed
+
+```bash
+curl -s http://localhost:8080/recommend/feed \
+  -H 'content-type: application/json' \
+  -H 'X-Persona-Id: movie_buff' \
+  -d '{
+        "user_id": "u-1",
+        "query": "기생충 감상 후기"
       }' | jq
 ```
 
@@ -359,6 +429,21 @@ curl -s http://localhost:8080/ingest/feed/create \
           "user_id": "u-1",
           "persona_id": "movie_buff",
           "content": "기생충 다시 봤는데 레이어가 더 보임"
+        }
+      }' | jq
+```
+
+### Persona Create
+
+```bash
+curl -s http://localhost:8080/ingest/persona/create \
+  -H 'content-type: application/json' \
+  -d '{
+        "payload": {
+          "persona_id": "movie_buff",
+          "user_id": "u-1",
+          "label": "영화 덕후",
+          "genres": ["drama", "thriller"]
         }
       }' | jq
 ```
@@ -407,4 +492,6 @@ curl -s http://localhost:8080/feedback \
 | Movie | [`src/api/schemas/movie.py`](../src/api/schemas/movie.py) |
 | Feed | [`src/api/schemas/feed.py`](../src/api/schemas/feed.py) |
 | Comment | [`src/api/schemas/comment.py`](../src/api/schemas/comment.py) |
-| Person (movie embed) | [`src/api/schemas/person.py`](../src/api/schemas/person.py) |
+| User | [`src/api/schemas/user.py`](../src/api/schemas/user.py) |
+| Persona | [`src/api/schemas/persona.py`](../src/api/schemas/persona.py) |
+| Person | [`src/api/schemas/person.py`](../src/api/schemas/person.py) |

@@ -469,6 +469,30 @@ class ChatReplyNone(BaseModel):
     metadata: ReplyMetadataEmpty
 
 
+class ChatExtractMovie(BaseModel):
+    """에이전트 응답에서 영화 참조 추출 structured output."""
+
+    metadata: ReplyMetadataMovie
+
+
+class ChatExtractFeed(BaseModel):
+    """에이전트 응답에서 피드 참조 추출 structured output."""
+
+    metadata: ReplyMetadataFeed
+
+
+class ChatExtractBoth(BaseModel):
+    """에이전트 응답에서 영화·피드 참조 추출 structured output."""
+
+    metadata: ReplyMetadataBoth
+
+
+class ChatExtractNone(BaseModel):
+    """추출 불필요(scope=none) structured output."""
+
+    metadata: ReplyMetadataEmpty
+
+
 # ---------------------------------------------------------------------------
 # LLM strict JSON Schema (from Pydantic models)
 # ---------------------------------------------------------------------------
@@ -639,6 +663,10 @@ __all__ = [
     "ChatReplyFeed",
     "ChatReplyBoth",
     "ChatReplyNone",
+    "ChatExtractMovie",
+    "ChatExtractFeed",
+    "ChatExtractBoth",
+    "ChatExtractNone",
     "build_llm_json_schema",
     "build_strict_object_schema",
     "enum_values",

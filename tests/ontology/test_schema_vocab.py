@@ -150,10 +150,7 @@ def test_build_movie_plot_messages_uses_vocab_cache_salt() -> None:
 
 def test_feed_and_comment_payload_use_compact_layout() -> None:
     feed = build_feed_messages(
-        feed_id="f1",
-        user_id="u1",
-        related_movie_id=None,
-        known_movie_ids=None,
+        known_movie_plot_raws=["전원백수 가족이 부유한 가족의 집에 취업하며 벌어지는 계급 갈등 이야기."],
         content="좋은 영화였어요",
     )
     _assert_feed_comment_payload_layout(feed, cache_prefix="ontology:feed:v4:vocab:")

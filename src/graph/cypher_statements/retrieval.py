@@ -127,26 +127,7 @@ RETURN f.feed_id         AS feed_id,
        score
 """
 
-
-def build_hybrid_feed_recommend_weighted(embedding_property: str = BASE_SUMMARY_EMBEDDING) -> str:
-    """active embedding 속성(예: summary_embedding_v2)을 지정한 feed hybrid 쿼리."""
-    return HYBRID_FEED_RECOMMEND_WEIGHTED.replace(
-        f"f.{BASE_SUMMARY_EMBEDDING}",
-        f"f.{embedding_property}",
-    )
-
-
-def build_hybrid_movie_recommend_weighted(embedding_property: str = BASE_PLOT_EMBEDDING) -> str:
-    """active embedding 속성(예: plot_embedding_v2)을 지정한 movie hybrid 쿼리."""
-    return HYBRID_MOVIE_RECOMMEND_WEIGHTED.replace(
-        f"m.{BASE_PLOT_EMBEDDING}",
-        f"m.{embedding_property}",
-    )
-
-
 __all__ = [
     "HYBRID_FEED_RECOMMEND_WEIGHTED",
     "HYBRID_MOVIE_RECOMMEND_WEIGHTED",
-    "build_hybrid_feed_recommend_weighted",
-    "build_hybrid_movie_recommend_weighted",
 ]

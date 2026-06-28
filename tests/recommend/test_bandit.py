@@ -21,5 +21,5 @@ def test_policy_baseline_share() -> None:
     from src.config.settings import BanditSettings
 
     policy = RecommendPolicy(settings=BanditSettings(baseline_min_share=1.0))
-    w = policy.select_weights(user_id="u1")
-    assert w["w_vec"] == 0.55
+    arm = policy.select_arm(context_key="u1")
+    assert arm.weights["w_vec"] == 0.55

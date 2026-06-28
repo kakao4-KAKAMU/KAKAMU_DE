@@ -13,15 +13,16 @@ flowchart LR
         WebApp["Web / Mobile App"]
     end
 
-    subgraph API["FastAPI Gateway"]
-        ChatAPI["/chat (LangGraph)"]
-        FeedAPI["/feed/recommend"]
-        IngestAPI["/ingest"]
+    subgraph API["FastAPI Gateway\nroot_path=/chat-api"]
+        ChatAPI["/chat/* (LangGraph SSE)"]
+        RecAPI["/recommend/movie · /recommend/feed"]
+        IngestAPI["/ingest/*"]
+        FbAPI["/feedback"]
     end
 
     subgraph LLM["LLM Layer (vLLM)"]
         VLLM["vLLM Server\n(KV-cache + PagedAttention\n+ Prefix Caching)"]
-        Embed["Embedding Model\n(BGE-M3 등)"]
+        Embed["Embedding Model\n(Qwen3-Embedding-0.6B)"]
     end
 
     subgraph Graph["Knowledge Layer"]
@@ -29,40 +30,37 @@ flowchart LR
     end
 
     subgraph State["State Layer"]
-        Postgres[("PostgreSQL\n- chat_session (persona_id)\n- chat_message (persona_id)\n- bandit_state (context_key)\n- LangGraph checkpoint")]
+        Postgres[("PostgreSQL\n- chat_session (persona_id)\n- chat_message (persona_id)\n- bandit_state (context_key)\n- ingest_outbox\n- LangGraph checkpoint")]
     end
 
-    subgraph ETL["Ontology ETL"]
+    subgraph ETL["Ontology ETL (Outbox Worker)"]
         Movie["Movie Plot\nExtractor"]
         FeedX["Feed Extractor"]
         CmtX["Comment Extractor"]
         Loader["Neo4j Loader"]
     end
 
-    WebApp -->|REST/WebSocket| ChatAPI
-    WebApp --> FeedAPI
+    WebApp -->|REST/SSE| ChatAPI
+    WebApp --> RecAPI
     WebApp --> IngestAPI
+    WebApp --> FbAPI
 
     ChatAPI --> VLLM
     ChatAPI --> Neo4j
     ChatAPI --> Postgres
 
-    FeedAPI --> Neo4j
-    FeedAPI --> Embed
+    RecAPI --> Neo4j
+    RecAPI --> Embed
+    RecAPI --> Postgres
 
-    IngestAPI --> Movie
-    IngestAPI --> FeedX
-    IngestAPI --> CmtX
-    Movie --> VLLM
-    FeedX --> VLLM
-    CmtX --> VLLM
-    Movie --> Embed
-    FeedX --> Embed
-    CmtX --> Embed
-    Movie --> Loader
-    FeedX --> Loader
-    CmtX --> Loader
+    IngestAPI -->|enqueue| Postgres
+    Postgres --> ETL
+    ETL --> VLLM
+    ETL --> Embed
+    ETL --> Loader
     Loader --> Neo4j
+
+    FbAPI --> Postgres
 ```
 
 ---
@@ -77,7 +75,7 @@ flowchart TB
         S3["댓글 본문(content)"]
     end
 
-    subgraph Prompt["Ontology Mapping Prompt"]
+    subgraph Prompt["Ontology Mapping Prompt\n(src/ontology/prompts/)"]
         P1["build_movie_plot_messages"]
         P2["build_feed_messages"]
         P3["build_comment_messages"]
@@ -118,43 +116,58 @@ flowchart TB
     U3 --> Neo4j
 ```
 
+Ingest API 는 `ingest_outbox` 에만 적재하고, 실제 ETL 은 [Outbox Worker](outbox_ingest.md) 가 비동기 수행한다.
+
 ---
 
 ## 3. 사용자 Chat 흐름 (LangGraph)
 
-`src/chat/graph.py` 의 StateGraph 노드 시퀀스는 다음과 같다.
+`src/chat/graph.py` 의 StateGraph 노드 시퀀스:
+
+```
+START → embed_query → agent
+                         ├─ (tool_calls) → neo4j_tools → agent  (루프, max 15)
+                         └─ (no tools)   → persist_history → END
+```
 
 ```mermaid
 sequenceDiagram
     autonumber
     actor U as User
-    participant API as FastAPI /chat
+    participant API as POST /chat/stream
     participant LG as LangGraph (StateGraph)
     participant PG as PostgreSQL (chat_message + checkpoint)
     participant VL as vLLM (prefix-cache)
-    participant NEO as Neo4j
+    participant NEO as Neo4j (GraphCypherQAChain)
     participant EMB as Embedding
 
-    U->>API: query "감성적인 한국 영화 추천해줘"<br/>+ persona_id (선택)
-    API->>PG: open_session(user_id, persona_id) + append(user message)
-    API->>LG: invoke(state{user_id, persona_id, session_id, query})
+    U->>API: query + persona_id (SSE)
+    API->>PG: open_session + append(user message)
+    API->>LG: astream(state, thread_id=session_id)
 
     LG->>EMB: embed_query
-    LG->>LG: plan_intent (IntentResolver: vocab + NN)
-    LG->>LG: select_weights (context_key = user_id:persona_id)
-    LG->>NEO: retrieve_movies (Persona-scoped hybrid_recommend)
-    NEO-->>LG: top-K movies
+    LG->>VL: agent (tool-calling LLM)
 
-    LG->>VL: generate_reply (vLLM JSON mode)
-    VL-->>LG: assistant text
+    alt Neo4j 조회 필요
+        LG->>NEO: query_neo4j_graph (CyVer 검증)
+        NEO-->>LG: retrieved_movies / retrieved_feeds
+        LG->>VL: agent (재호출, max 15)
+    end
 
-    LG->>PG: persist_history(ontology_ref={arm_id,movie_ids,themes})
-    LG-->>API: final state (reply, arm_id, retrieved)
-    API-->>U: ChatResponse
+    LG->>VL: build_structured_reply (intent_scope별 JSON)
+    LG->>PG: persist_history (ontology_ref)
+    LG-->>API: partial state (SSE node events)
+    API-->>U: event:done
 ```
+
+- **agent** : `query_neo4j_graph` tool 이 필요할 때만 Neo4j 조회. 단순 인사는 tool 없이 종료.
+- **neo4j_tools** : `Neo4jCypherService` (`GraphCypherQAChain` + CyVer) — read-only Cypher 생성·실행.
+- **persist_history** : `build_structured_reply` 결과를 `chat_message` 에 저장.
 
 체크포인트는 `langgraph-checkpoint-postgres` 의 `PostgresSaver` 가 담당하며,
 세션별 thread_id = `session_id` 규약을 따른다.
+
+> Chat 은 Bandit arm 을 직접 선택하지 않는다. 하이브리드 가중치 학습은 `/recommend/*` + `/feedback` 경로에서 수행한다.
 
 ---
 
@@ -194,10 +207,10 @@ flowchart LR
 ```mermaid
 flowchart TB
     Q["사용자 질의 / 컨텍스트\n(user_id + persona_id)"]
-    Q --> E["Query Embedding\n(BGE-M3)"]
+    Q --> E["Query Embedding\n(Qwen3-Embedding)"]
     Q --> KW["Keyword/Theme/Mood 추출\n(IntentResolver)"]
 
-    E --> V["Vector Search\n(movie_plot_vec)"]
+    E --> V["Vector Search\n(plot_embedding / summary_embedding)"]
     KW --> KS["Keyword Match\n(:MENTIONS via Keyword)"]
     KW --> TM["Theme/Mood Match"]
 
@@ -211,21 +224,31 @@ flowchart TB
         U2["(:User)-[:INTERACTED]"]
     end
 
-    V --> S["가중합 스코어\nBandit arm 가중치 적용\n(w_vec, w_kw, w_theme, w_mood, w_user)"]
+    B["Bandit arm\n(w_vec … w_user)"] --> S
+
+    V --> S["가중합 스코어"]
     KS --> S
     TM --> S
     PersonaPref --> S
     UserFallback --> S
 
-    S --> R["Top-K\n(Movie / Feed / Comment)"]
+    S --> R["Top-K\n(Movie / Feed)"]
 ```
 
-### 5-1. 도메인별 Persona 파생
+### 5-1. Cypher 실행 경로
+
+| 경로 | Cypher 생성 | 템플릿 |
+|------|-------------|--------|
+| `/recommend/movie` | `TemplateExecutor` | `hybrid_recommend` |
+| `/recommend/feed` | `TemplateExecutor` | `hybrid_feed_recommend` |
+| Chat (`/chat/stream`) | `GraphCypherQAChain` | read-only, CyVer 검증 |
+
+### 5-2. 도메인별 Persona 파생
 
 | 도메인 | 엔드포인트 | Persona 역할 |
 |--------|-----------|--------------|
-| Chat | `/chat` | LangGraph `select_weights` + `retrieve_movies` + 세션 이력 |
-| Movie | `/recommend` | Bandit arm + hybrid Cypher `$persona_id` |
-| Feed | `/ingest/feed` + 랭킹 | `WRITTEN_BY` Persona, Persona-scoped `INTERACTED` |
-| Comment | `/ingest/comment` + 랭킹 | Persona affinity + intent/sentiment 부스트 |
+| Chat | `/chat/stream` | 세션 이력·체크포인트 스코프. Neo4j 조회는 Agent tool |
+| Movie | `/recommend/movie` | Bandit arm + hybrid Cypher `$persona_id` |
+| Feed | `/recommend/feed` | Bandit arm + hybrid feed Cypher `$persona_id` |
+| Ingest | `/ingest/feed`, `/ingest/comment` | `WRITTEN_BY` Persona, Persona-scoped `INTERACTED` |
 | Feedback | `/feedback` | `context_key = user_id:persona_id` posterior 갱신 |

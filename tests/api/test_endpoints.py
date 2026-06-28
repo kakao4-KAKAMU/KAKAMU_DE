@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
@@ -13,9 +15,45 @@ from src.recommend.arms import BanditArm
 from src.recommend.intent_resolver import ResolvedIntent
 
 
+def _parse_sse_events(body: str) -> list[tuple[str | None, str]]:
+    """SSE 본문을 (event, data) 목록으로 파싱."""
+    events: list[tuple[str | None, str]] = []
+    current_event: str | None = None
+    current_data: list[str] = []
+    for line in body.splitlines():
+        if line.startswith("event:"):
+            current_event = line.removeprefix("event:").strip()
+        elif line.startswith("data:"):
+            current_data.append(line.removeprefix("data:").strip())
+        elif line == "" and current_data:
+            events.append((current_event, "\n".join(current_data)))
+            current_event = None
+            current_data = []
+    if current_data:
+        events.append((current_event, "\n".join(current_data)))
+    return events
+
+
+async def _fake_chat_astream(
+    state: dict[str, Any], config: dict[str, Any] | None = None
+) -> AsyncIterator[dict[str, Any]]:
+    del state, config
+    yield {
+        "persist_history": {
+            "reply": "추천드려요",
+            "ontology_ref": {"movie_ids": ["m1"]},
+        }
+    }
+
+
 def _build_fake_container() -> AppContainer:
     history = MagicMock()
     history.open_session.return_value = None
+    history.append.return_value = 42
+    session = MagicMock()
+    session.user_id = "u1"
+    session.persona_id = None
+    history.get_session_by_id.return_value = session
 
     intent = MagicMock()
     intent.resolve.return_value = ResolvedIntent(
@@ -33,16 +71,16 @@ def _build_fake_container() -> AppContainer:
 
     template_executor = MagicMock()
     template_executor.execute.return_value = [
-        {"movie_id": "m1", "title": "Movie 1", "score": 0.9}
+        {
+            "movie_id": "m1",
+            "title": "Movie 1",
+            "plot_summary": "A dream within a dream.",
+            "score": 0.9,
+        }
     ]
 
     chat_graph = MagicMock()
-    chat_graph.invoke.return_value = {
-        "reply": "추천드려요",
-        "arm_id": "balanced",
-        "retrieved_movies": [{"movie_id": "m1", "title": "Movie 1"}],
-        "ontology_ref": {"movie_ids": ["m1"]},
-    }
+    chat_graph.astream = _fake_chat_astream
 
     feedback_recorder = MagicMock()
     feedback_recorder.record.return_value = MagicMock(arm_id="balanced", reward=3.0)
@@ -52,8 +90,6 @@ def _build_fake_container() -> AppContainer:
 
     return AppContainer(
         settings=MagicMock(),
-        neo4j=MagicMock(),
-        llm=MagicMock(),
         embedder=embedder,
         policy=policy,
         template_executor=template_executor,
@@ -84,25 +120,45 @@ def test_healthz(client: TestClient) -> None:
     assert resp.json() == {"status": "ok"}
 
 
-def test_chat_returns_reply(client: TestClient, _override_container) -> None:
+def test_chat_stream_returns_sse(client: TestClient, _override_container) -> None:
     resp = client.post(
-        "/chat",
-        json={"user_id": "u1", "message": "잔잔한 영화 추천"},
+        "/chat/stream",
+        json={"user_id": "u1", "message": "잔잔한 영화 추천", "session_id": "s1"},
     )
     assert resp.status_code == 200
-    body = resp.json()
-    assert body["reply"] == "추천드려요"
-    assert body["arm_id"] == "balanced"
-    assert body["movies"][0]["movie_id"] == "m1"
-    _override_container.chat_graph.invoke.assert_called_once()
-    _override_container.chat_history.append.assert_called()  # user message logged
+    assert resp.headers["content-type"].startswith("text/event-stream")
+
+    events = _parse_sse_events(resp.text)
+    event_names = [name for name, _ in events]
+    assert "open" in event_names
+    assert "node" in event_names
+    assert "done" in event_names
+
+    _override_container.chat_history.open_session.assert_called_once()
+    _override_container.chat_history.append.assert_called()
+
+
+def test_chat_stream_rejects_foreign_session(
+    client: TestClient, _override_container
+) -> None:
+    foreign = MagicMock()
+    foreign.user_id = "victim"
+    foreign.persona_id = None
+    _override_container.chat_history.get_session_by_id.return_value = foreign
+
+    resp = client.post(
+        "/chat/stream",
+        json={"user_id": "attacker", "message": "hello", "session_id": "s-victim"},
+    )
+    assert resp.status_code == 403
+    _override_container.chat_history.open_session.assert_not_called()
 
 
 def test_recommend_uses_intent_and_template(
     client: TestClient, _override_container
 ) -> None:
     resp = client.post(
-        "/recommend",
+        "/recommend/movie",
         json={"user_id": "u1", "query": "잔잔한 성장 영화"},
     )
     assert resp.status_code == 200
@@ -111,12 +167,20 @@ def test_recommend_uses_intent_and_template(
     assert body["themes"] == ["성장"]
     assert body["moods"] == ["잔잔한"]
     assert body["movies"][0]["movie_id"] == "m1"
+    _override_container.intent_resolver.resolve.assert_called_once_with("잔잔한 성장 영화")
+    _override_container.template_executor.execute.assert_called_once()
 
 
 def test_ingest_movie_enqueues(client: TestClient, _override_container) -> None:
     resp = client.post(
-        "/ingest/movie",
-        json={"payload": {"title": "Inception"}},
+        "/ingest/movie/regist",
+        json={
+            "payload": {
+                "movie_id": "m-inception",
+                "title": "Inception",
+                "plot": "A thief enters dreams.",
+            }
+        },
     )
     assert resp.status_code == 200
     assert resp.json() == {"outbox_id": 7}
@@ -130,6 +194,7 @@ def test_feedback_records_reward(client: TestClient, _override_container) -> Non
             "user_id": "u1",
             "arm_id": "balanced",
             "action": "like",
+            "content_type": "movie",
         },
     )
     assert resp.status_code == 200

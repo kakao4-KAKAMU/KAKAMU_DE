@@ -12,6 +12,10 @@ from textwrap import dedent
 from typing import Any, Final, Literal
 
 from src.ontology.schema import (
+    ChatExtractBoth,
+    ChatExtractFeed,
+    ChatExtractMovie,
+    ChatExtractNone,
     ChatReplyBoth,
     ChatReplyFeed,
     ChatReplyMovie,
@@ -22,8 +26,9 @@ from src.ontology.schema import (
 ReplyScope = Literal["movie", "feed", "both", "none"]
 
 REPLY_CACHE_SALT: Final[str] = "chat_reply:v1"
+EXTRACT_CACHE_SALT: Final[str] = "chat_extract:v1"
 
-_MOVIE_CANDIDATE_FIELDS: Final[tuple[str, ...]] = (
+_RETRIEVED_MOVIES_FIELDS: Final[tuple[str, ...]] = (
     "movie_id",
     "title",
     "producing_year",
@@ -31,7 +36,7 @@ _MOVIE_CANDIDATE_FIELDS: Final[tuple[str, ...]] = (
     "plot_raw",
     "score",
 )
-_FEED_CANDIDATE_FIELDS: Final[tuple[str, ...]] = (
+_RETRIEVED_FEEDS_FIELDS: Final[tuple[str, ...]] = (
     "feed_id",
     "content_raw",
     "sentiment_score",
@@ -79,18 +84,60 @@ _NONE_GUIDE: Final[str] = dedent(
     """
 ).strip()
 
+_EXTRACT_MOVIE_GUIDE: Final[str] = dedent(
+    """
+    너는 에이전트 응답 분석기다.
+    user 메시지의 에이전트 응답 텍스트에서 실제로 언급·추천된 영화만 찾아라.
+    system 메시지의 [영화 추천 후보 목록]에 있는 movie_id 중에서만 선택한다.
+    목록에 없는 movie_id·제목을 생성하지 마라.
+    답변(reply)을 생성하지 말고 metadata.movie 배열만 출력하라.
+    각 항목은 {"type": "movie", "id": "<목록의 movie_id>"} 형식이다.
+    언급된 영화가 없으면 metadata.movie 는 빈 배열로 둔다.
+    """
+).strip()
+
+_EXTRACT_FEED_GUIDE: Final[str] = dedent(
+    """
+    너는 에이전트 응답 분석기다.
+    user 메시지의 에이전트 응답 텍스트에서 실제로 언급·추천된 피드만 찾아라.
+    system 메시지의 [피드 추천 후보 목록]에 있는 feed_id 중에서만 선택한다.
+    목록에 없는 feed_id·내용을 생성하지 마라.
+    답변(reply)을 생성하지 말고 metadata.feed 배열만 출력하라.
+    각 항목은 {"type": "feed", "id": "<목록의 feed_id>"} 형식이다.
+    언급된 피드가 없으면 metadata.feed 는 빈 배열로 둔다.
+    """
+).strip()
+
+_EXTRACT_BOTH_GUIDE: Final[str] = dedent(
+    """
+    너는 에이전트 응답 분석기다.
+    user 메시지의 에이전트 응답 텍스트에서 실제로 언급·추천된 영화·피드를 찾아라.
+    system 메시지의 [영화 추천 후보 목록]과 [피드 추천 후보 목록]에서만 선택한다.
+    metadata.movie / metadata.feed 의 id 는 각 목록의 movie_id·feed_id 중 하나여야 한다.
+    답변(reply)을 생성하지 말고 metadata 만 출력하라.
+    언급된 항목이 없으면 해당 배열은 빈 배열로 둔다.
+    """
+).strip()
+
+_EXTRACT_SYSTEM_RULES: Final[str] = dedent(
+    """
+    [출력]
+    - 단일 JSON 객체만 출력. 코드펜스/주석/설명 금지.
+    - 스키마에 없는 키 추가 금지.
+    - reply 필드는 출력하지 않는다. metadata 만 출력한다.
+    """
+).strip()
+
 _REPLY_SYSTEM_RULES: Final[str] = dedent(
     """
     [출력]
     - 단일 JSON 객체만 출력. 코드펜스/주석/설명 금지.
     - 스키마에 없는 키 추가 금지.
-    - JSON 문자열 값에 줄바꿈 대신 공백 사용.
-      metadata 의 id 는 system 메시지 후보 목록에 있는 값만 사용한다.
     """
 ).strip()
 
 
-def _slim_candidate(row: dict[str, Any], fields: tuple[str, ...]) -> dict[str, Any]:
+def _slim_retrieved(row: dict[str, Any], fields: tuple[str, ...]) -> dict[str, Any]:
     return {
         key: row[key]
         for key in fields
@@ -98,66 +145,56 @@ def _slim_candidate(row: dict[str, Any], fields: tuple[str, ...]) -> dict[str, A
     }
 
 
-def _format_movie_candidates(candidates: list[dict[str, Any]]) -> str:
-    if not candidates:
+def _format_retrieved_movies(retrieved: list[dict[str, Any]]) -> str:
+    if not retrieved:
         return dedent(
             """
             [영화 추천 후보 목록]
             (후보 없음)
             """
         ).strip()
-    slim = [_slim_candidate(row, _MOVIE_CANDIDATE_FIELDS) for row in candidates]
+    slim = [_slim_retrieved(row, _RETRIEVED_MOVIES_FIELDS) for row in retrieved]
     return dedent(
         f"""
         [영화 추천 후보 목록]
         아래 JSON 배열에서만 추천 영화를 선택하라.
         metadata.movie[].id 는 반드시 아래 movie_id 값 중 하나여야 한다.
 
-        {json.dumps(slim, ensure_ascii=False, indent=2)}
+        {json.dumps(slim, ensure_ascii=False)}
         """
     ).strip()
 
 
-def _format_feed_candidates(candidates: list[dict[str, Any]]) -> str:
-    if not candidates:
+def _format_retrieved_feeds(retrieved: list[dict[str, Any]]) -> str:
+    if not retrieved:
         return dedent(
             """
             [피드 추천 후보 목록]
             (후보 없음)
             """
         ).strip()
-    slim = [_slim_candidate(row, _FEED_CANDIDATE_FIELDS) for row in candidates]
+    slim = [_slim_retrieved(row, _RETRIEVED_FEEDS_FIELDS) for row in retrieved]
     return dedent(
         f"""
         [피드 추천 후보 목록]
         아래 JSON 배열에서만 추천 피드를 선택하라.
         metadata.feed[].id 는 반드시 아래 feed_id 값 중 하나여야 한다.
 
-        {json.dumps(slim, ensure_ascii=False, indent=2)}
+        {json.dumps(slim, ensure_ascii=False)}
         """
     ).strip()
 
-
-def _build_user_payload(payload: dict[str, Any]) -> str:
-    user_body = {
-        key: value
-        for key, value in payload.items()
-        if key not in ("movie_candidates", "feed_candidates")
-    }
-    return json.dumps(user_body, ensure_ascii=False)
-
-
-def _candidate_system_messages(
+def _retrieved_system_messages(
     scope: ReplyScope,
     *,
-    movie_candidates: list[dict[str, Any]] | None,
-    feed_candidates: list[dict[str, Any]] | None,
+    retrieved_movies: list[dict[str, Any]] | None,
+    retrieved_feeds: list[dict[str, Any]] | None,
 ) -> list[str]:
     messages: list[str] = []
     if scope in ("movie", "both"):
-        messages.append(_format_movie_candidates(movie_candidates or []))
+        messages.append(_format_retrieved_movies(retrieved_movies or []))
     if scope in ("feed", "both"):
-        messages.append(_format_feed_candidates(feed_candidates or []))
+        messages.append(_format_retrieved_feeds(retrieved_feeds or []))
     return messages
 
 
@@ -174,13 +211,13 @@ class _ReplyPromptSpec:
         self,
         *,
         user_payload: str,
-        candidate_system_messages: list[str] | None = None,
+        retrieved_system_messages: list[str] | None = None,
     ) -> dict[str, Any]:
         messages: list[dict[str, str]] = [
             {"role": "system", "content": _REPLY_SYSTEM_RULES},
             {"role": "system", "content": self.guide},
         ]
-        for content in candidate_system_messages or []:
+        for content in retrieved_system_messages or []:
             messages.append({"role": "system", "content": content})
         messages.append({"role": "user", "content": user_payload})
         return {
@@ -227,23 +264,110 @@ def build_reply_messages(
     payload: dict[str, Any],
 ) -> dict[str, Any]:
     """분석·필터링 결과 payload → generate_reply messages + response_format."""
-    movie_candidates = payload.get("movie_candidates")
-    feed_candidates = payload.get("feed_candidates")
-    user_payload = _build_user_payload(payload)
-    candidate_messages = _candidate_system_messages(
+    retrieved_movies = payload.get("retrieved_movies")
+    retrieved_feeds = payload.get("retrieved_feeds")
+    user_payload = payload.get("query")
+    retrieved_messages = _retrieved_system_messages(
         scope,
-        movie_candidates=movie_candidates if isinstance(movie_candidates, list) else None,
-        feed_candidates=feed_candidates if isinstance(feed_candidates, list) else None,
+        retrieved_movies=(
+            retrieved_movies if isinstance(retrieved_movies, list) else None
+        ),
+        retrieved_feeds=retrieved_feeds if isinstance(retrieved_feeds, list) else None,
     )
     return _REPLY_SPECS[scope].build_payload(
         user_payload=user_payload,
-        candidate_system_messages=candidate_messages,
+        retrieved_system_messages=retrieved_messages,
+    )
+
+
+@dataclass(frozen=True)
+class _ExtractPromptSpec:
+    name: str
+    guide: str
+    schema_base: dict[str, Any]
+
+    def schema_json(self) -> dict[str, Any]:
+        return self.schema_base
+
+    def build_payload(
+        self,
+        *,
+        agent_content: str,
+        retrieved_system_messages: list[str] | None = None,
+    ) -> dict[str, Any]:
+        messages: list[dict[str, str]] = [
+            {"role": "system", "content": _EXTRACT_SYSTEM_RULES},
+            {"role": "system", "content": self.guide},
+        ]
+        for content in retrieved_system_messages or []:
+            messages.append({"role": "system", "content": content})
+        messages.append({"role": "user", "content": agent_content})
+        return {
+            "messages": messages,
+            "response_format": {
+                "type": "json_schema",
+                "json_schema": self.schema_json(),
+            },
+            "cache_salt": EXTRACT_CACHE_SALT,
+        }
+
+
+_EXTRACT_SPECS: dict[ReplyScope, _ExtractPromptSpec] = {
+    "movie": _ExtractPromptSpec(
+        name="extract_movie",
+        guide=_EXTRACT_MOVIE_GUIDE,
+        schema_base=build_llm_json_schema(
+            ChatExtractMovie, name="extract_movie_ontology"
+        ),
+    ),
+    "feed": _ExtractPromptSpec(
+        name="extract_feed",
+        guide=_EXTRACT_FEED_GUIDE,
+        schema_base=build_llm_json_schema(
+            ChatExtractFeed, name="extract_feed_ontology"
+        ),
+    ),
+    "both": _ExtractPromptSpec(
+        name="extract_both",
+        guide=_EXTRACT_BOTH_GUIDE,
+        schema_base=build_llm_json_schema(
+            ChatExtractBoth, name="extract_both_ontology"
+        ),
+    ),
+    "none": _ExtractPromptSpec(
+        name="extract_none",
+        guide=_NONE_GUIDE,
+        schema_base=build_llm_json_schema(
+            ChatExtractNone, name="extract_none_ontology"
+        ),
+    ),
+}
+
+
+def build_extraction_messages(
+    *,
+    scope: ReplyScope,
+    agent_content: str,
+    retrieved_movies: list[dict[str, Any]] | None = None,
+    retrieved_feeds: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """에이전트 응답 + 후보 목록 → metadata 추출용 messages + response_format."""
+    retrieved_messages = _retrieved_system_messages(
+        scope,
+        retrieved_movies=retrieved_movies,
+        retrieved_feeds=retrieved_feeds,
+    )
+    return _EXTRACT_SPECS[scope].build_payload(
+        agent_content=agent_content,
+        retrieved_system_messages=retrieved_messages,
     )
 
 
 __all__ = [
+    "EXTRACT_CACHE_SALT",
     "REPLY_CACHE_SALT",
     "ReplyScope",
+    "build_extraction_messages",
     "build_reply_messages",
     "get_reply_schema_json",
 ]
