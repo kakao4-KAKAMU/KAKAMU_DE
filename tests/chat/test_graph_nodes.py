@@ -196,17 +196,14 @@ def test_merge_tool_results_flattens_nested_movie_node() -> None:
     assert movie["score"] == 0.9
 
 
-def test_build_structured_reply_uses_graph_query_results_as_candidates() -> None:
+def test_build_structured_reply_uses_retrieved_movies_as_candidates() -> None:
     deps = _deps()
     build_structured_reply(
         {
             "query": "추천",
             "intent_scope": "movie",
-            "graph_query_results": [
-                {
-                    "cypher": "MATCH ...",
-                    "rows": [{"movie_id": "m1", "title": "Movie 1", "plot_raw": "줄거리"}],
-                }
+            "retrieved_movies": [
+                {"movie_id": "m1", "title": "Movie 1", "plot_raw": "줄거리"},
             ],
         },
         deps,
@@ -214,11 +211,11 @@ def test_build_structured_reply_uses_graph_query_results_as_candidates() -> None
     messages = deps.llm.chat_json.call_args.kwargs.get("messages") or deps.llm.chat_json.call_args.args[0]
     system_text = "\n".join(m["content"] for m in messages if m["role"] == "system")
     assert '"movie_id": "m1"' in system_text
-    assert '"plot": "줄거리"' in system_text
+    assert '"plot_raw": "줄거리"' in system_text
     assert "[영화 추천 후보 목록]" in system_text
 
 
-def test_build_structured_reply_includes_plot_in_system_prompt() -> None:
+def test_build_structured_reply_includes_plot_raw_in_system_prompt() -> None:
     deps = _deps()
     build_structured_reply(
         {
@@ -228,7 +225,7 @@ def test_build_structured_reply_includes_plot_in_system_prompt() -> None:
                 {
                     "movie_id": "m1",
                     "title": "Movie 1",
-                    "plot_summary": "성장 드라마",
+                    "plot_raw": "성장 드라마",
                     "producing_year": 2019,
                 }
             ],
@@ -237,7 +234,7 @@ def test_build_structured_reply_includes_plot_in_system_prompt() -> None:
     )
     messages = deps.llm.chat_json.call_args.kwargs.get("messages") or deps.llm.chat_json.call_args.args[0]
     system_text = "\n".join(m["content"] for m in messages if m["role"] == "system")
-    assert '"plot": "성장 드라마"' in system_text
+    assert '"plot_raw": "성장 드라마"' in system_text
     assert "[영화 추천 후보 목록]" in system_text
     assert "[Neo4j" not in system_text
 
@@ -250,6 +247,7 @@ def test_build_structured_reply_falls_back_when_llm_raises() -> None:
             "query": "추천",
             "intent_scope": "movie",
             "retrieved_movies": [{"movie_id": "m1", "title": "기생충"}],
+            "retrieved_feeds": [],
         },
         deps,
     )
@@ -355,7 +353,12 @@ def test_build_chat_graph_skips_tool_for_none_scope() -> None:
     }
     graph = build_chat_graph(deps)
     final = graph.invoke(
-        {"user_id": "u1", "session_id": "s1", "query": "안녕하세요"},
+        {
+            "user_id": "u1",
+            "session_id": "s1",
+            "query": "안녕하세요",
+            "intent_scope": "none",
+        },
         config={"recursion_limit": AGENT_RECURSION_LIMIT},
     )
     assert final["reply"] == "안녕하세요!"
