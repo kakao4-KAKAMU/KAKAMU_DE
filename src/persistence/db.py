@@ -31,7 +31,7 @@ def _build_conninfo(settings: PostgresSettings) -> str:
     )
 
 
-async def async_ping_check(conn):
+def ping_check(conn):
     """Callback to pre-ping the connection."""
     return conn.execute("SELECT 1")
 
@@ -49,7 +49,7 @@ def get_pool(
     logger.info("Initializing PostgreSQL connection pool (max_size=%d)", max_size)
     pool = ConnectionPool(
         conninfo=conninfo,
-        check=async_ping_check,
+        check=ping_check,
         min_size=min_size,
         max_size=max_size,
         reconnect_timeout=300,
