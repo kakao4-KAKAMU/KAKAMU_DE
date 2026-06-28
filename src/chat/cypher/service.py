@@ -43,8 +43,7 @@ _EXCLUDED_NODE_TYPES: list[str] = ["User", "Persona"]
 # GraphCypherQAChain CYPHER_GENERATION_PROMPT 의 {examples} 슬롯용 few-shot.
 _DEFAULT_CYPHER_EXAMPLES: str = """\
 # 잔잔한 무드의 영화 10편은?
-MATCH (m:Movie)-[:HAS_MOOD]->(md:Mood)
-WHERE md.name = '잔잔한'
+MATCH (m:Movie)-[:HAS_MOOD]->(md:Mood {name: '잔잔한'})
 RETURN m.movie_id AS movie_id, m.producing_year AS producing_year, m.country AS country, m.title AS title
 LIMIT 10
 
@@ -55,31 +54,30 @@ RETURN m.movie_id AS movie_id, m.producing_year AS producing_year, m.country AS 
 LIMIT 10
 
 # '봉준호' 감독 영화 목록은?
-MATCH (m:Movie)-[hp:HAS_PERSON]->(p:Person)
-WHERE hp.job STARTS WITH '감독' AND p.name = '봉준호'
+MATCH (m:Movie)-[hp:HAS_PERSON]->(p:Person {name: '봉준호'})
+WHERE hp.job STARTS WITH '감독'
 RETURN m.movie_id AS movie_id, m.producing_year AS producing_year, m.country AS country, m.title AS title
 LIMIT 10
 
 # '마동석' 배우 영화 목록은?
-MATCH (m:Movie)-[hp:HAS_PERSON]->(p:Person)
-WHERE hp.job STARTS WITH '배우' AND p.name = '마동석'
+MATCH (m:Movie)-[hp:HAS_PERSON]->(p:Person {name: '마동석'})
+WHERE hp.job STARTS WITH '배우'
 RETURN m.movie_id AS movie_id, m.producing_year AS producing_year, m.country AS country, m.title AS title
 LIMIT 10
 
 # '박지훈' 나온 영화 목록은?
-MATCH (m:Movie)-[hp:HAS_PERSON]->(p:Person)
-WHERE p.name = '박지훈'
+MATCH (m:Movie)-[hp:HAS_PERSON]->(p:Person {name: '박지훈'})
 RETURN m.movie_id AS movie_id, m.producing_year AS producing_year, m.country AS country, m.title AS title
 LIMIT 10
 
 # '기생충' 관련 감상 피드는?
-MATCH (f:Feed)-[:ABOUT_MOVIE]->(m:Movie)
-WHERE m.title = '기생충'
+MATCH (f:Feed)-[:ABOUT_MOVIE]->(m:Movie {title: '기생충'})
 RETURN f.feed_id AS feed_id, f.summary AS summary
 LIMIT 10
 
 # '최신' 영화는?
 MATCH (m:Movie)
+WHERE m.producing_year >= toInteger(format(date() - Duration({years: 1}), 'yyyy'));
 RETURN m.movie_id AS movie_id, m.producing_year AS producing_year, m.country AS country, m.title AS title
 ORDER BY m.producing_year DESC
 LIMIT 10
