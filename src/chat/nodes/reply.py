@@ -1,7 +1,7 @@
 """generate_reply 노드: 에이전트 응답 전달 + 언급 항목 추출.
 
-agent AIMessage content 를 ``reply`` 로 사용하고, LLM 은 후보 목록에서
-언급된 영화/피드 ID 추출(metadata)만 수행한다.
+agent AIMessage content 에서 ``<direct_reply>`` 태그 내부를 ``reply`` 로 사용하고,
+LLM 은 후보 목록에서 언급된 영화/피드 ID 추출(metadata)만 수행한다.
 
 SOLID
 -----
@@ -12,6 +12,7 @@ SOLID
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any
 
 from langchain_core.messages import AIMessage, BaseMessage
@@ -23,6 +24,11 @@ from src.chat.state import ChatState, IntentScope
 from src.ontology.prompts.reply import ReplyScope, build_extraction_messages
 
 logger = logging.getLogger(__name__)
+
+_DIRECT_REPLY_PATTERN = re.compile(
+    r"<direct_reply>\s*(.*?)\s*</direct_reply>",
+    re.DOTALL | re.IGNORECASE,
+)
 
 
 def _resolve_scope(state: ChatState) -> IntentScope:
@@ -51,11 +57,20 @@ def _message_text(content: Any) -> str:
     return str(content or "")
 
 
+def _extract_direct_reply(content: str) -> str:
+    """``<direct_reply>`` 태그 내부 텍스트만 trim 하여 반환한다."""
+    match = _DIRECT_REPLY_PATTERN.search(content)
+    if match:
+        return match.group(1).strip()
+    return content.strip()
+
+
 def _latest_agent_content(messages: list[BaseMessage]) -> str:
     for msg in reversed(messages):
         if not isinstance(msg, AIMessage) or msg.tool_calls:
             continue
-        return strip_reasoning_blocks(_message_text(msg.content))
+        raw = strip_reasoning_blocks(_message_text(msg.content))
+        return _extract_direct_reply(raw)
     return ""
 
 
