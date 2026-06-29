@@ -1,3 +1,4 @@
+from torch.functional import _return_counts
 from src.api.schemas.feed import IngestFeedPayload
 from src.extractor.feed_extractor import FeedExtractor
 from src.graph.context_reader import MoviePlotReader, NullMoviePlotReader
@@ -16,6 +17,8 @@ def build_feed_handler(
 
     def _handler(payload: IngestFeedPayload) -> None:
         payload = IngestFeedPayload.model_validate(payload)
+        if payload.content.startswith('Created by Locust during an approved KAKAMU load test.'):
+            return
         ontology = extractor.extract(
             known_movie_plot_raws=[
                 reader.get_plot_raw(movie_id) for movie_id in payload.known_movie_ids
