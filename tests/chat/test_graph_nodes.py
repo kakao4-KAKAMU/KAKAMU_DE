@@ -395,6 +395,28 @@ def test_build_structured_reply_strips_thinking_blocks() -> None:
     assert "redacted_thinking" not in out["reply"]
 
 
+def test_build_structured_reply_extracts_direct_reply_tag() -> None:
+    deps = _deps()
+    raw_content = (
+        "분석 메모\n"
+        "<direct_reply>\n  기생충을 추천드려요 \n</direct_reply>\n"
+        "후속 작업 메모"
+    )
+    out = build_structured_reply(
+        {
+            "query": "추천",
+            "intent_scope": "movie",
+            "retrieved_movies": [{"movie_id": "m1", "title": "기생충"}],
+            "messages": [AIMessage(content=raw_content)],
+        },
+        deps,
+    )
+    assert out["reply"] == "기생충을 추천드려요"
+    messages = deps.llm.chat_json.call_args.kwargs.get("messages") or deps.llm.chat_json.call_args.args[0]
+    user_text = next(m["content"] for m in messages if m["role"] == "user")
+    assert user_text == "기생충을 추천드려요"
+
+
 def test_build_structured_reply_filters_retrieved_movies_by_extracted_ids() -> None:
     deps = _deps()
     deps.llm.chat_json.return_value = {
