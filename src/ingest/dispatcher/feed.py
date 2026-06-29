@@ -1,4 +1,3 @@
-from torch.functional import _return_counts
 from src.api.schemas.feed import IngestFeedPayload
 from src.extractor.feed_extractor import FeedExtractor
 from src.graph.context_reader import MoviePlotReader, NullMoviePlotReader
