@@ -12,6 +12,7 @@ from src.ontology.prompts.movie import build_movie_plot_messages, get_movie_plot
 from src.ontology.prompts.schema_vocab import (
     KEYWORD_KINDS,
     apply_vocab_enums,
+    build_cypher_analysis_knowledge,
     build_vocab_guide_lines,
     vocab_fingerprint,
     vocab_genres,
@@ -57,6 +58,17 @@ def test_vocab_loaders_non_empty() -> None:
     assert len(vocab_themes()) >= 30
     assert len(vocab_moods()) >= 8
     assert len(vocab_fingerprint()) == 12
+
+
+def test_build_cypher_analysis_knowledge_includes_ontology_rules() -> None:
+    knowledge = build_cypher_analysis_knowledge()
+    assert "[질문 분석 기준 — Genre / Theme / Mood]" in knowledge
+    assert "HAS_GENRE" in knowledge
+    assert "HAS_THEME" in knowledge
+    assert "HAS_MOOD" in knowledge
+    assert "- revenge (복수)" in knowledge
+    assert "- suspenseful (긴장감있는)" in knowledge
+    assert "- 액션 | themes:" in knowledge
 
 
 def test_movie_schema_injects_vocab_enums() -> None:

@@ -88,6 +88,8 @@ def test_query_passes_examples_to_generation_chain() -> None:
     assert "examples" in invoke_args
     assert invoke_args["examples"]
     assert "HAS_MOOD" in invoke_args["examples"]
+    assert "[질문 분석 기준 — Genre / Theme / Mood]" in invoke_args["examples"]
+    assert "revenge (복수)" in invoke_args["examples"]
 
 
 def test_query_success_returns_rows() -> None:

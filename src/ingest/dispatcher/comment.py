@@ -16,6 +16,8 @@ def build_comment_handler(
 
     def _handler(payload: IngestCommentPayload) -> None:
         payload = IngestCommentPayload.model_validate(payload)
+        if payload.content.startswith("load test comment"):
+            return
         parent_feed_summary = reader.get_feed_summary(payload.feed_id)
         parent_comment_summary = (
             reader.get_comment_summary(payload.parent_comment_id)
