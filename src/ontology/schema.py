@@ -210,7 +210,7 @@ class Keyword(BaseModel):
         le=1.0,
         description="해당 문서 내 중요도(0~1).",
     )
-    kind: KeywordKind = Field(default=KeywordKind.OTHER, description="키워드의 종류(상위 분류).")
+    kind: KeywordKind = Field(default=KeywordKind.OTHER, description='|'.join(KEYWORD_KIND_VALUES))
 
     @field_validator("term", "normalized")
     @classmethod
@@ -248,8 +248,8 @@ class EmotionScore(BaseModel):
     """감정 태그별 점수(0~1)."""
     model_config = ConfigDict(use_enum_values=True)
 
-    tag: EmotionTag
-    score: float = Field(..., ge=0.0, le=1.0)
+    tag: EmotionTag = Field(..., description=f"세부 감정 태그({'|'.join(EMOTION_TAG_VALUES)})")
+    score: float = Field(..., ge=0.0, le=1.0, description="감정 점수(0~1)")
 
 
 class OntologyResult(BaseModel):
@@ -298,28 +298,21 @@ class FeedOntology(OntologyResult):
     """피드 본문 정제 결과."""
     model_config = ConfigDict(use_enum_values=True)
 
-    summary: str = Field(..., description="피드 본문의 1~2문장 요약.")
-    category: FeedCategory = Field(..., description="피드 글 특성.")
-    sentiment: Sentiment = Field(..., description="전체 감정 극성.")
+    summary: str = Field(..., description="피드 본문의 요약.")
+    category: FeedCategory = Field(..., description=f"피드 글 특성({'|'.join(FEED_CATEGORY_VALUES)})")
+    sentiment: Sentiment = Field(..., description=f"전체 감정 극성({'|'.join(SENTIMENT_VALUES)})")
     sentiment_score: float = Field(
-        ..., ge=-1.0, le=1.0, description="감정 점수. -1(매우 부정) ~ +1(매우 긍정)."
+        ..., ge=-1.0, le=1.0, description="감정 점수(-1~1)"
     )
     emotions: List[EmotionScore] = Field(
-        default_factory=list, description="세부 감정 태그와 점수."
+        default_factory=list, description=f"세부 감정 태그와 점수({'|'.join(EMOTION_TAG_VALUES)})"
     )
     keywords: List[Keyword] = Field(
-        default_factory=list, description="피드 핵심 키워드."
+        default_factory=list, description=f"피드 핵심 키워드."
     )
-    referenced_person_names: List[str] = Field(
-        default_factory=list,
-        description="본문에서 언급된 감독/배우 등 인물명.",
-    )
-    contains_spoiler: bool = Field(
-        default=False, description="스포일러 포함 여부."
-    )
-    toxicity_score: float = Field(
-        default=0.0, ge=0.0, le=1.0, description="유해/공격성 점수(0~1)."
-    )
+    referenced_person_names: List[str] = Field(default_factory=list, description="본문에서 언급된 감독/배우 등 인물명.")
+    contains_spoiler: bool = Field(default=False, description="스포일러 포함 여부.")
+    toxicity_score: float = Field(default=0.0, ge=0.0, le=1.0, description="유해/공격성 점수(0~1).")
 
 
 # ---------------------------------------------------------------------------
@@ -332,12 +325,12 @@ class CommentOntology(OntologyResult):
     model_config = ConfigDict(use_enum_values=True)
 
     summary: str = Field(..., description="댓글의 1문장 요약(짧으면 원문 그대로 가능).")
-    target: CommentTarget = Field(..., description="댓글이 향하는 대상.")
-    reaction: CommentReaction = Field(..., description="댓글의 반응 유형.")
-    sentiment: Sentiment = Field(..., description="전체 감정 극성.")
-    sentiment_score: float = Field(..., ge=-1.0, le=1.0)
-    emotions: List[EmotionScore] = Field(default_factory=list)
-    keywords: List[Keyword] = Field(default_factory=list)
+    target: CommentTarget = Field(..., description=f"댓글이 향하는 대상({'|'.join(COMMENT_TARGET_VALUES)})")
+    reaction: CommentReaction = Field(..., description=f"댓글의 반응 유형({'|'.join(COMMENT_REACTION_VALUES)})")
+    sentiment: Sentiment = Field(..., description=f"전체 감정 극성({'|'.join(SENTIMENT_VALUES)})")
+    sentiment_score: float = Field(..., ge=-1.0, le=1.0, description="감정 점수(-1~1)")
+    emotions: List[EmotionScore] = Field(default_factory=list, description=f"세부 감정 태그와 점수)")
+    keywords: List[Keyword] = Field(default_factory=list, description=f"피드 핵심 키워드.")
     targets_user_id: Optional[str] = Field(
         default=None,
         description="해당 댓글이 특정 사용자를 향한 경우 그 user_id.",
