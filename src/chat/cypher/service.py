@@ -20,8 +20,7 @@ from src.chat.cypher.sanitize import sanitize_and_extract_cypher
 from src.chat.cypher.security import validate_cypher_security
 from src.config.settings import Neo4jSettings
 from src.graph.client import Neo4jClient
-from src.ontology.prompts.schema_vocab import vocab_moods, vocab_themes
-from src.ontology.schema import GENRE_VALUES
+from src.ontology.prompts.schema_vocab import build_cypher_analysis_knowledge
 
 logger = logging.getLogger(__name__)
 
@@ -44,13 +43,9 @@ _EXCLUDED_NODE_TYPES: list[str] = ["User", "Persona"]
 
 # GraphCypherQAChain CYPHER_GENERATION_PROMPT 의 {examples} 슬롯용 few-shot.
 _DEFAULT_CYPHER_EXAMPLES: str = """\
-# 고정 값
-## Genre
-{genre}
-## Mood
-{mood}
-## Theme
-{theme}
+{analysis_knowledge}
+
+# Cypher 예시
 
 # '긴장감 넘치는' 무드의 영화 10편은?
 MATCH (m:Movie)-[:HAS_MOOD]->(md:Mood {name: 'suspenseful'})
@@ -120,16 +115,11 @@ LIMIT 10
 
 
 def _build_default_cypher_examples() -> str:
-    """Cypher few-shot 프롬프트에 ontology vocabulary 를 주입한다."""
-    replacements = {
-        "{genre}": ", ".join(GENRE_VALUES),
-        "{theme}": ", ".join(vocab_themes()),
-        "{mood}": ", ".join(vocab_moods()),
-    }
-    examples = _DEFAULT_CYPHER_EXAMPLES
-    for placeholder, value in replacements.items():
-        examples = examples.replace(placeholder, value)
-    return examples
+    """Cypher few-shot 프롬프트에 ontology 분석 지식을 주입한다."""
+    return _DEFAULT_CYPHER_EXAMPLES.replace(
+        "{analysis_knowledge}",
+        build_cypher_analysis_knowledge(),
+    )
 
 
 @dataclass(frozen=True)
