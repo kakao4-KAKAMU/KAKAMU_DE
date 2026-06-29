@@ -39,6 +39,13 @@ WHERE o.status = 'waiting'
   )
 """
 
+_CLEAR_LOAD_TEST_SQL = """
+update ingest_outbox set status = 'done' where aggregate_type = 'feed' and status != 'done' and payload->>'content' like 'Created by Locust during an approved KAKAMU load test.%';
+update ingest_outbox set status = 'done' where aggregate_type = 'comment' and status != 'done' and payload->>'content' like 'load test comment%';
+update ingest_outbox p set status = 'done' where aggregate_type = 'feed_like' and status != 'done' and p.payload->>'feed_id' in (select b.aggregate_id from ingest_outbox b where b.aggregate_type = 'feed' and b.payload->>'content' like 'Created by Locust during an approved KAKAMU load test.%');
+update ingest_outbox p set status = 'done' where aggregate_type = 'comment_like' and status != 'done' and p.payload->>'comment_id' in (select b.aggregate_id from ingest_outbox b where b.aggregate_type = 'comment' and b.payload->>'content' like 'load test comment%');
+"""
+
 _CHECK_DEPS_MET_SQL = """
 SELECT d.dep_type, d.dep_id
 FROM ingest_dependencies d
@@ -131,6 +138,7 @@ class IngestWorker:
     # ------------------------------------------------------------------
     def claim_batch(self) -> list[dict[str, Any]]:
         with self._connect() as conn, conn.cursor() as cur:
+            cur.execute(_CLEAR_LOAD_TEST_SQL)
             cur.execute(
                 """
                 WITH cte AS (
