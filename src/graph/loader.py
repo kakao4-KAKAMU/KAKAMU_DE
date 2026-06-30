@@ -170,6 +170,7 @@ class OntologyLoader:
         ontology: MoviePlotOntology,
         plot_embedding: Sequence[float],
         persons: Sequence[Mapping[str, str]] | None = None,
+        titles: Sequence[Mapping[str, str]] | None = None,
     ) -> None:
         themes = ontology.themes
         moods = ontology.moods
@@ -178,6 +179,14 @@ class OntologyLoader:
             themes = self._vocab.resolve_themes(themes)
             moods = self._vocab.resolve_moods(moods)
             keywords = self._vocab.resolve_keywords(keywords)
+
+        title_rows = (
+            [{"title": str(t["title"]), "country": str(t["country"])} for t in titles]
+            if titles
+            else [{"title": title, "country": country or ""}]
+            if title
+            else []
+        )
 
         params = {
             "movie_id": movie_id,
@@ -200,6 +209,7 @@ class OntologyLoader:
                 }
                 for p in (persons or [])
             ],
+            "titles": title_rows,
         }
         self._neo4j.execute_write(self._movie_upsert_cypher(), params)
         logger.info(

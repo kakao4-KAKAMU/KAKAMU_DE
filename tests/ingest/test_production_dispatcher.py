@@ -112,6 +112,34 @@ def test_movie_handler_invokes_extract_embed_upsert() -> None:
     assert kwargs["plot_embedding"] == [0.1, 0.2]
 
 
+def test_movie_handler_passes_titles_to_loader() -> None:
+    extractor = MagicMock()
+    extractor.extract.return_value = _movie_ontology()
+    embedder = MagicMock()
+    embedder.embed.return_value = [0.1, 0.2]
+    loader = MagicMock()
+
+    handler = build_movie_handler(extractor=extractor, embedder=embedder, loader=loader)
+    handler(
+        {
+            "movie_id": "m-1",
+            "title": "기생충",
+            "country": "KR",
+            "plot": "...",
+            "titles": [
+                {"title": "기생충", "country": "KR"},
+                {"title": "Parasite", "country": "US"},
+            ],
+        }
+    )
+
+    upsert_kwargs = loader.upsert_movie.call_args.kwargs
+    assert upsert_kwargs["titles"] == [
+        {"title": "기생충", "country": "KR"},
+        {"title": "Parasite", "country": "US"},
+    ]
+
+
 def test_feed_handler_parses_created_at_iso() -> None:
     extractor = MagicMock()
     extractor.extract.return_value = _feed_ontology()
