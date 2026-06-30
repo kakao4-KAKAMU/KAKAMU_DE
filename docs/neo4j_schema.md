@@ -15,6 +15,7 @@ flowchart LR
     Feed(("Feed"))
     Comment(("Comment"))
     Movie(("Movie"))
+    MovieTitle(("MovieTitle"))
     Genre(("Genre"))
     Theme(("Theme"))
     Mood(("Mood"))
@@ -53,6 +54,7 @@ flowchart LR
     Comment -- "MENTIONS {weight}" --> Keyword
 
     Movie -- "HAS_GENRE" --> Genre
+    Movie -- "HAS_TITLE" --> MovieTitle
     Movie -- "HAS_THEME" --> Theme
     Movie -- "HAS_MOOD" --> Mood
     Movie -- "MENTIONS {weight}" --> Keyword
@@ -80,6 +82,13 @@ classDiagram
         +String plot_raw
         +String plot_summary
         +float[] plot_embedding_vN
+        +DateTime updated_at
+    }
+
+    class MovieTitle {
+        +String title
+        +String country
+        +DateTime created_at
         +DateTime updated_at
     }
 
@@ -155,9 +164,11 @@ classDiagram
 | Constraint  | `:Genre/Theme/Mood/Category(name)`             | UNIQUE        |                  |
 | Constraint  | `:Emotion(tag)`                                | UNIQUE        |                  |
 | Range Index | `:Movie(producing_year)`                       | RANGE         | 시간 필터            |
+| Range Index | `:MovieTitle(country)`                         | RANGE         | 제목 국가/시장 필터       |
 | Range Index | `:Persona(user_id)`                            | RANGE         | User→Persona lookup |
 | Range Index | `:Feed(created_at)` / `:Feed(sentiment_score)` | RANGE         | 정렬/필터            |
-| Fulltext    | `:Movie(title, plot_summary)`                  | CJK analyzer  | 한국어 키워드 검색       |
+| Fulltext    | `:Movie(title, plot_summary)`                  | CJK analyzer  | 한국어 키워드 검색 (legacy) |
+| Fulltext    | `:MovieTitle(title)`                           | CJK analyzer  | 제목 검색 (primary)   |
 | Fulltext    | `:Feed(summary)` / `:Comment(summary)`         | CJK analyzer  |                  |
 | Fulltext    | `:Keyword(term, normalized)`                   | CJK analyzer  |                  |
 | Vector      | `:Movie(plot_embedding_vN)`                    | cosine, dim=N | semantic 추천 (버전별) |
@@ -194,6 +205,7 @@ erDiagram
     COMMENT }o--o{ EMOTION   : "HAS_EMOTION {score}"
     COMMENT }o--o{ KEYWORD   : "MENTIONS {weight}"
     MOVIE }o--o{ GENRE       : has
+    MOVIE ||--o{ MOVIE_TITLE : "HAS_TITLE"
     MOVIE }o--o{ THEME       : has
     MOVIE }o--o{ MOOD        : has
     MOVIE }o--o{ KEYWORD     : "MENTIONS {weight}"
@@ -260,7 +272,26 @@ RETURN m.movie_id      AS movie_id,
        score
 ```
 
-### 5-2. "이 영화에 대한 우호적인 피드" 추출
+### 5-2. MovieTitle fulltext 제목 검색
+
+```cypher
+CALL db.index.fulltext.queryNodes('movie_title_text_ft', $query)
+YIELD node AS mt, score
+WHERE $country IS NULL OR mt.country = $country
+MATCH (m:Movie)-[:HAS_TITLE]->(mt)
+WITH m, collect({matched_title: mt.title, title_country: mt.country, score: score})[0] AS best
+RETURN m.movie_id AS movie_id,
+       m.title AS title,
+       best.matched_title AS matched_title,
+       best.title_country AS title_country,
+       best.score AS score
+ORDER BY best.score DESC
+LIMIT $top_k
+```
+
+> Movie 1 : N MovieTitle. 동일 `(title, country)` 조합은 MERGE 로 1건만 유지하며, **동일 country 에 서로 다른 title** 은 여러 MovieTitle 로 허용한다.
+
+### 5-3. "이 영화에 대한 우호적인 피드" 추출
 
 ```cypher
 MATCH (f:Feed)-[:ABOUT_MOVIE]->(m:Movie {movie_id: $movie_id})
@@ -270,7 +301,7 @@ ORDER BY f.sentiment_score DESC, f.created_at DESC
 LIMIT 20;
 ```
 
-### 5-3. Persona 선호 그래프 업데이트(상호작용 기반)
+### 5-4. Persona 선호 그래프 업데이트(상호작용 기반)
 
 ```cypher
 MATCH (u:User {user_id: $user_id})-[:HAS_PERSONA]->(p:Persona {persona_id: $persona_id})
