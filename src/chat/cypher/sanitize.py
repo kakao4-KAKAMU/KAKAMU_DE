@@ -20,7 +20,13 @@ _REASONING_BLOCK_PATTERNS: tuple[re.Pattern[str], ...] = (
 )
 
 _CYPHER_STATEMENT_START = re.compile(
-    r"(?im)^\s*(MATCH|OPTIONAL\s+MATCH|WITH|CALL\s+\{)\b",
+    r"(?im)^\s*(MATCH|OPTIONAL\s+MATCH|WITH|CALL\s+\{|CALL\s+db\.index\.fulltext\.queryNodes)\b",
+)
+
+# Neo4j는 ';'를 문장 종료로 해석한다. WHERE ... ;\nRETURN 형태는 MATCH만 실행되어 실패한다.
+_MID_QUERY_SEMICOLON = re.compile(
+    r";\s*(?=\n\s*(?:RETURN|WITH|MATCH|OPTIONAL|ORDER|LIMIT|UNION|CALL|WHERE)\b)",
+    re.IGNORECASE,
 )
 
 
@@ -43,6 +49,7 @@ def sanitize_and_extract_cypher(raw: str) -> str:
     """thinking/설명 텍스트를 제거하고 실행 가능한 Cypher만 반환한다."""
     text = strip_reasoning_blocks(str(raw).strip())
     text = extract_cypher(text).strip()
+    text = _MID_QUERY_SEMICOLON.sub("\n", text)
     if _CYPHER_STATEMENT_START.search(text):
         text = _extract_from_first_cypher_keyword(text)
     return text.strip()

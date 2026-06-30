@@ -41,3 +41,24 @@ def test_extracts_from_code_fence() -> None:
 MATCH (m:Movie) RETURN m.title AS title LIMIT 3
 ```"""
     assert sanitize_and_extract_cypher(raw) == "MATCH (m:Movie) RETURN m.title AS title LIMIT 3"
+
+
+def test_strips_mid_query_semicolon_before_return() -> None:
+    raw = """CALL db.index.fulltext.queryNodes('movie_title_text_ft', '기생충')
+YIELD node AS mt, score
+MATCH (m:Movie)-[:HAS_TITLE]->(mt)
+WITH m ORDER BY score DESC LIMIT 1
+MATCH (seedFeed:Feed)-[:ABOUT_MOVIE]->(m)
+WITH seedFeed ORDER BY seedFeed.created_at DESC LIMIT 1
+MATCH (f:Feed)
+  SEARCH f IN (
+    VECTOR INDEX feed_summary_vec
+    FOR seedFeed.summary_embedding
+    LIMIT 10
+  ) SCORE AS similarityScore
+WHERE f.feed_id <> seedFeed.feed_id AND seedFeed.summary_embedding IS NOT NULL
+RETURN f.feed_id AS feed_id, f.summary AS summary, similarityScore
+ORDER BY similarityScore DESC;"""
+    cypher = sanitize_and_extract_cypher(raw)
+    assert "RETURN f.feed_id AS feed_id, f.summary AS summary, similarityScore" in cypher
+    assert cypher == raw
