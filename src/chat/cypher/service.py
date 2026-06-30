@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 # Cypher 생성 프롬프트에 포함할 도메인 노드 (User/Persona 제외)
 _DOMAIN_NODE_TYPES: list[str] = [
     "Movie",
+    "MovieTitle",
     "Feed",
     "Comment",
     "Genre",
@@ -66,6 +67,22 @@ ORDER BY m.producing_year DESC
 LIMIT 10
 
 # '기생충'과 같은 장르 영화는?
+MATCH (seed:Movie)-[:HAS_TITLE]->(:MovieTitle {title: '기생충'})
+MATCH (seed)-[:HAS_GENRE]->(g:Genre)<-[:HAS_GENRE]-(m:Movie)
+WHERE m.movie_id <> seed.movie_id
+RETURN m.movie_id AS movie_id, m.producing_year AS producing_year, m.country AS country, m.title AS title
+ORDER BY m.producing_year DESC
+LIMIT 10
+
+# '기생충' 제목으로 영화 검색은?
+CALL db.index.fulltext.queryNodes('movie_title_text_ft', '기생충')
+YIELD node AS mt, score
+MATCH (m:Movie)-[:HAS_TITLE]->(mt)
+RETURN m.movie_id AS movie_id, m.producing_year AS producing_year, m.country AS country, m.title AS title, mt.title AS matched_title, score
+ORDER BY score DESC
+LIMIT 10
+
+# '기생충'과 같은 장르 영화는? (Movie.title fallback)
 MATCH (seed:Movie {title: '기생충'})-[:HAS_GENRE]->(g:Genre)<-[:HAS_GENRE]-(m:Movie)
 WHERE m.movie_id <> seed.movie_id
 RETURN m.movie_id AS movie_id, m.producing_year AS producing_year, m.country AS country, m.title AS title

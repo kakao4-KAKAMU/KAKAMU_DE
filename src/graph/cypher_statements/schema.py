@@ -33,6 +33,7 @@ NODE_CONSTRAINTS: Final[List[str]] = [
 NODE_PROPERTY_INDEXES: Final[List[str]] = [
     "CREATE INDEX movie_year_idx   IF NOT EXISTS FOR (m:Movie)   ON (m.producing_year)",
     "CREATE INDEX movie_country_idx IF NOT EXISTS FOR (m:Movie)  ON (m.country)",
+    "CREATE INDEX movie_title_country_idx IF NOT EXISTS FOR (mt:MovieTitle) ON (mt.country)",
     "CREATE INDEX feed_created_idx IF NOT EXISTS FOR (f:Feed)    ON (f.created_at)",
     "CREATE INDEX comment_created_idx IF NOT EXISTS FOR (c:Comment) ON (c.created_at)",
     "CREATE INDEX user_created_idx IF NOT EXISTS FOR (u:User)    ON (u.created_at)",
@@ -63,6 +64,11 @@ FULLTEXT_INDEXES: Final[List[str]] = [
     """
     CREATE FULLTEXT INDEX keyword_text_ft IF NOT EXISTS
     FOR (k:Keyword) ON EACH [k.term, k.normalized]
+    OPTIONS { indexConfig: { `fulltext.analyzer`: 'cjk' } }
+    """,
+    """
+    CREATE FULLTEXT INDEX movie_title_text_ft IF NOT EXISTS
+    FOR (mt:MovieTitle) ON EACH [mt.title]
     OPTIONS { indexConfig: { `fulltext.analyzer`: 'cjk' } }
     """,
 ]

@@ -48,7 +48,7 @@ _FEED_GUIDE: Final[str] = dedent(
     - feed.emotions: Feed 본문에서 드러난 감정 1~5개.
     - feed.contains_spoiler: Feed 본문에 결말/반전 직접 서술 시 true.
     - feed.toxicity_score: 욕설/공격성/혐오 수위(0.0~1.0).
-    - feed.summary: Feed 본문의 1~2문장 요약.
+    - feed.summary: Feed 본문의 요약.
     - feed.keywords: Feed 본문에 포함되어 있는 영화 지표를 의미한다.
     """
 ).strip()

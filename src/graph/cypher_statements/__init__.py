@@ -28,6 +28,7 @@ from .movie import (
     build_update_movie_plot_embedding,
     build_upsert_movie_with_ontology,
 )
+from .movie_title import MIGRATE_MOVIE_TITLES_FROM_MOVIE, SEARCH_MOVIES_BY_TITLE_FT
 from .properties import (
     BASE_PLOT_EMBEDDING,
     BASE_SUMMARY_EMBEDDING,
@@ -64,6 +65,8 @@ __all__ = [
     "GET_MOVIE_PLOT_RAW",
     "HYBRID_FEED_RECOMMEND_WEIGHTED",
     "HYBRID_MOVIE_RECOMMEND_WEIGHTED",
+    "MIGRATE_MOVIE_TITLES_FROM_MOVIE",
+    "SEARCH_MOVIES_BY_TITLE_FT",
     "JUDGE_MOVIE_WITH_PERSONA",
     "JUDGE_PERSON_WITH_PERSONA",
     "LIKE_COMMENT_WITH_PERSONA",

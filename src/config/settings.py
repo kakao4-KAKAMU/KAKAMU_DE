@@ -65,12 +65,6 @@ class VLLMGenSettings(BaseSettings):
     model_name: str = Field(default="Qwen/Qwen3-8B-GGUF:Q4_K_M")
     max_tokens: int = Field(default=1024)
     temperature: float = Field(default=0.2)
-    enable_prefix_caching: bool = Field(default=True)
-    enable_chunked_prefill: bool = Field(default=True)
-    gpu_memory_utilization: float = Field(default=0.65)
-    block_size: int = Field(default=16)
-    max_model_len: int = Field(default=8192)
-    max_num_seqs: int = Field(default=32)
 
     model_config = SettingsConfigDict(
         env_file=".env", env_prefix="VLLM_GEN_", extra="ignore"
@@ -83,7 +77,6 @@ class VLLMEmbedSettings(BaseSettings):
     base_url: str = Field(default="http://localhost:8001/v1")
     api_key: str = Field(default="EMPTY")
     model_name: str = Field(default="BAAI/bge-m3")
-    gpu_memory_utilization: float = Field(default=0.20)
     cache_size: int = Field(default=4096)
 
     model_config = SettingsConfigDict(

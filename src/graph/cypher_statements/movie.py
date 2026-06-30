@@ -6,6 +6,15 @@ from typing import Final, Sequence
 
 from src.graph.cypher_statements.properties import BASE_PLOT_EMBEDDING, build_embedding_set_clause
 
+_MOVIE_TITLE_RELATIONS: Final[str] = """
+// MovieTitle (optional, 1:N per movie)
+WITH m
+UNWIND coalesce($titles, []) AS t
+MERGE (m)-[:HAS_TITLE]->(mt:MovieTitle {title: t.title, country: t.country})
+ON CREATE SET mt.created_at = datetime()
+SET mt.updated_at = datetime()
+"""
+
 _MOVIE_TAXONOMY_RELATIONS: Final[str] = """
 // Genre (optional)
 WITH m
@@ -70,7 +79,7 @@ SET m.title          = $title,
     {build_embedding_set_clause("m", BASE_PLOT_EMBEDDING, "plot_embedding")},
     m.toxicity_score = $toxicity_score,
     m.updated_at     = datetime()
-""" + _MOVIE_TAXONOMY_RELATIONS + _MOVIE_ONTOLOGY_RELATIONS_TAIL
+""" + _MOVIE_TITLE_RELATIONS + _MOVIE_TAXONOMY_RELATIONS + _MOVIE_ONTOLOGY_RELATIONS_TAIL
 
 
 def build_upsert_movie_with_ontology(
@@ -93,7 +102,7 @@ SET m.title          = $title,
     {embedding_clause},
     m.toxicity_score = $toxicity_score,
     m.updated_at     = datetime()
-""" + _MOVIE_TAXONOMY_RELATIONS + _MOVIE_ONTOLOGY_RELATIONS_TAIL
+""" + _MOVIE_TITLE_RELATIONS + _MOVIE_TAXONOMY_RELATIONS + _MOVIE_ONTOLOGY_RELATIONS_TAIL
 
 
 def build_update_movie_plot_embedding(
