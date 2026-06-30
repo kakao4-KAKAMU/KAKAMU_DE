@@ -137,7 +137,8 @@ class VLLMChatClient:
             "messages": messages,
             "max_tokens": max_tokens or self._settings.max_tokens,
             "temperature": temperature if temperature is not None else self._settings.temperature,
-            "top_p": 0.95
+            "top_p": 0.95,
+            "seed": 202020
         }
         if user_id:
             kwargs["user"] = user_id
