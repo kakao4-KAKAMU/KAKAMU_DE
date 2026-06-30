@@ -45,6 +45,7 @@ Country: {payload.country}
             ontology=ontology,
             plot_embedding=embedding,
             persons=persons,
+            titles=[t.model_dump() for t in payload.titles],
         )
 
     return _handler

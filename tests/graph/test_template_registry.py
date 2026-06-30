@@ -10,11 +10,12 @@ from src.graph.template_registry import (
 from src.graph.templates import build_default_registry
 
 
-def test_default_registry_has_two_templates() -> None:
+def test_default_registry_has_three_templates() -> None:
     reg = build_default_registry()
-    assert len(reg.list_ids()) == 2
+    assert len(reg.list_ids()) == 3
     assert "hybrid_recommend" in reg.list_ids()
     assert "hybrid_feed_recommend" in reg.list_ids()
+    assert "movie_title_search" in reg.list_ids()
 
 
 def test_rejects_write_operations() -> None:
@@ -83,3 +84,14 @@ def test_validate_params_optional_string_null() -> None:
         },
     )
     assert params["persona_id"] is None
+
+
+def test_movie_title_search_validate_params() -> None:
+    reg = build_default_registry()
+    params = reg.validate_params(
+        "movie_title_search",
+        {"query": "기생충", "country": "KR", "top_k": 10},
+    )
+    assert params["query"] == "기생충"
+    assert params["country"] == "KR"
+    assert params["top_k"] == 10

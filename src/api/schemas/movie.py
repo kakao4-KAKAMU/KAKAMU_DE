@@ -9,10 +9,17 @@ from __future__ import annotations
 from datetime import datetime
 from typing import List, Optional
 
-from pydantic import Field
+from pydantic import BaseModel, Field
 
 from src.api.schemas.person import IngestPersonPayload
 from src.api.schemas.shared import IngestPayload, JudgeType
+
+
+class MovieTitlePayload(BaseModel):
+    """국가/시장별 영화 제목."""
+
+    title: str = Field(min_length=1, description="영화 제목.")
+    country: str = Field(min_length=1, description="제목이 사용되는 국가 코드/명.")
 
 
 class IngestMoviePayload(IngestPayload):
@@ -31,6 +38,10 @@ class IngestMoviePayload(IngestPayload):
         default_factory=list,
         description="관객 리뷰 샘플. 온톨로지 추출 시 themes/moods 보강 컨텍스트로 사용.",
     )
+    titles: List[MovieTitlePayload] = Field(
+        default_factory=list,
+        description="국가/시장별 제목 목록. 비어 있으면 title+country 로 MovieTitle 1건 생성.",
+    )
 
 
 class IngestMovieJudgePayload(IngestPayload):
@@ -46,4 +57,5 @@ class IngestMovieJudgePayload(IngestPayload):
 __all__ = [
     "IngestMoviePayload",
     "IngestMovieJudgePayload",
+    "MovieTitlePayload",
 ]

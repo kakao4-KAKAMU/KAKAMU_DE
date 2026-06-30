@@ -40,7 +40,7 @@ def persist_history(state: ChatState, deps: ChatGraphDependencies) -> ChatState:
 
     if deps.history is not None and state.get("session_id"):
         try:
-            deps.history.append(
+            msg_id = deps.history.append(
                 session_id=str(state["session_id"]),
                 user_id=str(state.get("user_id", "anonymous")),
                 role="assistant",
@@ -50,7 +50,7 @@ def persist_history(state: ChatState, deps: ChatGraphDependencies) -> ChatState:
             )
         except Exception:
             logger.exception("Chat history persistence failed")
-    return {"ontology_ref": ontology_ref}
+    return {"ontology_ref": ontology_ref, "reply_id": msg_id}
 
 
 __all__ = ["persist_history"]
