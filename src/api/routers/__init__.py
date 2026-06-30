@@ -33,6 +33,7 @@ from src.api.routers.ingest.persona.modify import router as ingest_persona_modif
 from src.api.routers.ingest.user.regist import router as ingest_user_regist_router
 from src.api.routers.recommend.feed import router as recommend_feed_router
 from src.api.routers.recommend.movie import router as recommend_movie_router
+from src.api.routers.search.movie import router as search_movie_router
 
 router = APIRouter()
 router.include_router(healthz_router)
@@ -41,6 +42,7 @@ router.include_router(chat_history_router)
 router.include_router(chat_stream_router)
 router.include_router(recommend_movie_router)
 router.include_router(recommend_feed_router)
+router.include_router(search_movie_router)
 router.include_router(ingest_movie_regist_router)
 router.include_router(ingest_movie_judge_router)
 router.include_router(ingest_feed_create_router)

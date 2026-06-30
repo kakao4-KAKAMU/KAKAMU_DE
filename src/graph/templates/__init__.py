@@ -5,6 +5,7 @@ from __future__ import annotations
 from src.graph.cypher_statements import (
     HYBRID_FEED_RECOMMEND_WEIGHTED,
     HYBRID_MOVIE_RECOMMEND_WEIGHTED,
+    SEARCH_MOVIES_BY_TITLE_FT,
 )
 from src.graph.template_registry import CypherTemplate, TemplateRegistry
 
@@ -45,6 +46,19 @@ def build_default_registry() -> TemplateRegistry:
             params_schema=dict(_HYBRID_BASE_PARAMS_SCHEMA),
             max_limit=100,
             description="Hybrid semantic+keyword+preference feed recommendation",
+        )
+    )
+    registry.register(
+        CypherTemplate(
+            id="movie_title_search",
+            cypher=SEARCH_MOVIES_BY_TITLE_FT,
+            params_schema={
+                "query": "string",
+                "country": "optional_string",
+                "top_k": "int",
+            },
+            max_limit=50,
+            description="Fulltext search on MovieTitle.title",
         )
     )
     return registry
