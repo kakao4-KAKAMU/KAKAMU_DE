@@ -334,8 +334,8 @@ class Neo4jCypherService:
             )
 
         # ----- when add CALL db.index.fulltext.queryNodes, the cypher is not corrected by the corrector
-        # if self._chain.cypher_query_corrector is not None:
-        #     cypher = self._chain.cypher_query_corrector(cypher)
+        if self._chain.cypher_query_corrector is not None and "CALL" not in cypher:
+            cypher = self._chain.cypher_query_corrector(cypher)
 
         validation_errors = self._validate_cypher(cypher)
         if validation_errors:
