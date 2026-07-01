@@ -125,6 +125,12 @@ _DEFAULT_CYPHER_EXAMPLES: str = """\
 - 영화 목록 RETURN: movie_id, producing_year, country, title. 기본 LIMIT 10.
 - Person: `p.kmdb_person_id IS NOT NULL` + `hp.job STARTS WITH '감독'|'출연'` (역할에 맞게 하나).
 - 제목·인명·키워드는 아래 full-text index 이름을 그대로 사용.
+- 관계 방향 (화살표 `->` 를 반드시 지킴):
+  - `(m:Movie)-[:HAS_GENRE|HAS_THEME|HAS_MOOD|HAS_TITLE|MENTIONS|HAS_PERSON|PRODUCED_IN]->` 대상 노드
+  - `(f:Feed)-[:ABOUT_MOVIE]->(m:Movie)`, `(f:Feed)-[:HAS_CATEGORY|HAS_EMOTION|MENTIONS]->` 태그·키워드
+  - `(c:Comment)-[:ON_FEED]->(f:Feed)`, `(c:Comment)-[:HAS_EMOTION|MENTIONS]->` 태그·키워드
+  - 공유 속성 역탐색(같은 장르 등): `(seed)-[:REL]->(x)<-[:REL]-(m)` — `(m)<-[:REL]-(seed)` 금지
+  - `:User`, `:Persona` 및 이들과 연결된 관계는 조회하지 않음.
 
 # Cypher 예시
 
