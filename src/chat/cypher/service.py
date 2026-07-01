@@ -147,7 +147,7 @@ ORDER BY m.producing_year DESC LIMIT 10;
 CALL db.index.fulltext.queryNodes('movie_title_text_ft', '기생충')
 YIELD node AS mt, score
 MATCH (m:Movie)-[:HAS_TITLE]->(mt)
-RETURN {_movie_return}, mt.title AS matched_title, score
+RETURN {_movie_return}
 ORDER BY score DESC LIMIT 10;
 
 ## 같은 장르 — '기생충'과 유사
@@ -165,7 +165,7 @@ CALL db.index.fulltext.queryNodes('person_name_ft', '봉준호')
 YIELD node AS p, score
 MATCH (m:Movie)-[hp:HAS_PERSON]->(p)
 WHERE p.kmdb_person_id IS NOT NULL AND hp.job STARTS WITH '감독'
-RETURN {_movie_return}, p.name AS matched_name, score
+RETURN {_movie_return}
 ORDER BY score DESC LIMIT 10;
 
 ## 출연 — '박지훈' filmography
@@ -173,7 +173,7 @@ CALL db.index.fulltext.queryNodes('person_name_ft', '박지훈')
 YIELD node AS p, score
 MATCH (m:Movie)-[hp:HAS_PERSON]->(p)
 WHERE p.kmdb_person_id IS NOT NULL AND hp.job STARTS WITH '출연'
-RETURN {_movie_return}, score
+RETURN {_movie_return}
 ORDER BY score DESC LIMIT 10;
 
 ## 최신 — 최근 1년 영화
@@ -195,7 +195,7 @@ ORDER BY f.created_at DESC LIMIT 10;
 CALL db.index.fulltext.queryNodes('keyword_text_ft', '왕')
 YIELD node AS k, score
 MATCH (m:Movie)-[:MENTIONS]->(k)
-RETURN {_movie_return}, k.term AS matched_term, score
+RETURN {_movie_return}
 ORDER BY score DESC LIMIT 10;
 
 ## vector — '기생충'과 줄거리 유사 영화
@@ -210,7 +210,7 @@ MATCH (m:Movie)
     LIMIT 10
   ) SCORE AS similarityScore
 WHERE m.movie_id <> seed.movie_id AND seed.plot_embedding IS NOT NULL
-RETURN {_movie_return}, similarityScore
+RETURN {_movie_return}
 ORDER BY similarityScore DESC;
 
 ## vector — seed 영화 피드와 요약 유사 피드
@@ -227,7 +227,7 @@ MATCH (f:Feed)
     LIMIT 10
   ) SCORE AS similarityScore
 WHERE f.feed_id <> seedFeed.feed_id AND seedFeed.summary_embedding IS NOT NULL
-RETURN f.feed_id AS feed_id, f.summary AS summary, similarityScore
+RETURN f.feed_id AS feed_id, f.summary AS summary
 ORDER BY similarityScore DESC;
 
 """
