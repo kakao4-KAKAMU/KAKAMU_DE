@@ -140,8 +140,8 @@ class VLLMChatClient:
                 temperature if temperature is not None else self._settings.temperature
             ),
             "top_p": 0.95,
-            "seed": 202020,
-            "thinking_token_budget": 300,
+            "seed": 23419708,
+            "thinking_token_budget": 1000,
         }
         if user_id:
             kwargs["user"] = user_id
