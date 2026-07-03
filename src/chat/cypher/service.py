@@ -9,6 +9,7 @@ SOLID
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass, field
 from typing import Any, Optional
 from datetime import datetime
@@ -20,6 +21,11 @@ from src.chat.cypher.sanitize import sanitize_and_extract_cypher
 from src.chat.cypher.security import validate_cypher_security
 from src.config.settings import Neo4jSettings
 from src.graph.client import Neo4jClient
+from src.graph.cypher_statements.properties import (
+    BASE_PLOT_EMBEDDING,
+    BASE_SUMMARY_EMBEDDING,
+)
+from src.graph.cypher_statements.schema import FULLTEXT_INDEXES, NODE_PROPERTY_INDEXES
 from src.ontology.prompts.schema_vocab import build_cypher_analysis_knowledge
 
 logger = logging.getLogger(__name__)
@@ -42,100 +48,203 @@ _DOMAIN_NODE_TYPES: list[str] = [
 
 _EXCLUDED_NODE_TYPES: list[str] = ["User", "Persona"]
 
+# 영화 목록 조회 시 공통 RETURN 컬럼
+_MOVIE_RETURN = (
+    "m.movie_id AS movie_id, m.producing_year AS producing_year, "
+    "m.country AS country, m.title AS title"
+)
+
+_FULLTEXT_INDEX_RE = re.compile(
+    r"CREATE FULLTEXT INDEX (\S+).*?FOR \(\w+:(\w+)\) ON EACH \[([^\]]+)\]",
+    re.DOTALL | re.IGNORECASE,
+)
+_PROPERTY_INDEX_RE = re.compile(
+    r"CREATE INDEX (\S+).*?FOR \(\w+:(\w+)\)\s+ON \(([^)]+)\)",
+    re.IGNORECASE,
+)
+
+
+def _build_cypher_index_knowledge() -> str:
+    """schema.py 기반 Neo4j index catalog — graph_schema 슬롯용."""
+    lines = [
+        "## Neo4j Index Catalog",
+        "",
+        "### Full-text (CALL db.index.fulltext.queryNodes('<index>', '<query>') YIELD node, score)",
+        "",
+    ]
+    for stmt in FULLTEXT_INDEXES:
+        match = _FULLTEXT_INDEX_RE.search(stmt)
+        if match:
+            name, label, props = match.groups()
+            prop_list = ", ".join(p.strip() for p in props.split(","))
+            lines.append(f"- `{name}` → `:{label}` [{prop_list}] (CJK analyzer)")
+
+    lines.extend(
+        [
+            "",
+            "### Range property indexes",
+            "",
+        ]
+    )
+    for stmt in NODE_PROPERTY_INDEXES:
+        match = _PROPERTY_INDEX_RE.search(stmt)
+        if match:
+            name, label, props = match.groups()
+            prop_list = ", ".join(p.strip() for p in props.split(","))
+            lines.append(f"- `{name}` → `:{label}` ({prop_list})")
+
+    lines.extend(
+        [
+            "",
+            "### Vector (MATCH … SEARCH … VECTOR INDEX … FOR … LIMIT … [SCORE AS …])",
+            "",
+            f"- `movie_plot_vec` → `:Movie` (`{BASE_PLOT_EMBEDDING}`, cosine) — 줄거리 의미 유사도",
+            f"- `feed_summary_vec` → `:Feed` (`{BASE_SUMMARY_EMBEDDING}`, cosine) — 피드 요약 의미 유사도",
+            f"- `comment_summary_vec` → `:Comment` (`{BASE_SUMMARY_EMBEDDING}`, cosine) — 댓글 요약 의미 유사도",
+            "- 버전별 index/property: `movie_plot_vec_v*`, `plot_embedding_v*` / `feed_summary_vec_v*`, `summary_embedding_v*`",
+            "",
+            "### Search rules",
+            "",
+            "- `CALL db.index.fulltext.queryNodes` 사용 가능.",
+            "- Person 검색: `(m:Movie)-[hp:HAS_PERSON]->(p:Person)` 에 반드시",
+            "  `p.kmdb_person_id IS NOT NULL` 과 `hp.job STARTS WITH '감독'` 또는 `hp.job STARTS WITH '출연'` 포함.",
+            "- 영화 제목 검색은 `MovieTitle` full-text index `movie_title_text_ft` 우선.",
+            f"- 줄거리/피드 의미 검색: vector index + `SEARCH` 절. query vector 는 seed node 의 `{BASE_PLOT_EMBEDDING}` / `{BASE_SUMMARY_EMBEDDING}` 또는 literal/parameter.",
+            "- vector score 는 full-text score 와 직접 비교하지 말 것.",
+        ]
+    )
+    return "\n".join(lines)
+
+
 # GraphCypherQAChain CYPHER_GENERATION_PROMPT 의 {examples} 슬롯용 few-shot.
 _DEFAULT_CYPHER_EXAMPLES: str = """\
 {analysis_knowledge}
 
+# Cypher 작성 규칙
+- read-only: MATCH / RETURN / WITH / CALL {{ … }} / CALL db.index.fulltext.queryNodes / SEARCH 만 사용.
+- 영화 목록 RETURN: movie_id, producing_year, country, title. 기본 LIMIT 10.
+- Person: `p.kmdb_person_id IS NOT NULL` + `hp.job STARTS WITH '감독'|'출연'` (역할에 맞게 하나).
+- 관계 방향 (화살표 `->` 를 반드시 지킴):
+  - `(m:Movie)-[:HAS_GENRE|HAS_THEME|HAS_MOOD|HAS_TITLE|MENTIONS|HAS_PERSON|PRODUCED_IN]->` 대상 노드
+  - `(f:Feed)-[:ABOUT_MOVIE]->(m:Movie)`, `(f:Feed)-[:HAS_CATEGORY|HAS_EMOTION|MENTIONS]->` 태그·키워드
+  - `(c:Comment)-[:ON_FEED]->(f:Feed)`, `(c:Comment)-[:HAS_EMOTION|MENTIONS]->` 태그·키워드
+  - 공유 속성 역탐색(같은 장르 등): `(seed)-[:REL]->(x)<-[:REL]-(m)` — `(m)<-[:REL]-(seed)` 금지
+  - `:User`, `:Persona` 및 이들과 연결된 관계는 조회하지 않음.
+- call db.index.fulltext.queryNodes 조회를 할경우 MATCH를 통한 중복 조회 금지.
+- 제목·인명·키워드는 아래 full-text index 이름을 그대로 사용.
+
 # Cypher 예시
 
-# '긴장감 넘치는' 무드의 영화 10편은?
-MATCH (m:Movie)-[:HAS_MOOD]->(md:Mood {name: 'suspenseful'})
-RETURN m.movie_id AS movie_id, m.producing_year AS producing_year, m.country AS country, m.title AS title
-ORDER BY m.producing_year DESC
-LIMIT 10
+## 무드 — '긴장감 넘치는' 영화
+MATCH (m:Movie)-[:HAS_MOOD]->(md:Mood {{name: 'suspenseful'}})
+RETURN {_movie_return}
+ORDER BY m.producing_year DESC LIMIT 10;
 
-# '복수' 영화 10편은?
-MATCH (m:Movie)-[:HAS_THEME]->(t:Theme {name: 'revenge'})
-RETURN m.movie_id AS movie_id, m.producing_year AS producing_year, m.country AS country, m.title AS title
-ORDER BY m.producing_year DESC
-LIMIT 10
+## 테마 — '복수' 영화
+MATCH (m:Movie)-[:HAS_THEME]->(t:Theme {{name: 'revenge'}})
+RETURN {_movie_return}
+ORDER BY m.producing_year DESC LIMIT 10;
 
-# '액션' 영화 10편은?
-MATCH (m:Movie)-[:HAS_GENRE]->(g:Genre {name: '액션'})
-RETURN m.movie_id AS movie_id, m.producing_year AS producing_year, m.country AS country, m.title AS title
-ORDER BY m.producing_year DESC
-LIMIT 10
+## 장르 — '액션' 영화
+MATCH (m:Movie)-[:HAS_GENRE]->(g:Genre {{name: '액션'}})
+RETURN {_movie_return}
+ORDER BY m.producing_year DESC LIMIT 10;
 
-# '기생충'과 같은 장르 영화는?
-MATCH (seed:Movie)-[:HAS_TITLE]->(:MovieTitle {title: '기생충'})
-MATCH (seed)-[:HAS_GENRE]->(g:Genre)<-[:HAS_GENRE]-(m:Movie)
-WHERE m.movie_id <> seed.movie_id
-RETURN m.movie_id AS movie_id, m.producing_year AS producing_year, m.country AS country, m.title AS title
-ORDER BY m.producing_year DESC
-LIMIT 10
-
-# '기생충' 제목으로 영화 검색은?
+## 제목 full-text — '기생충' 영화
 CALL db.index.fulltext.queryNodes('movie_title_text_ft', '기생충')
 YIELD node AS mt, score
 MATCH (m:Movie)-[:HAS_TITLE]->(mt)
-RETURN m.movie_id AS movie_id, m.producing_year AS producing_year, m.country AS country, m.title AS title, mt.title AS matched_title, score
-ORDER BY score DESC
-LIMIT 10
+RETURN {_movie_return}
+ORDER BY score DESC LIMIT 10;
 
-# '기생충'과 같은 장르 영화는? (Movie.title fallback)
-MATCH (seed:Movie {title: '기생충'})-[:HAS_GENRE]->(g:Genre)<-[:HAS_GENRE]-(m:Movie)
+## 같은 장르 — '기생충'과 유사
+CALL db.index.fulltext.queryNodes('movie_title_text_ft', '기생충')
+YIELD node AS mt, score
+MATCH (seed:Movie)-[:HAS_TITLE]->(mt)
+WITH seed ORDER BY score DESC LIMIT 1
+MATCH (seed)-[:HAS_GENRE]->(g:Genre)<-[:HAS_GENRE]-(m:Movie)
 WHERE m.movie_id <> seed.movie_id
-RETURN m.movie_id AS movie_id, m.producing_year AS producing_year, m.country AS country, m.title AS title
-ORDER BY m.producing_year DESC
-LIMIT 10
+RETURN {_movie_return}
+ORDER BY m.producing_year DESC LIMIT 10;
 
-# '봉준호' 감독 영화 목록은?
-MATCH (m:Movie)-[hp:HAS_PERSON]->(p:Person)
-WHERE hp.job STARTS WITH '감독' and (p.name = '봉준호' or p.eng_name='Bong Joon-ho') and p.kmdb_person_id is not null
-RETURN m.movie_id AS movie_id, m.producing_year AS producing_year, m.country AS country, m.title AS title
-ORDER BY m.producing_year DESC
-LIMIT 10
+## 감독 — '봉준호' filmography
+CALL db.index.fulltext.queryNodes('person_name_ft', '봉준호')
+YIELD node AS p, score
+MATCH (m:Movie)-[hp:HAS_PERSON]->(p)
+WHERE p.kmdb_person_id IS NOT NULL AND hp.job STARTS WITH '감독'
+RETURN {_movie_return}
+ORDER BY score DESC LIMIT 10;
 
-# '마동석' 배우 영화 목록은?
-MATCH (m:Movie)-[hp:HAS_PERSON]->(p:Person)
-WHERE hp.job STARTS WITH '출연' and (p.name = '마동석' or p.eng_name='Ma Dong-seok') and p.kmdb_person_id is not null
-RETURN m.movie_id AS movie_id, m.producing_year AS producing_year, m.country AS country, m.title AS title
-ORDER BY m.producing_year DESC
-LIMIT 10
+## 출연 — '박지훈' filmography
+CALL db.index.fulltext.queryNodes('person_name_ft', '박지훈')
+YIELD node AS p, score
+MATCH (m:Movie)-[hp:HAS_PERSON]->(p)
+WHERE p.kmdb_person_id IS NOT NULL AND hp.job STARTS WITH '출연'
+RETURN {_movie_return}
+ORDER BY score DESC LIMIT 10;
 
-# '박지훈' 나온 영화 목록은?
-MATCH (m:Movie)-[hp:HAS_PERSON]->(p:Person)
-WHERE (p.name = '박지훈' or p.eng_name='Park Ji-hun') and p.kmdb_person_id is not null
-RETURN m.movie_id AS movie_id, m.producing_year AS producing_year, m.country AS country, m.title AS title
-ORDER BY m.producing_year DESC
-LIMIT 10
-
-# '최신' 영화는?
+## 최신 — 최근 1년 영화
 MATCH (m:Movie)
-WHERE m.producing_year >= toInteger(format(date() - Duration({years: 1}), 'yyyy'));
-RETURN m.movie_id AS movie_id, m.producing_year AS producing_year, m.country AS country, m.title AS title
-ORDER BY m.producing_year DESC
-LIMIT 10
+WHERE m.producing_year >= toInteger(format(date() - Duration({{years: 1}}), 'yyyy'))
+RETURN {_movie_return}
+ORDER BY m.producing_year DESC LIMIT 10;
 
-# '기생충' 영화의 내용은 무엇인가요?
-MATCH (m:Movie {title: '기생충'})
-RETURN m.movie_id AS movie_id, m.producing_year AS producing_year, m.country AS country, m.title AS title, m.plot_raw AS plot_raw
-ORDER BY m.producing_year DESC
-LIMIT 10
-
-# '기생충' 관련 감상 피드는?
-MATCH (f:Feed)-[:ABOUT_MOVIE]->(m:Movie {title: '기생충'})
+## 피드 — '기생충' 관련 감상
+CALL db.index.fulltext.queryNodes('movie_title_text_ft', '기생충')
+YIELD node AS mt, score
+MATCH (m:Movie)-[:HAS_TITLE]->(mt)
+WITH m ORDER BY score DESC LIMIT 1
+MATCH (f:Feed)-[:ABOUT_MOVIE]->(m)
 RETURN f.feed_id AS feed_id, f.summary AS summary
-ORDER BY m.producing_year DESC
-LIMIT 10
+ORDER BY f.created_at DESC LIMIT 10;
+
+## 키워드 — '왕' 언급 영화
+CALL db.index.fulltext.queryNodes('keyword_text_ft', '왕')
+YIELD node AS k, score
+MATCH (m:Movie)-[:MENTIONS]->(k)
+RETURN {_movie_return}
+ORDER BY score DESC LIMIT 10;
+
+## vector — '기생충'과 줄거리 유사 영화
+CALL db.index.fulltext.queryNodes('movie_title_text_ft', '기생충')
+YIELD node AS mt, score
+MATCH (seed:Movie)-[:HAS_TITLE]->(mt)
+WITH seed ORDER BY score DESC LIMIT 1
+MATCH (m:Movie)
+  SEARCH m IN (
+    VECTOR INDEX movie_plot_vec
+    FOR seed.plot_embedding
+    LIMIT 10
+  ) SCORE AS similarityScore
+WHERE m.movie_id <> seed.movie_id AND seed.plot_embedding IS NOT NULL
+RETURN {_movie_return}
+ORDER BY similarityScore DESC;
+
+## vector — seed 영화 피드와 요약 유사 피드
+CALL db.index.fulltext.queryNodes('movie_title_text_ft', '기생충')
+YIELD node AS mt, score
+MATCH (m:Movie)-[:HAS_TITLE]->(mt)
+WITH m ORDER BY score DESC LIMIT 1
+MATCH (seedFeed:Feed)-[:ABOUT_MOVIE]->(m)
+WITH seedFeed ORDER BY seedFeed.created_at DESC LIMIT 1
+MATCH (f:Feed)
+  SEARCH f IN (
+    VECTOR INDEX feed_summary_vec
+    FOR seedFeed.summary_embedding
+    LIMIT 10
+  ) SCORE AS similarityScore
+WHERE f.feed_id <> seedFeed.feed_id AND seedFeed.summary_embedding IS NOT NULL
+RETURN f.feed_id AS feed_id, f.summary AS summary
+ORDER BY similarityScore DESC;
+
 """
 
 
 def _build_default_cypher_examples() -> str:
     """Cypher few-shot 프롬프트에 ontology 분석 지식을 주입한다."""
-    return _DEFAULT_CYPHER_EXAMPLES.replace(
-        "{analysis_knowledge}",
-        build_cypher_analysis_knowledge(),
+    return _DEFAULT_CYPHER_EXAMPLES.format(
+        analysis_knowledge=build_cypher_analysis_knowledge(),
+        _movie_return=_MOVIE_RETURN,
     )
 
 
@@ -190,6 +299,7 @@ class Neo4jCypherService:
             chain_kwargs["exclude_types"] = _EXCLUDED_NODE_TYPES
 
         self._chain = GraphCypherQAChain.from_llm(**chain_kwargs)
+        self._chain.graph_schema += "\n" + _build_cypher_index_knowledge()
 
         driver = neo4j_client.driver
         self._syntax_validator = SyntaxValidator(driver)
@@ -212,8 +322,8 @@ class Neo4jCypherService:
                 {
                     "question": (
                         question
-                        + f"\nCurrent Date: {now.year}-{now.month:02d}-{now.day:02d}\n"
-                        f"오늘 날짜는 {now.year}년 {now.month}월 {now.day}일"
+                        + f"\nCurrent Date: {now.year}-{now.month:02d}-{now.day:02d}"
+                        f"\n오늘 날짜는 {now.year}년 {now.month}월 {now.day}일"
                     ),
                     "schema": self._chain.graph_schema,
                     "examples": self._cypher_examples,
@@ -230,7 +340,8 @@ class Neo4jCypherService:
                 errors=["generation_failed: empty cypher"],
             )
 
-        if self._chain.cypher_query_corrector is not None:
+        # ----- when add CALL db.index.fulltext.queryNodes, the cypher is not corrected by the corrector
+        if self._chain.cypher_query_corrector is not None and "CALL" not in cypher:
             cypher = self._chain.cypher_query_corrector(cypher)
 
         validation_errors = self._validate_cypher(cypher)

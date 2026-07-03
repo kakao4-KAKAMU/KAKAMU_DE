@@ -14,8 +14,10 @@ _FORBIDDEN_PROCEDURE = re.compile(
     re.IGNORECASE,
 )
 
+_ALLOWED_FULLTEXT_PROCEDURE = "db.index.fulltext.queryNodes"
+
 _CALL_PROCEDURE = re.compile(
-    r"\bCALL\s+(?!\s*\{)",
+    rf"\bCALL\s+(?!\s*\{{)(?!{_ALLOWED_FULLTEXT_PROCEDURE.replace('.', r'\.')}\s*\()",
     re.IGNORECASE,
 )
 

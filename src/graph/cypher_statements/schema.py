@@ -71,6 +71,11 @@ FULLTEXT_INDEXES: Final[List[str]] = [
     FOR (mt:MovieTitle) ON EACH [mt.title]
     OPTIONS { indexConfig: { `fulltext.analyzer`: 'cjk' } }
     """,
+    """
+    CREATE FULLTEXT INDEX person_name_ft IF NOT EXISTS
+    FOR (p:Person) ON EACH [p.name, p.eng_name]
+    OPTIONS { indexConfig: { `fulltext.analyzer`: 'cjk' } }
+    """
 ]
 
 SEED_CATEGORIES: Final[List[str]] = FEED_CATEGORY_VALUES

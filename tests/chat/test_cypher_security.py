@@ -29,3 +29,20 @@ def test_allows_call_subquery() -> None:
     """
     errors = validate_cypher_security(cypher)
     assert not any("procedure CALL" in err for err in errors)
+
+
+def test_allows_fulltext_query_nodes_procedure() -> None:
+    cypher = """
+    call db.index.fulltext.queryNodes('movie_title_text_ft', '기생충')
+    YIELD node AS mt, score
+    MATCH (m:Movie)-[:HAS_TITLE]->(mt)
+    RETURN m.movie_id AS movie_id
+    LIMIT 10
+    """
+    errors = validate_cypher_security(cypher)
+    assert errors == []
+
+
+def test_blocks_non_fulltext_procedure_call() -> None:
+    errors = validate_cypher_security("CALL db.labels() YIELD label RETURN label")
+    assert any("procedure CALL" in err for err in errors)

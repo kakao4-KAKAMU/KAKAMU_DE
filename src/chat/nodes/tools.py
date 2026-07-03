@@ -14,6 +14,10 @@ from src.chat.state import ChatState
 
 logger = logging.getLogger(__name__)
 
+_MEDIA_ID_KEYS = frozenset({"movie_id", "feed_id"})
+_ROW_WRAPPER_KEYS = ("row", "item", "record")
+_NESTED_NODE_HINT_KEYS = frozenset({"movie_id", "feed_id", "title", "summary", "plot_raw"})
+
 
 def _parse_tool_payload(content: str) -> dict[str, Any] | None:
     try:
@@ -24,19 +28,36 @@ def _parse_tool_payload(content: str) -> dict[str, Any] | None:
     return data if isinstance(data, dict) else None
 
 
+def _merge_scalar_fields(flat: dict[str, Any], row: dict[str, Any], *, skip_keys: set[str]) -> dict[str, Any]:
+    for key, value in row.items():
+        if key in skip_keys or key in flat or isinstance(value, (dict, list)):
+            continue
+        flat[key] = value
+    return flat
+
+
 def _flatten_neo4j_row(row: dict[str, Any]) -> dict[str, Any]:
-    """RETURN m / RETURN f 형태의 중첩 row를 flat dict로 변환한다."""
-    if "movie_id" in row or "feed_id" in row:
+    """Neo4j row를 movie/feed flat dict로 변환한다.
+
+    지원 형태:
+    - flat: ``{movie_id: ..., title: ...}``
+    - wrapper: ``{row: {movie_id: ...}}`` (CALL { UNION ALL ... } RETURN row)
+    - nested node: ``{m: {movie_id: ...}, score: 0.9}``
+    """
+    if _MEDIA_ID_KEYS & row.keys():
         return dict(row)
+
+    for wrapper_key in _ROW_WRAPPER_KEYS:
+        payload = row.get(wrapper_key)
+        if isinstance(payload, dict) and (_MEDIA_ID_KEYS & payload.keys() or _NESTED_NODE_HINT_KEYS & payload.keys()):
+            return _merge_scalar_fields(dict(payload), row, skip_keys={wrapper_key})
+
     for value in row.values():
         if not isinstance(value, dict):
             continue
-        if any(key in value for key in ("movie_id", "feed_id", "title", "summary")):
-            flat = dict(value)
-            for key, scalar in row.items():
-                if key not in flat and not isinstance(scalar, (dict, list)):
-                    flat.setdefault(key, scalar)
-            return flat
+        if _NESTED_NODE_HINT_KEYS & value.keys():
+            return _merge_scalar_fields(dict(value), row, skip_keys=set())
+
     return dict(row)
 
 
@@ -47,9 +68,11 @@ def _rows_to_retrieved(rows: list[dict[str, Any]]) -> tuple[list[dict], list[dic
         if not isinstance(row, dict):
             continue
         flat = _flatten_neo4j_row(row)
-        if "movie_id" in flat:
+        movie_id = flat.get("movie_id")
+        feed_id = flat.get("feed_id")
+        if movie_id:
             movies.append(flat)
-        if "feed_id" in flat:
+        if feed_id:
             feeds.append(flat)
     return movies, feeds
 
