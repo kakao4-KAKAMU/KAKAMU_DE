@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 def _build_conninfo(settings: PostgresSettings) -> str:
     return (
         f"host={settings.host} port={settings.port} dbname={settings.database} "
-        f"user={settings.user} password={settings.password}"
+        f"user={settings.user} password={settings.password} application_name=recommendation_service"
     )
 
 
