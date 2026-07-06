@@ -1,0 +1,1252 @@
+{
+  "models": {
+    "bge-m3": {
+      "summary": [
+        {
+          "model": "bge-m3",
+          "label_type": "genre",
+          "n_samples": 11384,
+          "n_labels": 59,
+          "avg_labels_per_movie": 2.071679550245959,
+          "knn_k": 107,
+          "macro_map": 0.408709103479709,
+          "macro_label_f1": 0.07704209718233757,
+          "macro_separation_margin": 0.05488465972462224,
+          "knn_label_jaccard_samples": 0.09743921066741196,
+          "label_wise_silhouette_macro": 0.010403892668508295,
+          "subset_accuracy": 0.11489810260014055,
+          "hamming_loss": 0.035623890801243493,
+          "micro_precision": 0.4950262463385633,
+          "micro_recall": 0.7237533921302578,
+          "micro_f1": 0.5879273228278653,
+          "macro_f1": 0.1934931699795329,
+          "samples_f1": 0.5849751555347128,
+          "micro_jaccard": 0.4163576934335057,
+          "macro_jaccard": 0.13238536491662817,
+          "samples_jaccard": 0.46258205613001824,
+          "lrap": 0.4593338846714086,
+          "coverage": 26.559820801124385,
+          "ranking_loss": 0.2592196316166682
+        },
+        {
+          "model": "bge-m3",
+          "label_type": "theme",
+          "n_samples": 11384,
+          "n_labels": 67,
+          "avg_labels_per_movie": 9.021345748418833,
+          "knn_k": 107,
+          "macro_map": 0.4093703858167286,
+          "macro_label_f1": 0.11642565798774374,
+          "macro_separation_margin": 0.015301128203170441,
+          "knn_label_jaccard_samples": 0.14417644613561414,
+          "label_wise_silhouette_macro": 0.008642520730614462,
+          "subset_accuracy": 0.0,
+          "hamming_loss": 0.1691769543008779,
+          "micro_precision": 0.42554406518039384,
+          "micro_recall": 0.732850368552761,
+          "micro_f1": 0.5384351235146407,
+          "macro_f1": 0.32134289612127703,
+          "samples_f1": 0.5150294068334723,
+          "micro_jaccard": 0.36839632107841935,
+          "macro_jaccard": 0.21514817509862647,
+          "samples_jaccard": 0.359508019734097,
+          "lrap": 0.359775287785023,
+          "coverage": 55.43754392129304,
+          "ranking_loss": 0.34149248022022927
+        },
+        {
+          "model": "bge-m3",
+          "label_type": "mood",
+          "n_samples": 11384,
+          "n_labels": 47,
+          "avg_labels_per_movie": 7.247716092761771,
+          "knn_k": 107,
+          "macro_map": 0.39461883493119015,
+          "macro_label_f1": 0.18531662058649864,
+          "macro_separation_margin": 0.020236344313197534,
+          "knn_label_jaccard_samples": 0.18432021996244405,
+          "label_wise_silhouette_macro": 0.010828450640479607,
+          "subset_accuracy": 0.0007905832747716093,
+          "hamming_loss": 0.16257419895037453,
+          "micro_precision": 0.48435195347179016,
+          "micro_recall": 0.8397731129102632,
+          "micro_f1": 0.6143615252636759,
+          "macro_f1": 0.31805241606987233,
+          "samples_f1": 0.5988369784629941,
+          "micro_jaccard": 0.44337793476800214,
+          "macro_jaccard": 0.22371942045594334,
+          "samples_jaccard": 0.44348000327277837,
+          "lrap": 0.4457665113237421,
+          "coverage": 31.82580815179199,
+          "ranking_loss": 0.27353648518746765
+        }
+      ],
+      "labelwise_top5": {
+        "genre": [
+          {
+            "label": "드라마",
+            "support": 5569,
+            "prevalence": 0.4891953619114547,
+            "precision": 0.7141651190275199,
+            "recall": 0.7595618602980786,
+            "f1": 0.7361642882004873,
+            "avg_neighbor_hit_rate": 0.6022927319624825
+          },
+          {
+            "label": "액션",
+            "support": 2524,
+            "prevalence": 0.22171468728039354,
+            "precision": 0.7864838393731636,
+            "recall": 0.6362916006339144,
+            "f1": 0.7034603591765222,
+            "avg_neighbor_hit_rate": 0.5464216419568404
+          },
+          {
+            "label": "SF",
+            "support": 862,
+            "prevalence": 0.07572030920590302,
+            "precision": 0.869942196531792,
+            "recall": 0.3491879350348028,
+            "f1": 0.49834437086092714,
+            "avg_neighbor_hit_rate": 0.399288765531149
+          },
+          {
+            "label": "어드벤처",
+            "support": 1220,
+            "prevalence": 0.10716795502459592,
+            "precision": 0.8175,
+            "recall": 0.2680327868852459,
+            "f1": 0.40370370370370373,
+            "avg_neighbor_hit_rate": 0.38313926765742295
+          },
+          {
+            "label": "공포",
+            "support": 736,
+            "prevalence": 0.0646521433591005,
+            "precision": 0.9464285714285714,
+            "recall": 0.21603260869565216,
+            "f1": 0.35176991150442477,
+            "avg_neighbor_hit_rate": 0.3587210483543275
+          }
+        ],
+        "theme": [
+          {
+            "label": "uncertainty",
+            "support": 6199,
+            "prevalence": 0.5445361911454674,
+            "precision": 0.6672317120876256,
+            "recall": 0.8254557186643007,
+            "f1": 0.7379578886645515,
+            "avg_neighbor_hit_rate": 0.6047221966762802
+          },
+          {
+            "label": "self_discovery",
+            "support": 5453,
+            "prevalence": 0.4790056219255095,
+            "precision": 0.6950867052023122,
+            "recall": 0.7056666055382358,
+            "f1": 0.7003367003367004,
+            "avg_neighbor_hit_rate": 0.5576335413413862
+          },
+          {
+            "label": "betrayal",
+            "support": 4738,
+            "prevalence": 0.4161981728742094,
+            "precision": 0.774746687451286,
+            "recall": 0.6293794850147741,
+            "f1": 0.6945382555025038,
+            "avg_neighbor_hit_rate": 0.5535736124316029
+          },
+          {
+            "label": "social_change",
+            "support": 5232,
+            "prevalence": 0.4595924104005622,
+            "precision": 0.788791889608561,
+            "recall": 0.5353593272171254,
+            "f1": 0.6378230672890812,
+            "avg_neighbor_hit_rate": 0.5289787504644318
+          },
+          {
+            "label": "isolation",
+            "support": 3961,
+            "prevalence": 0.3479444834855938,
+            "precision": 0.6993630573248407,
+            "recall": 0.41580408987629386,
+            "f1": 0.5215326155794807,
+            "avg_neighbor_hit_rate": 0.4694368220995831
+          }
+        ],
+        "mood": [
+          {
+            "label": "intense",
+            "support": 8246,
+            "prevalence": 0.7243499648629655,
+            "precision": 0.7396089131423375,
+            "recall": 0.9861751152073732,
+            "f1": 0.8452783119380489,
+            "avg_neighbor_hit_rate": 0.7708546313024044
+          },
+          {
+            "label": "suspenseful",
+            "support": 6338,
+            "prevalence": 0.5567463106113844,
+            "precision": 0.7883082373782108,
+            "recall": 0.8425370779425686,
+            "f1": 0.8145210494203783,
+            "avg_neighbor_hit_rate": 0.7117460916648725
+          },
+          {
+            "label": "melancholic",
+            "support": 5073,
+            "prevalence": 0.4456254392129304,
+            "precision": 0.7675817976682964,
+            "recall": 0.8046520796372955,
+            "f1": 0.7856799153113271,
+            "avg_neighbor_hit_rate": 0.6716831456989633
+          },
+          {
+            "label": "surreal",
+            "support": 6598,
+            "prevalence": 0.5795853829936753,
+            "precision": 0.6832142409427103,
+            "recall": 0.826007881176114,
+            "f1": 0.7478559176672385,
+            "avg_neighbor_hit_rate": 0.6086522962211715
+          },
+          {
+            "label": "wonder",
+            "support": 5433,
+            "prevalence": 0.4772487702037948,
+            "precision": 0.7320724980299448,
+            "recall": 0.68396834161605,
+            "f1": 0.7072033495099439,
+            "avg_neighbor_hit_rate": 0.5574896229514683
+          }
+        ]
+      },
+      "labelwise_bottom5": {
+        "genre": [
+          {
+            "label": "서부",
+            "support": 62,
+            "prevalence": 0.00544624033731553,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "avg_neighbor_hit_rate": 0.06014470907446486
+          },
+          {
+            "label": "가족",
+            "support": 845,
+            "prevalence": 0.07422698524244553,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "avg_neighbor_hit_rate": 0.1971796715146823
+          },
+          {
+            "label": "스포츠",
+            "support": 114,
+            "prevalence": 0.010014054813773718,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "avg_neighbor_hit_rate": 0.1642072470896868
+          },
+          {
+            "label": "시대극/사극",
+            "support": 277,
+            "prevalence": 0.02433239634574842,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "avg_neighbor_hit_rate": 0.15132089476702992
+          },
+          {
+            "label": "활극",
+            "support": 59,
+            "prevalence": 0.005182712579058327,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "avg_neighbor_hit_rate": 0.1143671788373198
+          }
+        ],
+        "theme": [
+          {
+            "label": "honor",
+            "support": 316,
+            "prevalence": 0.02775825720309206,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "avg_neighbor_hit_rate": 0.07532828581568674
+          },
+          {
+            "label": "acceptance",
+            "support": 336,
+            "prevalence": 0.029515108924806747,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "avg_neighbor_hit_rate": 0.060274810858923
+          },
+          {
+            "label": "legacy",
+            "support": 313,
+            "prevalence": 0.027494729444834855,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "avg_neighbor_hit_rate": 0.06094174554357886
+          },
+          {
+            "label": "loyalty",
+            "support": 215,
+            "prevalence": 0.018886156008432887,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "avg_neighbor_hit_rate": 0.05511845251032384
+          },
+          {
+            "label": "humanity",
+            "support": 283,
+            "prevalence": 0.024859451862262825,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "avg_neighbor_hit_rate": 0.06575080083220501
+          }
+        ],
+        "mood": [
+          {
+            "label": "gritty",
+            "support": 52,
+            "prevalence": 0.004567814476458187,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "avg_neighbor_hit_rate": 0.017792954708842557
+          },
+          {
+            "label": "gentle",
+            "support": 302,
+            "prevalence": 0.026528460997891776,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "avg_neighbor_hit_rate": 0.09862598254626478
+          },
+          {
+            "label": "futuristic",
+            "support": 629,
+            "prevalence": 0.05525298664792692,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "avg_neighbor_hit_rate": 0.1249572827362822
+          },
+          {
+            "label": "funny",
+            "support": 682,
+            "prevalence": 0.05990864371047084,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "avg_neighbor_hit_rate": 0.14237947762216677
+          },
+          {
+            "label": "introspective",
+            "support": 504,
+            "prevalence": 0.04427266338721012,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "avg_neighbor_hit_rate": 0.11303960836671116
+          }
+        ]
+      },
+      "separation_top5": {
+        "genre": [
+          {
+            "label": "반공/분단",
+            "support": 36,
+            "intra_centroid_cosine": 0.8042133432088332,
+            "inter_centroid_cosine": 0.6810129201490657,
+            "separation_margin": 0.12320042305976753,
+            "intra_pairwise_cosine": 0.6461656488575432
+          },
+          {
+            "label": "신파",
+            "support": 20,
+            "intra_centroid_cosine": 0.7938503460513233,
+            "inter_centroid_cosine": 0.6799682623653703,
+            "separation_margin": 0.11388208368595298,
+            "intra_pairwise_cosine": 0.6344629257191321
+          },
+          {
+            "label": "활극",
+            "support": 59,
+            "intra_centroid_cosine": 0.7894328829238912,
+            "inter_centroid_cosine": 0.6778691628261191,
+            "separation_margin": 0.11156372009777216,
+            "intra_pairwise_cosine": 0.619912106556085
+          },
+          {
+            "label": "문예",
+            "support": 36,
+            "intra_centroid_cosine": 0.7878822136350642,
+            "inter_centroid_cosine": 0.6856501855734045,
+            "separation_margin": 0.10223202806165965,
+            "intra_pairwise_cosine": 0.6215181380506881
+          },
+          {
+            "label": "무협",
+            "support": 170,
+            "intra_centroid_cosine": 0.7863728554819138,
+            "inter_centroid_cosine": 0.6936354782133454,
+            "separation_margin": 0.09273737726856845,
+            "intra_pairwise_cosine": 0.6133377362717816
+          }
+        ],
+        "theme": [
+          {
+            "label": "first_love",
+            "support": 342,
+            "intra_centroid_cosine": 0.7622459673006046,
+            "inter_centroid_cosine": 0.7273511012215798,
+            "separation_margin": 0.03489486607902481,
+            "intra_pairwise_cosine": 0.5800935173708504
+          },
+          {
+            "label": "memory",
+            "support": 381,
+            "intra_centroid_cosine": 0.7607452205945634,
+            "inter_centroid_cosine": 0.7313483102990983,
+            "separation_margin": 0.029396910295465095,
+            "intra_pairwise_cosine": 0.580968900855613
+          },
+          {
+            "label": "emotional_connection",
+            "support": 1365,
+            "intra_centroid_cosine": 0.7590445616569467,
+            "inter_centroid_cosine": 0.7303432729924866,
+            "separation_margin": 0.02870128866446009,
+            "intra_pairwise_cosine": 0.5744740222761807
+          },
+          {
+            "label": "magic",
+            "support": 133,
+            "intra_centroid_cosine": 0.7579734836739487,
+            "inter_centroid_cosine": 0.730251128114025,
+            "separation_margin": 0.02772235555992364,
+            "intra_pairwise_cosine": 0.5738170530789843
+          },
+          {
+            "label": "faith",
+            "support": 197,
+            "intra_centroid_cosine": 0.753584017940313,
+            "inter_centroid_cosine": 0.7270703456655411,
+            "separation_margin": 0.02651367227477197,
+            "intra_pairwise_cosine": 0.5660952316582631
+          }
+        ],
+        "mood": [
+          {
+            "label": "angry",
+            "support": 32,
+            "intra_centroid_cosine": 0.7695474558528335,
+            "inter_centroid_cosine": 0.7250379303255169,
+            "separation_margin": 0.044509525527316574,
+            "intra_pairwise_cosine": 0.5937798206635754
+          },
+          {
+            "label": "epic",
+            "support": 363,
+            "intra_centroid_cosine": 0.7620037497872186,
+            "inter_centroid_cosine": 0.7177920522930347,
+            "separation_margin": 0.044211697494183966,
+            "intra_pairwise_cosine": 0.5785063822594488
+          },
+          {
+            "label": "gritty",
+            "support": 52,
+            "intra_centroid_cosine": 0.7692278697320181,
+            "inter_centroid_cosine": 0.7260497271417397,
+            "separation_margin": 0.04317814259027841,
+            "intra_pairwise_cosine": 0.583992924162482
+          },
+          {
+            "label": "enigmatic",
+            "support": 50,
+            "intra_centroid_cosine": 0.7683087868960474,
+            "inter_centroid_cosine": 0.7259886099405923,
+            "separation_margin": 0.04232017695545509,
+            "intra_pairwise_cosine": 0.5908931654732088
+          },
+          {
+            "label": "varied",
+            "support": 89,
+            "intra_centroid_cosine": 0.7657841391858398,
+            "inter_centroid_cosine": 0.7279875101767476,
+            "separation_margin": 0.0377966290090922,
+            "intra_pairwise_cosine": 0.5877289693185304
+          }
+        ]
+      },
+      "separation_bottom5": {
+        "genre": [
+          {
+            "label": "드라마",
+            "support": 5569,
+            "intra_centroid_cosine": 0.7463214127831159,
+            "inter_centroid_cosine": 0.7362930882217505,
+            "separation_margin": 0.010028324561365376,
+            "intra_pairwise_cosine": 0.5547665803249997
+          },
+          {
+            "label": "코메디",
+            "support": 2206,
+            "intra_centroid_cosine": 0.7445590798486801,
+            "inter_centroid_cosine": 0.7345241413804546,
+            "separation_margin": 0.010034938468225452,
+            "intra_pairwise_cosine": 0.5555135319079334
+          },
+          {
+            "label": "전기",
+            "support": 136,
+            "intra_centroid_cosine": 0.7398978613171833,
+            "inter_centroid_cosine": 0.7284195650835645,
+            "separation_margin": 0.011478296233618734,
+            "intra_pairwise_cosine": 0.5499461088624413
+          },
+          {
+            "label": "가족",
+            "support": 845,
+            "intra_centroid_cosine": 0.752127573401821,
+            "inter_centroid_cosine": 0.7323191957001178,
+            "separation_margin": 0.019808377701703184,
+            "intra_pairwise_cosine": 0.565010657267686
+          },
+          {
+            "label": "판타지",
+            "support": 1010,
+            "intra_centroid_cosine": 0.7553998957885539,
+            "inter_centroid_cosine": 0.7314244260685684,
+            "separation_margin": 0.023975469719985543,
+            "intra_pairwise_cosine": 0.5690742953089402
+          }
+        ],
+        "theme": [
+          {
+            "label": "cultural_exchange",
+            "support": 2773,
+            "intra_centroid_cosine": 0.7405143658064482,
+            "inter_centroid_cosine": 0.7392580519167304,
+            "separation_margin": 0.0012563138897178083,
+            "intra_pairwise_cosine": 0.5471571417521237
+          },
+          {
+            "label": "social_change",
+            "support": 5232,
+            "intra_centroid_cosine": 0.7421512814010486,
+            "inter_centroid_cosine": 0.7398916808327037,
+            "separation_margin": 0.002259600568344844,
+            "intra_pairwise_cosine": 0.5502110765454048
+          },
+          {
+            "label": "tradition",
+            "support": 2093,
+            "intra_centroid_cosine": 0.7403565148814016,
+            "inter_centroid_cosine": 0.7378205440412046,
+            "separation_margin": 0.002535970840197077,
+            "intra_pairwise_cosine": 0.54707239887182
+          },
+          {
+            "label": "wonder",
+            "support": 1924,
+            "intra_centroid_cosine": 0.7426250899103107,
+            "inter_centroid_cosine": 0.7396100970569998,
+            "separation_margin": 0.0030149928533109716,
+            "intra_pairwise_cosine": 0.5532001960478867
+          },
+          {
+            "label": "community",
+            "support": 2363,
+            "intra_centroid_cosine": 0.7427881151309039,
+            "inter_centroid_cosine": 0.7383254079823207,
+            "separation_margin": 0.0044627071485832115,
+            "intra_pairwise_cosine": 0.550658104783142
+          }
+        ],
+        "mood": [
+          {
+            "label": "surreal",
+            "support": 6598,
+            "intra_centroid_cosine": 0.7433568383631168,
+            "inter_centroid_cosine": 0.7409524361141707,
+            "separation_margin": 0.0024044022489461137,
+            "intra_pairwise_cosine": 0.5539673374074136
+          },
+          {
+            "label": "philosophical",
+            "support": 2528,
+            "intra_centroid_cosine": 0.7430205627702448,
+            "inter_centroid_cosine": 0.7397516338405632,
+            "separation_margin": 0.0032689289296815582,
+            "intra_pairwise_cosine": 0.5513068285243732
+          },
+          {
+            "label": "intense",
+            "support": 8246,
+            "intra_centroid_cosine": 0.7437256858568079,
+            "inter_centroid_cosine": 0.7393073970350046,
+            "separation_margin": 0.0044182888218032845,
+            "intra_pairwise_cosine": 0.5520273672307988
+          },
+          {
+            "label": "wonder",
+            "support": 5433,
+            "intra_centroid_cosine": 0.7433879583629711,
+            "inter_centroid_cosine": 0.7387048021590054,
+            "separation_margin": 0.004683156203965755,
+            "intra_pairwise_cosine": 0.5536888825224765
+          },
+          {
+            "label": "dreamlike",
+            "support": 2011,
+            "intra_centroid_cosine": 0.7437305626327431,
+            "inter_centroid_cosine": 0.738712022038631,
+            "separation_margin": 0.005018540594112109,
+            "intra_pairwise_cosine": 0.5527738821488795
+          }
+        ]
+      }
+    },
+    "qwen3_0_6b": {
+      "summary": [
+        {
+          "model": "qwen3_0_6b",
+          "label_type": "genre",
+          "n_samples": 11384,
+          "n_labels": 59,
+          "avg_labels_per_movie": 2.071679550245959,
+          "knn_k": 107,
+          "macro_map": 0.5140734278826945,
+          "macro_label_f1": 0.1671169866343532,
+          "macro_separation_margin": 0.0953410184327696,
+          "knn_label_jaccard_samples": 0.1142620843715702,
+          "label_wise_silhouette_macro": 0.020818927907815466,
+          "subset_accuracy": 0.14230498945888967,
+          "hamming_loss": 0.031879414462165155,
+          "micro_precision": 0.5297827994734533,
+          "micro_recall": 0.8191146540027137,
+          "micro_f1": 0.6434185984545697,
+          "macro_f1": 0.2669512998661737,
+          "samples_f1": 0.6433352482412568,
+          "micro_jaccard": 0.474294132089369,
+          "macro_jaccard": 0.19024668997763614,
+          "samples_jaccard": 0.520551853617999,
+          "lrap": 0.5190072363313892,
+          "coverage": 19.66083977512298,
+          "ranking_loss": 0.17281859188714527
+        },
+        {
+          "model": "qwen3_0_6b",
+          "label_type": "theme",
+          "n_samples": 11384,
+          "n_labels": 67,
+          "avg_labels_per_movie": 9.021345748418833,
+          "knn_k": 107,
+          "macro_map": 0.4412783883792653,
+          "macro_label_f1": 0.19138471919272798,
+          "macro_separation_margin": 0.03132717260238933,
+          "knn_label_jaccard_samples": 0.14997319704653111,
+          "label_wise_silhouette_macro": 0.011506884557601982,
+          "subset_accuracy": 0.0,
+          "hamming_loss": 0.16459734007405,
+          "micro_precision": 0.43691106127724444,
+          "micro_recall": 0.7702217158881781,
+          "micro_f1": 0.5575499127737934,
+          "macro_f1": 0.3726267778608091,
+          "samples_f1": 0.540690536148873,
+          "micro_jaccard": 0.38652977854224896,
+          "macro_jaccard": 0.2514387640068706,
+          "samples_jaccard": 0.38332294601015876,
+          "lrap": 0.38679223939986057,
+          "coverage": 49.8497891777934,
+          "ranking_loss": 0.2964224350798315
+        },
+        {
+          "model": "qwen3_0_6b",
+          "label_type": "mood",
+          "n_samples": 11384,
+          "n_labels": 47,
+          "avg_labels_per_movie": 7.247716092761771,
+          "knn_k": 107,
+          "macro_map": 0.42874469170128837,
+          "macro_label_f1": 0.24302042154714876,
+          "macro_separation_margin": 0.03882885686040984,
+          "knn_label_jaccard_samples": 0.19998144011055236,
+          "label_wise_silhouette_macro": 0.01995201679699784,
+          "subset_accuracy": 0.0014054813773717498,
+          "hamming_loss": 0.14919595998863652,
+          "micro_precision": 0.5096098012086628,
+          "micro_recall": 0.86157705919426,
+          "micro_f1": 0.6404205386462223,
+          "macro_f1": 0.3630254074641096,
+          "samples_f1": 0.6280389460520122,
+          "micro_jaccard": 0.4710431106457983,
+          "macro_jaccard": 0.2589335731381211,
+          "samples_jaccard": 0.4742226728491922,
+          "lrap": 0.4783587940423064,
+          "coverage": 28.758959943780745,
+          "ranking_loss": 0.23897888104045562
+        }
+      ],
+      "labelwise_top5": {
+        "genre": [
+          {
+            "label": "액션",
+            "support": 2524,
+            "prevalence": 0.22171468728039354,
+            "precision": 0.8414491624464355,
+            "recall": 0.8557844690966719,
+            "f1": 0.8485562757807896,
+            "avg_neighbor_hit_rate": 0.7163714323799931
+          },
+          {
+            "label": "드라마",
+            "support": 5569,
+            "prevalence": 0.4891953619114547,
+            "precision": 0.7803603603603604,
+            "recall": 0.7776979709103968,
+            "f1": 0.7790268909074557,
+            "avg_neighbor_hit_rate": 0.6541602965682861
+          },
+          {
+            "label": "어드벤처",
+            "support": 1220,
+            "prevalence": 0.10716795502459592,
+            "precision": 0.8167330677290837,
+            "recall": 0.6721311475409836,
+            "f1": 0.737410071942446,
+            "avg_neighbor_hit_rate": 0.5918645625861805
+          },
+          {
+            "label": "SF",
+            "support": 862,
+            "prevalence": 0.07572030920590302,
+            "precision": 0.8831858407079646,
+            "recall": 0.5788863109048724,
+            "f1": 0.6993693062368606,
+            "avg_neighbor_hit_rate": 0.5370362339267515
+          },
+          {
+            "label": "스릴러",
+            "support": 1813,
+            "prevalence": 0.1592586085734364,
+            "precision": 0.8135215453194651,
+            "recall": 0.6039713182570325,
+            "f1": 0.6932573599240266,
+            "avg_neighbor_hit_rate": 0.5284265764906619
+          }
+        ],
+        "theme": [
+          {
+            "label": "uncertainty",
+            "support": 6199,
+            "prevalence": 0.5445361911454674,
+            "precision": 0.7117654861387452,
+            "recall": 0.8656234876592999,
+            "f1": 0.7811908574756151,
+            "avg_neighbor_hit_rate": 0.6576264184907725
+          },
+          {
+            "label": "social_change",
+            "support": 5232,
+            "prevalence": 0.4595924104005622,
+            "precision": 0.7918283963227783,
+            "recall": 0.7408256880733946,
+            "f1": 0.7654784240150094,
+            "avg_neighbor_hit_rate": 0.6060351110348966
+          },
+          {
+            "label": "betrayal",
+            "support": 4738,
+            "prevalence": 0.4161981728742094,
+            "precision": 0.7673802692562348,
+            "recall": 0.7338539468130013,
+            "f1": 0.7502427446326465,
+            "avg_neighbor_hit_rate": 0.6220200171214637
+          },
+          {
+            "label": "self_discovery",
+            "support": 5453,
+            "prevalence": 0.4790056219255095,
+            "precision": 0.7068253181292349,
+            "recall": 0.7843388960205392,
+            "f1": 0.743567454798331,
+            "avg_neighbor_hit_rate": 0.6284442585835457
+          },
+          {
+            "label": "paranoia",
+            "support": 3941,
+            "prevalence": 0.3461876317638791,
+            "precision": 0.7838461538461539,
+            "recall": 0.5171276325805633,
+            "f1": 0.6231463079039902,
+            "avg_neighbor_hit_rate": 0.5269548266842469
+          }
+        ],
+        "mood": [
+          {
+            "label": "intense",
+            "support": 8246,
+            "prevalence": 0.7243499648629655,
+            "precision": 0.7579006772009029,
+            "recall": 0.9772010671840893,
+            "f1": 0.8536921284034326,
+            "avg_neighbor_hit_rate": 0.7959339107491369
+          },
+          {
+            "label": "suspenseful",
+            "support": 6338,
+            "prevalence": 0.5567463106113844,
+            "precision": 0.8301946013810421,
+            "recall": 0.8346481539917955,
+            "f1": 0.8324154209284028,
+            "avg_neighbor_hit_rate": 0.7596163771112087
+          },
+          {
+            "label": "melancholic",
+            "support": 5073,
+            "prevalence": 0.4456254392129304,
+            "precision": 0.8019859813084113,
+            "recall": 0.8119455943228858,
+            "f1": 0.8069350573023802,
+            "avg_neighbor_hit_rate": 0.7084712726897575
+          },
+          {
+            "label": "surreal",
+            "support": 6598,
+            "prevalence": 0.5795853829936753,
+            "precision": 0.7006709741550696,
+            "recall": 0.854652925128827,
+            "f1": 0.7700396012563158,
+            "avg_neighbor_hit_rate": 0.643114735986266
+          },
+          {
+            "label": "wonder",
+            "support": 5433,
+            "prevalence": 0.4772487702037948,
+            "precision": 0.7208547008547008,
+            "recall": 0.7761825878888275,
+            "f1": 0.7474962332712931,
+            "avg_neighbor_hit_rate": 0.6354675735510406
+          }
+        ]
+      },
+      "labelwise_bottom5": {
+        "genre": [
+          {
+            "label": "문예",
+            "support": 36,
+            "prevalence": 0.003162333099086437,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "avg_neighbor_hit_rate": 0.06723779854620975
+          },
+          {
+            "label": "로드무비",
+            "support": 55,
+            "prevalence": 0.00483134223471539,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "avg_neighbor_hit_rate": 0.04197111299915038
+          },
+          {
+            "label": "공포(호러)",
+            "support": 193,
+            "prevalence": 0.016953619114546733,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "avg_neighbor_hit_rate": 0.13897632075928526
+          },
+          {
+            "label": "동성애",
+            "support": 25,
+            "prevalence": 0.002196064652143359,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "avg_neighbor_hit_rate": 0.021682242990654202
+          },
+          {
+            "label": "활극",
+            "support": 59,
+            "prevalence": 0.005182712579058327,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "avg_neighbor_hit_rate": 0.11294154918422301
+          }
+        ],
+        "theme": [
+          {
+            "label": "misunderstanding",
+            "support": 254,
+            "prevalence": 0.022312016865776527,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "avg_neighbor_hit_rate": 0.06420634336595775
+          },
+          {
+            "label": "memory",
+            "support": 381,
+            "prevalence": 0.03346802529866479,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "avg_neighbor_hit_rate": 0.14680991978806388
+          },
+          {
+            "label": "magic",
+            "support": 133,
+            "prevalence": 0.01168306394940267,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "avg_neighbor_hit_rate": 0.0493991989319092
+          },
+          {
+            "label": "acceptance",
+            "support": 336,
+            "prevalence": 0.029515108924806747,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "avg_neighbor_hit_rate": 0.09751891410769915
+          },
+          {
+            "label": "humanity",
+            "support": 283,
+            "prevalence": 0.024859451862262825,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "avg_neighbor_hit_rate": 0.07463425910637032
+          }
+        ],
+        "mood": [
+          {
+            "label": "gritty",
+            "support": 52,
+            "prevalence": 0.004567814476458187,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "avg_neighbor_hit_rate": 0.010244428468727532
+          },
+          {
+            "label": "gentle",
+            "support": 302,
+            "prevalence": 0.026528460997891776,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "avg_neighbor_hit_rate": 0.11409915207031006
+          },
+          {
+            "label": "futuristic",
+            "support": 629,
+            "prevalence": 0.05525298664792692,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "avg_neighbor_hit_rate": 0.15785329034366966
+          },
+          {
+            "label": "found_footage",
+            "support": 128,
+            "prevalence": 0.011243851018973999,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "avg_neighbor_hit_rate": 0.020735981308411214
+          },
+          {
+            "label": "introspective",
+            "support": 504,
+            "prevalence": 0.04427266338721012,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "avg_neighbor_hit_rate": 0.13480937546358104
+          }
+        ]
+      },
+      "separation_top5": {
+        "genre": [
+          {
+            "label": "반공/분단",
+            "support": 36,
+            "intra_centroid_cosine": 0.7911686959191552,
+            "inter_centroid_cosine": 0.6315182717897544,
+            "separation_margin": 0.15965042412940078,
+            "intra_pairwise_cosine": 0.6226019993835897
+          },
+          {
+            "label": "신파",
+            "support": 20,
+            "intra_centroid_cosine": 0.7840265964720636,
+            "inter_centroid_cosine": 0.6274255879099457,
+            "separation_margin": 0.1566010085621179,
+            "intra_pairwise_cosine": 0.6361670287166725
+          },
+          {
+            "label": "스포츠",
+            "support": 114,
+            "intra_centroid_cosine": 0.763099219466677,
+            "inter_centroid_cosine": 0.6196781701584788,
+            "separation_margin": 0.1434210493081982,
+            "intra_pairwise_cosine": 0.5910698178857925
+          },
+          {
+            "label": "종교",
+            "support": 60,
+            "intra_centroid_cosine": 0.7707239771004156,
+            "inter_centroid_cosine": 0.6339659148437939,
+            "separation_margin": 0.13675806225662168,
+            "intra_pairwise_cosine": 0.5887521691788735
+          },
+          {
+            "label": "활극",
+            "support": 59,
+            "intra_centroid_cosine": 0.7720535346910088,
+            "inter_centroid_cosine": 0.6353348348012217,
+            "separation_margin": 0.13671869988978713,
+            "intra_pairwise_cosine": 0.5975082908763485
+          }
+        ],
+        "theme": [
+          {
+            "label": "first_love",
+            "support": 342,
+            "intra_centroid_cosine": 0.7314573864599775,
+            "inter_centroid_cosine": 0.6774765566785249,
+            "separation_margin": 0.05398082978145258,
+            "intra_pairwise_cosine": 0.5325483452083186
+          },
+          {
+            "label": "love",
+            "support": 1639,
+            "intra_centroid_cosine": 0.7297695192872677,
+            "inter_centroid_cosine": 0.6777691785665754,
+            "separation_margin": 0.05200034072069237,
+            "intra_pairwise_cosine": 0.5333434763730354
+          },
+          {
+            "label": "emotional_connection",
+            "support": 1365,
+            "intra_centroid_cosine": 0.7293384861645829,
+            "inter_centroid_cosine": 0.6775174262384992,
+            "separation_margin": 0.05182105992608366,
+            "intra_pairwise_cosine": 0.531316225264433
+          },
+          {
+            "label": "conspiracy",
+            "support": 991,
+            "intra_centroid_cosine": 0.728096691089588,
+            "inter_centroid_cosine": 0.6766483744709041,
+            "separation_margin": 0.051448316618683876,
+            "intra_pairwise_cosine": 0.5296008394126416
+          },
+          {
+            "label": "family",
+            "support": 1502,
+            "intra_centroid_cosine": 0.729523282451696,
+            "inter_centroid_cosine": 0.6781358082131489,
+            "separation_margin": 0.05138747423854706,
+            "intra_pairwise_cosine": 0.5291369941480828
+          }
+        ],
+        "mood": [
+          {
+            "label": "epic",
+            "support": 363,
+            "intra_centroid_cosine": 0.7426344724910856,
+            "inter_centroid_cosine": 0.6602446312616789,
+            "separation_margin": 0.08238984122940674,
+            "intra_pairwise_cosine": 0.5486316732901858
+          },
+          {
+            "label": "adrenaline",
+            "support": 1270,
+            "intra_centroid_cosine": 0.7356160566669664,
+            "inter_centroid_cosine": 0.6669452285250602,
+            "separation_margin": 0.06867082814190617,
+            "intra_pairwise_cosine": 0.5396646330636263
+          },
+          {
+            "label": "funny",
+            "support": 682,
+            "intra_centroid_cosine": 0.7344549714601333,
+            "inter_centroid_cosine": 0.6709542265946569,
+            "separation_margin": 0.06350074486547641,
+            "intra_pairwise_cosine": 0.5392926955944444
+          },
+          {
+            "label": "joyful",
+            "support": 202,
+            "intra_centroid_cosine": 0.7313827480324052,
+            "inter_centroid_cosine": 0.6708228687552583,
+            "separation_margin": 0.0605598792771469,
+            "intra_pairwise_cosine": 0.536013704624324
+          },
+          {
+            "label": "awe",
+            "support": 157,
+            "intra_centroid_cosine": 0.7271614332640614,
+            "inter_centroid_cosine": 0.6672072687745102,
+            "separation_margin": 0.059954164489551154,
+            "intra_pairwise_cosine": 0.5288078267508599
+          }
+        ]
+      },
+      "separation_bottom5": {
+        "genre": [
+          {
+            "label": "드라마",
+            "support": 5569,
+            "intra_centroid_cosine": 0.7147695220209486,
+            "inter_centroid_cosine": 0.6845539178417912,
+            "separation_margin": 0.030215604179157363,
+            "intra_pairwise_cosine": 0.5143254195240469
+          },
+          {
+            "label": "전기",
+            "support": 136,
+            "intra_centroid_cosine": 0.7173436248154846,
+            "inter_centroid_cosine": 0.6811898659718968,
+            "separation_margin": 0.036153758843587847,
+            "intra_pairwise_cosine": 0.5176936199740787
+          },
+          {
+            "label": "코메디",
+            "support": 2206,
+            "intra_centroid_cosine": 0.723957776887472,
+            "inter_centroid_cosine": 0.6795959054627568,
+            "separation_margin": 0.04436187142471515,
+            "intra_pairwise_cosine": 0.5244603645483215
+          },
+          {
+            "label": "인물",
+            "support": 428,
+            "intra_centroid_cosine": 0.7144502619271367,
+            "inter_centroid_cosine": 0.6647276977739233,
+            "separation_margin": 0.04972256415321341,
+            "intra_pairwise_cosine": 0.5118790367724556
+          },
+          {
+            "label": "가족",
+            "support": 845,
+            "intra_centroid_cosine": 0.7292968772187589,
+            "inter_centroid_cosine": 0.6777337723414296,
+            "separation_margin": 0.05156310487732929,
+            "intra_pairwise_cosine": 0.5326781897720065
+          }
+        ],
+        "theme": [
+          {
+            "label": "cultural_exchange",
+            "support": 2773,
+            "intra_centroid_cosine": 0.7064528649002461,
+            "inter_centroid_cosine": 0.6931568106938619,
+            "separation_margin": 0.013296054206384134,
+            "intra_pairwise_cosine": 0.49746470564891493
+          },
+          {
+            "label": "tradition",
+            "support": 2093,
+            "intra_centroid_cosine": 0.7064864059521092,
+            "inter_centroid_cosine": 0.6929340287158435,
+            "separation_margin": 0.013552377236265678,
+            "intra_pairwise_cosine": 0.4979288884243736
+          },
+          {
+            "label": "responsibility",
+            "support": 645,
+            "intra_centroid_cosine": 0.714102414430805,
+            "inter_centroid_cosine": 0.6971299896131021,
+            "separation_margin": 0.01697242481770289,
+            "intra_pairwise_cosine": 0.5074915641043165
+          },
+          {
+            "label": "wonder",
+            "support": 1924,
+            "intra_centroid_cosine": 0.7127017558814918,
+            "inter_centroid_cosine": 0.695189261014478,
+            "separation_margin": 0.017512494867013784,
+            "intra_pairwise_cosine": 0.5101865634684739
+          },
+          {
+            "label": "social_change",
+            "support": 5232,
+            "intra_centroid_cosine": 0.7100637109703476,
+            "inter_centroid_cosine": 0.6924563846896262,
+            "separation_margin": 0.01760732628072137,
+            "intra_pairwise_cosine": 0.502541941548712
+          }
+        ],
+        "mood": [
+          {
+            "label": "surreal",
+            "support": 6598,
+            "intra_centroid_cosine": 0.7084480183732836,
+            "inter_centroid_cosine": 0.6961035352571768,
+            "separation_margin": 0.012344483116106808,
+            "intra_pairwise_cosine": 0.5008436493840009
+          },
+          {
+            "label": "philosophical",
+            "support": 2528,
+            "intra_centroid_cosine": 0.7100007730861657,
+            "inter_centroid_cosine": 0.6967299442473336,
+            "separation_margin": 0.013270828838832127,
+            "intra_pairwise_cosine": 0.5041253598673318
+          },
+          {
+            "label": "realistic",
+            "support": 695,
+            "intra_centroid_cosine": 0.7099873678746204,
+            "inter_centroid_cosine": 0.6948954546386555,
+            "separation_margin": 0.015091913235964816,
+            "intra_pairwise_cosine": 0.503267009653337
+          },
+          {
+            "label": "intense",
+            "support": 8246,
+            "intra_centroid_cosine": 0.7081102738391555,
+            "inter_centroid_cosine": 0.691469457749853,
+            "separation_margin": 0.016640816089302457,
+            "intra_pairwise_cosine": 0.5022293796405473
+          },
+          {
+            "label": "dreamlike",
+            "support": 2011,
+            "intra_centroid_cosine": 0.7147832727740329,
+            "inter_centroid_cosine": 0.6941668061590258,
+            "separation_margin": 0.020616466615007045,
+            "intra_pairwise_cosine": 0.5095499919640598
+          }
+        ]
+      }
+    }
+  }
+}
